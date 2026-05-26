@@ -26,8 +26,8 @@ export default function ShippingDetails({ params }) {
 
   return (
     <>
-      <div className="items-centerpt-20 container mx-auto flex-col">
-        <div className="px-20">
+      <div className="container mx-auto flex flex-col items-center pt-3 sm:pt-4">
+        <div className="w-full max-w-7xl px-2 sm:px-6 lg:px-20">
           <DetailsShippingData
             data={data}
             isLoading={isLoading}

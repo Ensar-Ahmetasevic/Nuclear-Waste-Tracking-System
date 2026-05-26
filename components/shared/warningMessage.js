@@ -3,16 +3,13 @@ import { LuAlertTriangle } from "react-icons/lu";
 export default function WarningMessage({ warningColor, warningMessage }) {
   return (
     <div
-      className={`alert ${warningColor} mb-6 flex w-full justify-center text-sm text-white sm:text-lg`}
+      className={`alert ${warningColor} flex w-full justify-center px-3 py-4 text-sm text-white sm:text-base`}
     >
-      <div className="flex flex-col items-center space-y-4">
-        <div>
-          <LuAlertTriangle className="h-10 w-10 animate-pulse" />
-        </div>
-        {/* Warning Message */}
-        <div>
-          <span>{warningMessage}</span>
-        </div>
+      <div className="flex w-full max-w-full flex-col items-center gap-3 sm:flex-row sm:gap-4">
+        <LuAlertTriangle className="h-8 w-8 shrink-0 animate-pulse sm:h-10 sm:w-10" />
+        <span className="break-words text-center sm:text-left">
+          {warningMessage}
+        </span>
       </div>
     </div>
   );

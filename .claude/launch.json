@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "C:\\Users\\ensar\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Doppler.doppler_Microsoft.Winget.Source_8wekyb3d8bbwe\\doppler.exe",
+      "runtimeArgs": ["run", "-p", "nuclear-waste-tracking-system", "-c", "dev", "--", "npx", "next", "dev", "--turbo"],
+      "port": 3000
+    },
+    {
+      "name": "dev:local",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:local"],
+      "port": 3000
+    }
+  ]
+}

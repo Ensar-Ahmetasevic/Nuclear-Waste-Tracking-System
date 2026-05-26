@@ -43,11 +43,38 @@ export default function DetailsShippingData({
     warningMessage = `Truck license plate: "${data.shippingData.registrationPlates}", company name: "${data.shippingData.companyName}" does not match the number of the container. Both container types (${rejectedTypes.join(" and ")}) have been rejected. Please perform a complete inspection.`;
   }
 
+  const containerList =
+    containerProfiles && containerProfiles.length > 0 ? (
+      containerProfiles
+        .slice()
+        .reverse()
+        .map((profile) => (
+          <ShowContainerDetails key={profile.id} data={profile} />
+        ))
+    ) : (
+      <div className="flex justify-center py-8">
+        <p className="text-base-content/70">No containers in the truck</p>
+      </div>
+    );
+
+  const summaryBlock = (
+    <>
+      <TruckDataDetails data={data} />
+      {hasRejectedContainers && (
+        <WarningMessage
+          warningColor={"bg-red-600"}
+          warningMessage={warningMessage}
+        />
+      )}
+    </>
+  );
+
   return (
     <>
-      <div className="m-2 mt-16 flex flex-col gap-6 md:flex-row md:space-x-6">
-        <div className="w-full md:w-1/2">
-          {/* Truck Details */}
+      <div className="flex flex-col gap-6 pb-8 lg:flex-row lg:gap-8">
+        <div className="flex w-full min-w-0 flex-col gap-4 lg:w-1/2">
+          <BackButton route={"shipping-informations"} />
+
           <TruckData
             data={data}
             isLoading={isLoading}
@@ -55,47 +82,19 @@ export default function DetailsShippingData({
             shippingID={shippingID}
           />
 
-          {/* Go backe to the shipping informations */}
-          <div className="mt-2">
-            <BackButton route={"shipping-informations"} />
-          </div>
+          <div className="flex flex-col gap-4 lg:hidden">{summaryBlock}</div>
 
-          {/* Container Details */}
-
-          <div className="space-y-2 sm:ml-10 md:ml-20">
-            {/* Display container profiles in reverse chronological order, 
-                  or show "No containers" message if empty */}
-            {containerProfiles && containerProfiles.length > 0 ? (
-              containerProfiles
-                .slice()
-                .reverse()
-                .map((profile) => (
-                  <ShowContainerDetails key={profile.id} data={profile} />
-                ))
-            ) : (
-              <div className="flex justify-center pt-10">
-                <p>No containers in the truck</p>
-              </div>
-            )}
-          </div>
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-base-content/60 lg:hidden">
+              Containers
+            </h2>
+            {containerList}
+          </section>
         </div>
 
-        {/* Right side of the page Truck Details and warning message */}
-        <div className="flex w-full flex-col space-y-6 md:w-1/2">
-          <div>
-            <TruckDataDetails data={data} />
-          </div>
-
-          {/* Display warning message if there are rejected containers */}
-          <div>
-            {hasRejectedContainers && (
-              <WarningMessage
-                warningColor={"bg-red-600"}
-                warningMessage={warningMessage}
-              />
-            )}
-          </div>
-        </div>
+        <aside className="hidden w-full min-w-0 flex-col gap-6 lg:flex lg:w-1/2">
+          {summaryBlock}
+        </aside>
       </div>
     </>
   );

@@ -68,41 +68,49 @@ export default function ShowContainerDetails({ data }) {
 
   return (
     <>
-      <div className="mx-2 p-2">
+      <div>
         <div>
-          <ul className="rounded-lg border-2 p-2 font-medium">
-            <div className="mb-4 flex flex-row space-x-3 text-lg">
-              {/* Quantity */}
-              <h2 className="underline underline-offset-4">{quantity}</h2>
-              <h2 className="font-normal">
-                {quantity === 1 ? "container" : "containers"} of type
-              </h2>
-              {/* Waste Profile */}
-              <h2 className="underline underline-offset-4">
-                {wasteProfile.name}
-              </h2>
-              {/* Location Origin */}
-              <h2 className="font-normal">from</h2>
-              <h2 className="underline underline-offset-4">
-                {locationOrigin.name}
-              </h2>
+          <ul className="rounded-lg border-2 p-3 font-medium sm:p-4">
+            <div className="mb-3 space-y-1 text-base leading-snug md:flex md:flex-row md:flex-wrap md:gap-x-2 md:gap-y-1">
+              <p className="break-words">
+                <span className="font-bold underline underline-offset-4">
+                  {quantity}
+                </span>{" "}
+                <span className="font-normal">
+                  {quantity === 1 ? "container" : "containers"} of type{" "}
+                </span>
+                <span className="font-bold underline underline-offset-4">
+                  {wasteProfile.name}
+                </span>
+              </p>
+              <p className="break-words font-normal">
+                from{" "}
+                <span className="font-bold underline underline-offset-4">
+                  {locationOrigin.name}
+                </span>
+              </p>
             </div>
             <div>
               <details className="collapse collapse-arrow bg-base-200">
-                <summary className="collapse-title text-base">
-                  <div className="flex flex-row items-center space-x-2 ">
-                    <TbListDetails />
-                    <p>Details</p>
+                <summary className="collapse-title !min-h-0 py-2 text-base font-medium leading-snug after:!top-3">
+                  <div className="flex flex-row items-center gap-2">
+                    <TbListDetails className="h-4 w-4 shrink-0" />
+                    <span>Details</span>
                   </div>
                 </summary>
                 {/* Container Details */}
-                <div className="collapse-content">
+                <div className="collapse-content text-base">
                   {containerDetails.map((detail, index) => (
-                    <li key={index} className="flex space-x-3 text-base">
-                      <p className="font-normal">{detail.title}</p>
-                      <p>{detail.name}</p>
+                    <li
+                      key={index}
+                      className="flex flex-wrap items-center gap-x-2 gap-y-1 py-1 text-base"
+                    >
+                      <p className="font-normal text-base-content/70">
+                        {detail.title}
+                      </p>
+                      <p className="break-words font-medium">{detail.name}</p>
 
-                      <div className="tooltip mt-1" data-tip="Extend">
+                      <div className="tooltip" data-tip="Extend">
                         <label
                           htmlFor="modal_container_details"
                           className="btnExtend"

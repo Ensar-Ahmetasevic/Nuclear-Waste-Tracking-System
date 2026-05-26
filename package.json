@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "doppler run -- next dev --turbo",
+    "dev": "doppler run -p nuclear-waste-tracking-system -c dev -- next dev --turbo",
     "dev:local": "next dev --turbo",
     "build": "next build",
     "start": "next start",

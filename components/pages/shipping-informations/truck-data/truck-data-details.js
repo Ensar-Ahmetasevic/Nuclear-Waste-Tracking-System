@@ -20,50 +20,40 @@ export default function TruckDataDetails({ data }) {
     return acc + containers.quantity;
   }, 0);
 
+  const items = [
+    { label: "Total number of containers", value: sumQuantity },
+    {
+      label: "Entry date",
+      value: dayjs(entryDateTime).format("DD/MM/YYYY, HH:mm"),
+    },
+    {
+      label: "Exit date",
+      value: exitDateTime
+        ? dayjs(exitDateTime).format("DD/MM/YYYY, HH:mm")
+        : "-- / -- / ----",
+    },
+    { label: "Registrations palets", value: registrationPlates },
+    { label: "Driver name", value: driverName },
+    { label: "Company name", value: companyName },
+  ];
+
   return (
-    <div className="flex flex-col space-y-3 rounded-lg border-2 p-3 xl:flex-row xl:space-y-0">
-      {/* Quantity, Entry and Exit Date */}
-      <div className="stats stats-vertical shadow">
-        <div className="stat">
-          <div className="stat-title">Total number of containers</div>
-          <div className="stat-value text-2xl">{sumQuantity}</div>
-        </div>
-
-        <div className="stat">
-          <div className="stat-title">Entry date</div>
-          <div className="stat-value text-2xl">
-            {dayjs(entryDateTime).format("DD/MM/YYYY, HH:mm")}
+    <div className="rounded-lg border-2 p-3 sm:p-4">
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-base-content/60 lg:sr-only">
+        Transport summary
+      </h2>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
+        {items.map((item) => (
+          <div
+            key={item.label}
+            className="rounded-md bg-base-200 p-3 shadow-sm"
+          >
+            <div className="text-sm text-base-content/60">{item.label}</div>
+            <div className="break-words text-base font-semibold sm:text-lg md:text-xl">
+              {item.value}
+            </div>
           </div>
-        </div>
-
-        <div className="stat">
-          <div className="stat-title">Exit date</div>
-          <div className="stat-value text-2xl">
-            {" "}
-            {exitDateTime
-              ? dayjs(exitDateTime).format("DD/MM/YYYY, HH:mm")
-              : "-- / -- / ----"}
-          </div>
-        </div>
-      </div>
-
-      {/* Company, Driver and Registraion */}
-
-      <div className="stats stats-vertical shadow">
-        <div className="stat">
-          <div className="stat-title">Registrations palets</div>
-          <div className="stat-value text-2xl">{registrationPlates}</div>
-        </div>
-
-        <div className="stat">
-          <div className="stat-title">Driver name</div>
-          <div className="stat-value text-2xl">{driverName}</div>
-        </div>
-
-        <div className="stat">
-          <div className="stat-title">Company name</div>
-          <div className="stat-value text-2xl">{companyName}</div>
-        </div>
+        ))}
       </div>
     </div>
   );

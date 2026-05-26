@@ -93,16 +93,16 @@ export default function TruckData({ data, isLoading, error, shippingID }) {
     <>
       {/* Truck Data */}
       <div
-        className={`flex flex-row items-center justify-between rounded-lg ${truckStatus === "IN" ? "border-green-600" : "border-red-600"} border-2 p-4`}
+        className={`flex flex-col gap-4 rounded-lg border-2 p-3 sm:p-4 md:flex-row md:items-start md:justify-between ${truckStatus === "IN" ? "border-green-600" : "border-red-600"}`}
       >
-        <div className="space-y-3 text-lg">
+        <div className="min-w-0 flex-1 space-y-3 text-sm sm:text-base md:text-lg">
           {/* Company Name */}
-          <div className="flex flex-row">
-            <p>Transport data for:</p>
-            <p className="ml-4 font-bold">{companyName}</p>
+          <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:gap-x-2">
+            <p className="shrink-0 text-base-content/70">Transport data for:</p>
+            <p className="break-words font-bold">{companyName}</p>
           </div>
 
-          <div className="flex flex-row space-x-4">
+          <div className="flex flex-row flex-wrap gap-2 sm:gap-3">
             {/* Add Containers */}
             {containerStatus === "accepted" ? null : (
               <CreateContainerProfile shippingID={shippingID} />
@@ -136,18 +136,19 @@ export default function TruckData({ data, isLoading, error, shippingID }) {
         </div>
 
         {/* Status */}
-        <div className="flex flex-col space-y-3">
-          <div className="flex flex-row space-x-2">
-            <h2>Activ status:</h2>
-            <h2 className="font-bold">{truckStatus}</h2>
+        <div className="flex w-full shrink-0 flex-col gap-3 border-t border-base-300 pt-3 md:w-auto md:border-t-0 md:pt-0">
+          <div className="flex flex-row flex-wrap items-center justify-between gap-x-2 gap-y-1 text-sm sm:text-base md:justify-start">
+            <span className="font-medium">Activ status:</span>
+            <span className="font-bold">{truckStatus}</span>
           </div>
-          <div className="flex flex-row space-x-4">
+          <div className="flex flex-row items-center gap-3">
             {/* IN */}
             <button
-              className={`pointer-events-none h-12 w-16 rounded text-center font-bold ${
+              type="button"
+              className={`pointer-events-none h-9 w-14 shrink-0 rounded border-2 text-sm font-semibold ${
                 truckStatus === "IN"
-                  ? " border-green-700 bg-green-700 text-white underline underline-offset-8 outline outline-offset-4 outline-green-700"
-                  : "border-2 border-slate-700 text-slate-700 "
+                  ? "border-green-700 bg-green-700 text-white"
+                  : "border-slate-700 text-slate-700"
               }`}
               disabled={truckStatus === "IN" || isLoading}
             >
@@ -156,10 +157,11 @@ export default function TruckData({ data, isLoading, error, shippingID }) {
 
             {/* OUT */}
             <button
-              className={`h-12 w-16 rounded  text-center font-bold ${
+              type="button"
+              className={`h-9 w-14 shrink-0 rounded border-2 text-sm font-semibold ${
                 truckStatus === "OUT"
-                  ? "pointer-events-none bg-red-600 text-white underline underline-offset-8 outline outline-offset-4 outline-red-600"
-                  : "transform cursor-pointer text-slate-700 outline outline-red-600 transition-transform duration-300 ease-in-out hover:scale-110"
+                  ? "pointer-events-none border-red-600 bg-red-600 text-white"
+                  : "cursor-pointer border-red-600 text-slate-700 hover:bg-red-50 sm:hover:scale-105"
               }`}
               onClick={() => updateStatus("OUT")}
               disabled={truckStatus === "OUT" || isLoading}
