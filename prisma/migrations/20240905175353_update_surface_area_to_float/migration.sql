@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "PreStorageType" ALTER COLUMN "surfaceArea" SET DATA TYPE DOUBLE PRECISION;

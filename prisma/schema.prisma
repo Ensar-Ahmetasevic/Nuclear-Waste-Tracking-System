@@ -1,0 +1,208 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model UserProfile {
+  id                   Int                   @id @default(autoincrement())
+  email                String                @unique
+  password             String
+  createdAt            DateTime              @default(now())
+  companyId            Int
+  companyName          String
+  address              String
+  administrator        Boolean
+  shippingInformations ShippingInformation[]
+}
+
+// Setep 1 Shipping Informations
+
+model ShippingInformation {
+  id                 Int                @id @default(autoincrement())
+  entryDateTime      DateTime           @default(now())
+  exitDateTime       DateTime?
+  truckStatus        String             @default("IN")
+  status             String             @default("pending")
+  //Statuts: "pending", "accepted", "rejected".
+  companyName        String
+  driverName         String
+  registrationPlates String
+  containerProfiles  ContainerProfile[]
+  userProfileId      Int?               @unique
+  userProfile        UserProfile?       @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+}
+
+model ContainerProfile {
+  id                    Int                  @id @default(autoincrement())
+  createdAt             DateTime             @default(now())
+  // Statuts: "pending", "accepted", "rejected"
+  containerStatus       String               @default("pending")
+  quantity              Int
+  shippingInformationId Int //  foreign key
+  shippingInformation   ShippingInformation? @relation(fields: [shippingInformationId], references: [id], onDelete: Cascade)
+  locationOriginId      Int
+  locationOrigin        LocationOrigin       @relation(fields: [locationOriginId], references: [id], onDelete: Cascade)
+  wasteProfileId        Int
+  wasteProfile          WasteProfile         @relation(fields: [wasteProfileId], references: [id], onDelete: Cascade)
+}
+
+model LocationOrigin {
+  id                Int                @id @default(autoincrement())
+  name              String
+  address           String
+  origin            String
+  containerProfiles ContainerProfile[]
+
+  // If we have a "containerProfiles" field in the "LocationOrigin" model that is of type "ContainerProfile[]", 
+  // it means that it is expected that one location can be associated with multiple "ContainerProfile" entities.
+}
+
+model WasteProfile {
+  id                   Int                @id @default(autoincrement())
+  name                 String
+  typeOfWaste          String
+  wasteDescription     String
+  risksAndHazards      String
+  processingMethods    String
+  physicalProperties   String
+  chemicalProperties   String
+  biologicalProperties String
+  collectionProcedures String
+  containerProfiles    ContainerProfile[]
+  containerTypeId      Int                @unique
+  containerType        ContainerType      @relation(fields: [containerTypeId], references: [id], onDelete: Cascade)
+}
+
+model ContainerType {
+  id                 Int           @id @default(autoincrement())
+  name               String
+  material           String
+  volume             Float
+  carryingCapacity   Float
+  radioactivityLevel String
+  physicalProperties String
+  footprint          Float
+  description        String
+  wasteProfile       WasteProfile?
+}
+
+// Step 2 "Pre-storage of waste"
+
+model PreStorageLocation {
+  id                   Int                    @id @default(autoincrement())
+  name                 String
+  surfaceArea          Int
+  containerFootprint   Int
+  preStorageFor        String
+  containerType        String
+  wasteProfile         String
+  preStorageEntry      PreStorageEntry[]
+  preStorageConditions PreStorageConditions[]
+}
+
+model PreStorageEntry {
+  id                              Int                            @id @default(autoincrement())
+  createdAt                       DateTime                       @default(now())
+  quantity                        Int
+  preStorageLocationId            Int
+  preStorageLocation              PreStorageLocation             @relation(fields: [preStorageLocationId], references: [id], onDelete: Cascade)
+  responsiblePreStorageEmployeeId Int?
+  responsiblePreStorageEmployee   PreStorageResponsibleEmployee? @relation(fields: [responsiblePreStorageEmployeeId], references: [id], onDelete: Cascade)
+}
+
+model PreStorageResponsibleEmployee {
+  id                   Int                      @id @default(autoincrement())
+  name                 String
+  surname              String
+  dateOfBirth          DateTime
+  address              String
+  qualifications       String
+  safetyTraining       Boolean                  @default(false)
+  preStorageEntry      PreStorageEntry[]
+  PreStorageConditions PreStorageConditions[]
+  approvedTransfers    StorageTransferRequest[]
+}
+
+// Step 2.1 Pre-Storage Conditions
+
+model PreStorageConditions {
+  id                              Int                           @id @default(autoincrement())
+  createdAt                       DateTime                      @default(now())
+  preStorageTemperature           Float
+  preStorageRadiationLevel        Float
+  preStorageHumidity              Float
+  preStoragePressure              Int
+  preStorageLocationId            Int
+  preStorageResponsibleEmployeeId Int
+  preStorageLocation              PreStorageLocation            @relation(fields: [preStorageLocationId], references: [id], onDelete: Cascade)
+  preStorageResponsibleEmployee   PreStorageResponsibleEmployee @relation(fields: [preStorageResponsibleEmployeeId], references: [id], onDelete: Cascade)
+}
+
+// Step 3 "Final Storage of waste"
+
+model FinalStorageLocation {
+  id                      Int                      @id @default(autoincrement())
+  name                    String
+  containerType           String
+  containerFootprint      Int
+  surfaceArea             Int
+  depth                   Int
+  quantity                Int                      @default(0)
+  storageTransferRequests StorageTransferRequest[]
+  finalStorageConditions  FinalStorageCondition[]
+}
+
+model StorageTransferRequest {
+  id                 Int      @id @default(autoincrement())
+  createdAt          DateTime @default(now())
+  finalStorageStatus String   @default("requestPending") // "requestPending", "transportPending","requestRejeted", "accepted", "rejected"
+  preStorageStatus   String   @default("pending") // "pending", "accepted", "rejected", "completed"
+  requestedQuantity  Int
+
+  // Location references
+  requestedByRoom       String
+  requestedByEmployeeId Int
+  approvedByEmployeeId  Int?
+  acceptedByEmployeeId  Int?
+
+  requestedByEmployee FinalStorageResponsibleEmployee  @relation("RequestedBy", fields: [requestedByEmployeeId], references: [id], onDelete: Cascade)
+  approvedByEmployee  PreStorageResponsibleEmployee?   @relation(fields: [approvedByEmployeeId], references: [id], onDelete: Cascade)
+  acceptedByEmployee  FinalStorageResponsibleEmployee? @relation("AcceptedBy", fields: [acceptedByEmployeeId], references: [id], onDelete: Cascade)
+
+  finalStorageLocationId Int?
+  finalStorageLocation   FinalStorageLocation? @relation(fields: [finalStorageLocationId], references: [id], onDelete: Cascade)
+}
+
+model FinalStorageResponsibleEmployee {
+  id                     Int                      @id @default(autoincrement())
+  name                   String
+  surname                String
+  dateOfBirth            DateTime
+  qualifications         String
+  address                String
+  safetyTraining         Boolean
+  requestedTransfers     StorageTransferRequest[] @relation("RequestedBy")
+  acceptedTransfers      StorageTransferRequest[] @relation("AcceptedBy")
+  finalStorageConditions FinalStorageCondition[]
+}
+
+// Step 3.1 Storage Conditions
+
+model FinalStorageCondition {
+  id                                Int                              @id @default(autoincrement())
+  createdAt                         DateTime                         @default(now())
+  finalStorageTemperature           Float
+  finalStorageRadiationLevel        Float
+  finalStorageHumidity              Float
+  finalStoragePressure              Float
+  finalStorageLocationId            Int
+  finalStorageLocation              FinalStorageLocation             @relation(fields: [finalStorageLocationId], references: [id], onDelete: Cascade)
+  finalStorageResponsibleEmployeeId Int?
+  finalStorageResponsibleEmployee   FinalStorageResponsibleEmployee? @relation(fields: [finalStorageResponsibleEmployeeId], references: [id], onDelete: SetNull)
+}

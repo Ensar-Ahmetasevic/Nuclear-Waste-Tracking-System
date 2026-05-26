@@ -1,0 +1,28 @@
+// Add
+
+    import { IoMdAddCircleOutline } from "react-icons/io";
+    <IoMdAddCircleOutline />
+
+
+// Edit-Update
+
+    import { CiEdit } from "react-icons/ci";
+    <CiEdit />
+
+
+// Delete
+
+    import { MdDeleteSweep } from "react-icons/md";
+    <MdDeleteSweep />
+
+
+// Details
+
+    import { MdOutlineExpandMore } from "react-icons/md";
+    <MdOutlineExpandMore />
+
+
+// onclick
+
+    import { TbHandClick } from "react-icons/tb";
+    <TbHandClick />
