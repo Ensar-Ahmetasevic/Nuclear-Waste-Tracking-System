@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/server/scoped-database.cjs";
+import { withApiAuth } from "@/lib/server/api-route";
 
 // Createing  data
-export async function POST(req, res) {
+async function POSTHandler(req, res) {
   const formData = await req.json();
   const { name, address, origin } = formData;
 
@@ -15,47 +15,33 @@ export async function POST(req, res) {
     );
   }
 
-  try {
+  {
     await prisma.locationOrigin.create({ data: { name, address, origin } });
 
     return NextResponse.json(
       { message: "New Location Origin added successfully." },
       { status: 200 },
     );
-  } catch (error) {
-    console.error("Failed to create Location Origin: ", error);
-    return NextResponse.json(
-      { message: "Failed to create Location Origin" },
-      { status: 500 },
-      { error: `${error.message}` },
-    );
   }
 }
 
 // Fetch data
-export async function GET() {
-  try {
+async function GETHandler() {
+  {
     const locationOriginData = await prisma.locationOrigin.findMany({
       orderBy: { id: "desc" },
     });
 
     return NextResponse.json({ locationOriginData }, { status: 200 });
-  } catch (error) {
-    console.error("Failed to fetch Location Origin Data: ", error);
-    return NextResponse.json(
-      { message: "Failed to fetch Location Origin Data." },
-      { status: 500 },
-      { error: error.message },
-    );
   }
 }
 
 //  Delete data
 
-export async function DELETE(req) {
+async function DELETEHandler(req) {
   const { id } = await req.json();
 
-  try {
+  {
     await prisma.locationOrigin.delete({
       where: { id: id },
     });
@@ -63,31 +49,24 @@ export async function DELETE(req) {
       { message: "Location Origin deleted successfully." },
       { status: 200 },
     );
-  } catch (error) {
-    console.error("Failed to delete Location Origin Data: ", error);
-    return NextResponse.json(
-      { message: "Failed to delete Location Origin data." },
-      { status: 500 },
-      { error: error.message },
-    );
   }
 }
 
 // Update
 
-export async function PUT(req, res) {
+async function PUTHandler(req, res) {
   const { dataForUpdate } = await req.json();
 
   const { name, address, origin, id } = dataForUpdate;
 
-  if ((!name, !address, !origin, !id)) {
+  if (!name || !address || !origin || !id) {
     return NextResponse.json(
       { message: "All fields are required" },
       { status: 400 },
     );
   }
 
-  try {
+  {
     const updateLocationOrigin = await prisma.locationOrigin.update({
       where: { id: parseInt(id) },
       data: {
@@ -101,11 +80,12 @@ export async function PUT(req, res) {
       { message: "Location Origin updated successfully", updateLocationOrigin },
       { status: 200 },
     );
-  } catch (error) {
-    console.error("Faild to update Location Origin: ", error);
-    return NextResponse.json(
-      { message: "Faild to update Location Origin: ", error: error.message },
-      { status: 500 },
-    );
   }
 }
+
+export const POST = withApiAuth(POSTHandler);
+export const GET = withApiAuth(GETHandler);
+export const DELETE = withApiAuth(DELETEHandler);
+export const PUT = withApiAuth(PUTHandler, { bodyObjects: ["dataForUpdate"] });
+
+export const dynamic = "force-dynamic";

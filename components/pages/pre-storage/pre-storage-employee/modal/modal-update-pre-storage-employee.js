@@ -71,7 +71,7 @@ export default function ModalUpdatePreStorageEmployee({
                 <div className="flex flex-col space-y-2">
                   <label className="text-left text-sm">Name:</label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="text"
                     placeholder="Type here ..."
                     defaultValue={name}
@@ -90,7 +90,7 @@ export default function ModalUpdatePreStorageEmployee({
                 <div className="flex w-full sm:w-64 flex-col space-y-2">
                   <label className="text-left text-sm">Surname:</label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="text"
                     placeholder="Type here ..."
                     defaultValue={surname}
@@ -109,7 +109,7 @@ export default function ModalUpdatePreStorageEmployee({
                 <div className="flex w-full sm:w-64 flex-col space-y-2">
                   <label className="text-left text-sm">Address:</label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="text"
                     placeholder="Type here ..."
                     defaultValue={address}
@@ -128,7 +128,7 @@ export default function ModalUpdatePreStorageEmployee({
                 <div className="flex w-full sm:w-64 flex-col space-y-2">
                   <label className="text-left text-sm">Qualifications:</label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="text"
                     placeholder="Type here ..."
                     defaultValue={qualifications}
@@ -147,7 +147,7 @@ export default function ModalUpdatePreStorageEmployee({
                 <div className="flex flex-col space-y-2">
                   <label className="text-left text-sm">Date Of Birth:</label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="date"
                     placeholder="Select date"
                     defaultValue={dayjs(dateOfBirth).format("YYYY-MM-DD")}

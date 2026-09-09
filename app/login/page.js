@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -9,10 +9,11 @@ import { toast } from "react-toastify";
 
 import LoadingSpinnerButton from "../../components/shared/loading-spiner-button";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/";
+  const requestedUrl = searchParams.get("callbackUrl") || "/";
+  const callbackUrl = requestedUrl.startsWith("/") && !requestedUrl.startsWith("//") && !requestedUrl.includes("\\") && !/[\u0000-\u0020]/.test(requestedUrl) ? requestedUrl : "/";
 
   const [isLoading, setIsLoading] = useState(false);
   const {
@@ -24,22 +25,24 @@ export default function LoginPage() {
   const onSubmit = async ({ email, password }) => {
     setIsLoading(true);
 
-    const result = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
-
-    setIsLoading(false);
-
-    if (result?.error) {
-      toast.error(result.error);
-      return;
+    try {
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
+      if (!result?.ok || result.error) {
+        toast.error("Sign in failed. Check your credentials and account activation.");
+        return;
+      }
+      toast.success("Logged in successfully");
+      router.push(callbackUrl);
+      router.refresh();
+    } catch {
+      toast.error("Unable to sign in. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
-
-    toast.success("Logged in successfully");
-    router.push(callbackUrl);
-    router.refresh();
   };
 
   return (
@@ -53,34 +56,42 @@ export default function LoginPage() {
             className="flex flex-col space-y-4"
           >
             <div className="form-control">
-              <label className="label">
+              <label className="label" htmlFor="login-email">
                 <span className="label-text">Email</span>
               </label>
               <input
                 type="email"
-                className="input input-bordered"
+                className="input "
                 placeholder="your@email.com"
+                id="login-email"
+                autoComplete="email"
+                aria-invalid={Boolean(errors.email)}
+                aria-describedby={errors.email ? "login-email-error" : undefined}
                 {...register("email", { required: "Email is required" })}
               />
               {errors.email && (
-                <span className="text-sm text-red-500">
+                <span id="login-email-error" role="alert" className="text-sm text-red-500">
                   {errors.email.message}
                 </span>
               )}
             </div>
 
             <div className="form-control">
-              <label className="label">
+              <label className="label" htmlFor="login-password">
                 <span className="label-text">Password</span>
               </label>
               <input
                 type="password"
-                className="input input-bordered"
+                className="input "
                 placeholder="••••••••"
+                id="login-password"
+                autoComplete="current-password"
+                aria-invalid={Boolean(errors.password)}
+                aria-describedby={errors.password ? "login-password-error" : undefined}
                 {...register("password", { required: "Password is required" })}
               />
               {errors.password && (
-                <span className="text-sm text-red-500">
+                <span id="login-password-error" role="alert" className="text-sm text-red-500">
                   {errors.password.message}
                 </span>
               )}
@@ -105,4 +116,8 @@ export default function LoginPage() {
       </div>
     </main>
   );
+}
+
+export default function LoginPage() {
+  return <Suspense fallback={<p className="p-6">Loading sign in…</p>}><LoginForm /></Suspense>;
 }

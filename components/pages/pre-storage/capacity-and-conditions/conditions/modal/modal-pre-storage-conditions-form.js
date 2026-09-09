@@ -72,7 +72,7 @@ export default function ModalPreStorageConditionsForm({
               <div className="flex flex-col space-y-2">
                 <label className="text-left text-sm">Temperature (°C)</label>
                 <input
-                  className="input input-md input-bordered px-2"
+                  className="input input-md  px-2"
                   type="number"
                   step="0.1"
                   placeholder="Type here ..."
@@ -93,7 +93,7 @@ export default function ModalPreStorageConditionsForm({
                   Radiation Level (µSv/h)
                 </label>
                 <input
-                  className="input input-md input-bordered px-2"
+                  className="input input-md  px-2"
                   type="number"
                   step="0.01" // Restrict to whole numbers
                   min="0" // Prevent negative values
@@ -113,7 +113,7 @@ export default function ModalPreStorageConditionsForm({
               <div className="flex flex-col space-y-2">
                 <label className="text-left text-sm">Humidity (%)</label>
                 <input
-                  className="input input-md input-bordered px-2"
+                  className="input input-md  px-2"
                   type="number"
                   step="1"
                   min="0"
@@ -133,7 +133,7 @@ export default function ModalPreStorageConditionsForm({
               <div className="flex flex-col space-y-2">
                 <label className="text-left text-sm">Pressure (hPa)</label>
                 <input
-                  className="input input-md input-bordered px-2"
+                  className="input input-md  px-2"
                   type="number"
                   step="1"
                   min="0"
@@ -158,7 +158,7 @@ export default function ModalPreStorageConditionsForm({
                   Please select Responsible employee
                 </label>
                 <select
-                  className="select select-bordered select-md px-2"
+                  className="select  select-md px-2"
                   id="responsible-employee"
                   {...register("responsibleEmployee", {
                     required: "Please choose the responsible employee",

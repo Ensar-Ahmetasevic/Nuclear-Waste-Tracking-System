@@ -1,68 +1,23 @@
-import { NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
-
-export async function POST(req) {
+import { rateLimit } from '@/lib/server/rate-limit.cjs';
+import { readJson } from '@/lib/server/request-validation.cjs';
+import bcrypt from 'bcryptjs';
+import { database } from '@/lib/server/database.cjs';
+import { registrationData } from '@/lib/server/registration.cjs';
+import { HttpError } from '@/lib/server/errors.cjs';
+export async function POST(request) {
   try {
-    const body = await req.json();
-    const { email, password, companyId, companyName, address, administrator } =
-      body;
-
-    if (!email || !password || !companyName || !companyId || !address) {
-      return NextResponse.json(
-        { message: "All fields are required" },
-        { status: 400 },
-      );
-    }
-
-    if (password.length < 6) {
-      return NextResponse.json(
-        { message: "Password must be at least 6 characters" },
-        { status: 400 },
-      );
-    }
-
-    const existing = await prisma.userProfile.findUnique({
-      where: { email },
-    });
-
-    if (existing) {
-      return NextResponse.json(
-        { message: "User with this email already exists" },
-        { status: 409 },
-      );
-    }
-
-    const hashed = await bcrypt.hash(password, 10);
-
-    const user = await prisma.userProfile.create({
-      data: {
-        email,
-        password: hashed,
-        companyId: parseInt(companyId),
-        companyName,
-        address,
-        administrator: Boolean(administrator),
-      },
-      select: {
-        id: true,
-        email: true,
-        companyName: true,
-        administrator: true,
-      },
-    });
-
-    return NextResponse.json(
-      { message: "User registered successfully", user },
-      { status: 201 },
-    );
+    const origin = request.headers.get('origin');
+    if (!origin || origin !== new URL(process.env.NEXTAUTH_URL || request.url).origin) throw new HttpError(403, 'Invalid request origin');
+    if (!request.headers.get('content-type')?.startsWith('application/json')) throw new HttpError(415, 'JSON is required');
+    await rateLimit('registration-global', 'all', 100, 60 * 60 * 1000);
+    const data = registrationData(await readJson(request));
+    await rateLimit('registration', data.email, 5);
+    data.password = await bcrypt.hash(data.password, 12);
+    await database.userProfile.create({ data, select: { id: true } });
+    return Response.json({ message: 'Registration received. Your organization access must be activated before signing in.' }, { status: 201 });
   } catch (error) {
-    console.error("Registration error:", error);
-    return NextResponse.json(
-      { message: "Failed to register user", error: error.message },
-      { status: 500 },
-    );
+    if (error.code === 'P2002') return Response.json({ message: 'Registration received. Your organization access must be activated before signing in.' }, { status: 201 });
+    const status = error.status || (error instanceof SyntaxError ? 400 : 500);
+    return Response.json({ message: error instanceof HttpError ? error.message : status === 400 ? 'Invalid request' : 'Unable to register account' }, { status });
   }
 }

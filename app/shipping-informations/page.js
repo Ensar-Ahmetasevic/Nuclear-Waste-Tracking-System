@@ -121,7 +121,7 @@ export default function ShippingInformations() {
               Company Name, Date or Status
             </label>
           </div>
-          <label className="input input-bordered input-primary flex items-center gap-2">
+          <label className="input  input-primary flex items-center gap-2">
             <input
               className="grow"
               id="searchShippings"

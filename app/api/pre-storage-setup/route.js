@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
-const { PrismaClient } = require("@prisma/client");
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/server/scoped-database.cjs";
+import { withApiAuth } from "@/lib/server/api-route";
 
 // Creating data
 
-export async function POST(req, res) {
+async function POSTHandler(req, res) {
   const formData = await req.json();
 
   const { quantity, preStorageLocationId, responsiblePreStorageEmployeeId } =
@@ -20,7 +19,7 @@ export async function POST(req, res) {
     );
   }
 
-  try {
+  {
     await prisma.preStorageEntry.create({
       data: {
         quantity,
@@ -33,20 +32,13 @@ export async function POST(req, res) {
       { message: "New Pre-Storage Waste add successfully." },
       { status: 200 },
     );
-  } catch (error) {
-    console.error("Faild to creat Pre-Storage Type:", error);
-    return NextResponse.json(
-      { message: "Faild to add Pre-Storage Waste" },
-      { status: 500 },
-      { error: `${error.message}` },
-    );
   }
 }
 
 // Fetch data
 
-export async function GET() {
-  try {
+async function GETHandler() {
+  {
     const preStorageOfCapacityData = await prisma.preStorageEntry.findMany({
       orderBy: {
         id: "desc",
@@ -56,10 +48,10 @@ export async function GET() {
     if (preStorageOfCapacityData.length === 0) {
       return NextResponse.json(
         {
-          preStorageOfCapacityData: null,
+          preStorageOfCapacityData: [],
           message: "No PreStorage Of Waste data available.",
         },
-        { status: 204 }, // No Content
+        { status: 200 }, // No Content
       );
     }
 
@@ -67,13 +59,10 @@ export async function GET() {
       { preStorageOfCapacityData, message: "Data fetched successfully" },
       { status: 200 },
     );
-  } catch (error) {
-    return NextResponse.json(
-      {
-        message: "Failed to fetch preStorage Of Waste Data.",
-        error: error.message,
-      },
-      { status: 500 },
-    );
   }
 }
+
+export const POST = withApiAuth(POSTHandler);
+export const GET = withApiAuth(GETHandler);
+
+export const dynamic = "force-dynamic";

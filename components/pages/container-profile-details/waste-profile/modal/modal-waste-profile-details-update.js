@@ -107,7 +107,7 @@ export default function ModalWasteProfileDetailsUpdate({
                 <div className="flex w-full sm:w-64 flex-col space-y-2">
                   <label className="text-left text-sm">Name:</label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="text"
                     placeholder="Type here"
                     defaultValue={name}
@@ -125,7 +125,7 @@ export default function ModalWasteProfileDetailsUpdate({
                 <div className="flex w-full sm:w-64 flex-col space-y-2">
                   <label className="text-left text-sm">Type Of Waste:</label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="text"
                     placeholder="Type here"
                     defaultValue={typeOfWaste}
@@ -145,7 +145,7 @@ export default function ModalWasteProfileDetailsUpdate({
                     Waste Description:
                   </label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="text"
                     placeholder="Type here"
                     defaultValue={wasteDescription}
@@ -165,7 +165,7 @@ export default function ModalWasteProfileDetailsUpdate({
                     Risks And Hazards:
                   </label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="text"
                     placeholder="Type here"
                     defaultValue={risksAndHazards}
@@ -185,7 +185,7 @@ export default function ModalWasteProfileDetailsUpdate({
                     Processing Methods:
                   </label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="text"
                     placeholder="Type here"
                     defaultValue={processingMethods}
@@ -205,7 +205,7 @@ export default function ModalWasteProfileDetailsUpdate({
                     Physical Properties:
                   </label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="text"
                     placeholder="Type here"
                     defaultValue={physicalProperties}
@@ -225,7 +225,7 @@ export default function ModalWasteProfileDetailsUpdate({
                     Chemical Properties:
                   </label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="text"
                     placeholder="Type here"
                     defaultValue={chemicalProperties}
@@ -245,7 +245,7 @@ export default function ModalWasteProfileDetailsUpdate({
                     Biological Properties:
                   </label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="text"
                     placeholder="Type here"
                     defaultValue={biologicalProperties}
@@ -265,7 +265,7 @@ export default function ModalWasteProfileDetailsUpdate({
                     Collection Procedures:
                   </label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="text"
                     placeholder="Type here"
                     defaultValue={collectionProcedures}
@@ -289,7 +289,7 @@ export default function ModalWasteProfileDetailsUpdate({
                   </label>
 
                   <select
-                    className="select select-bordered select-md px-2"
+                    className="select  select-md px-2"
                     id="recommendations-for-transport"
                     defaultValue={containerType.id}
                     {...register("recommendationsForTransport", {

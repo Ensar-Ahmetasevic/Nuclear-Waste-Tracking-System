@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/server/scoped-database.cjs";
+import { withApiAuth } from "@/lib/server/api-route";
 
 // GET request to fetch Final Storage data by ID
-export async function GET(req, { params }) {
-  const { finalStorageID } = params;
+async function GETHandler(req, { params }) {
+  const { finalStorageID } = await params;
 
-  try {
+  {
     const finalStorageDataById = await prisma.finalStorageLocation.findUnique({
       where: { id: parseInt(finalStorageID) },
       include: {
@@ -32,14 +31,9 @@ export async function GET(req, { params }) {
     }
 
     return NextResponse.json({ finalStorageDataById }, { status: 200 });
-  } catch (error) {
-    console.error("Error fetching Final Storage data by ID:", error);
-    return NextResponse.json(
-      {
-        message: "Failed to fetch Final Storage Loaction",
-        error: error.message,
-      },
-      { status: 500 },
-    );
   }
 }
+
+export const GET = withApiAuth(GETHandler);
+
+export const dynamic = "force-dynamic";

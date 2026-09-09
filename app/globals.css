@@ -1,6 +1,29 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+@plugin "daisyui" {
+  themes: light --default, dark --prefersdark;
+}
+@theme {
+  --breakpoint-sm: 30rem;
+  --breakpoint-md: 48rem;
+  --breakpoint-lg: 63.75rem;
+  --breakpoint-xl: 90rem;
+  --color-softBlue: hsl(231, 69%, 60%);
+  --color-softRed: hsl(0, 94%, 66%);
+  --color-grayishBlue: hsl(229, 8%, 60%);
+  --color-veryDarkBlue: hsl(229, 31%, 21%);
+}
+@theme inline {
+  --font-rubik: var(--font-rubik-face), sans-serif;
+}
+/* Preserve the existing form layout while migrating to daisyUI 5 labels. */
+@layer components {
+  .form-control { display: flex; flex-direction: column; gap: 0.375rem; }
+  .form-control > :is(.input, .select, .textarea) { width: 100%; }
+  .label { display: flex; justify-content: space-between; padding-block: 0.5rem; white-space: normal; }
+  .label-text { font-size: 0.875rem; color: var(--color-base-content); }
+  .label-text-alt { font-size: 0.75rem; color: var(--color-base-content); }
+}
 
 /* ===== Mobile-safe global defaults ===== */
 html,

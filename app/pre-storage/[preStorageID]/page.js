@@ -1,4 +1,5 @@
 "use client";
+import { useParams } from "next/navigation";
 
 import usePreStorageByIdQuery from "../../../requests/request-pre-storage/request-pre-storage-location/use-fetch-pre-storage-by-id-query";
 
@@ -7,7 +8,8 @@ import CapacityAndConditionsDetails from "./../../../components/pages/pre-storag
 import LoadingSpinnerPage from "./../../../components/shared/loading-spiner-page";
 import AlertWarning from "./../../../components/shared/alert-warning";
 
-export default function DisplayPreStorageData({ params }) {
+export default function DisplayPreStorageData() {
+  const params = useParams();
   const preStorageID = params.preStorageID;
 
   const { data, isLoading, isError } = usePreStorageByIdQuery(preStorageID);

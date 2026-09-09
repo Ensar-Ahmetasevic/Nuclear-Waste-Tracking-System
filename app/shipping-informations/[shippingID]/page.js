@@ -1,11 +1,13 @@
 "use client";
+import { useParams } from "next/navigation";
 
 import DetailsShippingData from "../../../components/pages/shipping-informations/details-shipping-data";
 import useShippingInformationByIdQuery from "./../../../requests/request-shipping-information/use-fetch-shipping-information-by-id-query";
 import LoadingSpinnerPage from "./../../../components/shared/loading-spiner-page";
 import AlertWarning from "./../../../components/shared/alert-warning";
 
-export default function ShippingDetails({ params }) {
+export default function ShippingDetails() {
+  const params = useParams();
   const shippingID = params.shippingID;
 
   // Fetching ShippingData

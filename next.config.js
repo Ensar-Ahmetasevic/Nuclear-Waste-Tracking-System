@@ -1,4 +1,4 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {}
-
-module.exports = nextConfig
+module.exports = {
+  distDir: process.env.NWTS_ISOLATED_TEST === '1' ? '.next-test' : '.next',
+};

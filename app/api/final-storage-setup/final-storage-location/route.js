@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/server/scoped-database.cjs";
+import { withApiAuth } from "@/lib/server/api-route";
 
 // Createing  data
-export async function POST(req, res) {
+async function POSTHandler(req, res) {
   const formData = await req.json();
 
   const { name, surfaceArea, containerFootprint, depth, containerType } =
@@ -32,7 +32,7 @@ export async function POST(req, res) {
   // Store up to two decimal places but it returns a string so befor seding
   // to the database we need to convert it to a number again
 
-  try {
+  {
     await prisma.finalStorageLocation.create({
       data: {
         name,
@@ -47,19 +47,12 @@ export async function POST(req, res) {
       { message: "New Final-Storage Location added successfully." },
       { status: 200 },
     );
-  } catch (error) {
-    console.error("Faild to create Final-Storage Location: ", error);
-    return NextResponse.json(
-      { message: "Failed to create Final-Storage Location" },
-      { status: 500 },
-      { error: `${error.message}` },
-    );
   }
 }
 
 // Fetch data
-export async function GET() {
-  try {
+async function GETHandler() {
+  {
     const finalStorageLocationData = await prisma.finalStorageLocation.findMany(
       {
         orderBy: { id: "desc" },
@@ -81,7 +74,7 @@ export async function GET() {
     if (!finalStorageLocationData) {
       return NextResponse.json(
         {
-          finalStorageLocationData: null,
+          finalStorageLocationData: [],
           message: "No Final-Storage Location information available",
         },
         { status: 200 },
@@ -89,24 +82,15 @@ export async function GET() {
     }
 
     return NextResponse.json({ finalStorageLocationData }, { status: 200 });
-  } catch (error) {
-    console.error("Faild to fetch Final-Storage Location: ", error);
-    return NextResponse.json(
-      {
-        message: "Failed to fetch Final-Storage Location.",
-        error: error.message,
-      },
-      { status: 500 },
-    );
   }
 }
 
 //  Delete data
 
-export async function DELETE(req) {
+async function DELETEHandler(req) {
   const { id } = await req.json();
 
-  try {
+  {
     await prisma.finalStorageLocation.delete({
       where: { id: id },
     });
@@ -114,21 +98,12 @@ export async function DELETE(req) {
       { message: "Final-Storage Location deleted successfully." },
       { status: 200 },
     );
-  } catch (error) {
-    console.error("Faild to delete Final-Storage Location. ", error);
-    return NextResponse.json(
-      {
-        message: "Faild to delete Final-Storage Location. ",
-        error: error.message,
-      },
-      { status: 500 },
-    );
   }
 }
 
 // Update FinalStorage Location
 
-export async function PUT(req, res) {
+async function PUTHandler(req, res) {
   const { dataForUpdate } = await req.json();
 
   const { id, name, surfaceArea, containerFootprint, depth, containerType } =
@@ -159,7 +134,7 @@ export async function PUT(req, res) {
     );
   }
 
-  try {
+  {
     const updateFinalStorageLocation = await prisma.finalStorageLocation.update(
       {
         where: { id: parseInt(id) },
@@ -180,14 +155,12 @@ export async function PUT(req, res) {
       },
       { status: 200 },
     );
-  } catch (error) {
-    console.error("Faild to update Final-Storage Location.", error);
-    return NextResponse.json(
-      {
-        message: "Faild to update Final-Storage Location.",
-        error: error.message,
-      },
-      { status: 500 },
-    );
   }
 }
+
+export const POST = withApiAuth(POSTHandler);
+export const GET = withApiAuth(GETHandler);
+export const DELETE = withApiAuth(DELETEHandler);
+export const PUT = withApiAuth(PUTHandler, { bodyObjects: ["dataForUpdate"] });
+
+export const dynamic = "force-dynamic";

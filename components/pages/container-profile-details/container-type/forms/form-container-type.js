@@ -60,7 +60,7 @@ function FormContainerType({ OnCancel }) {
               <div className="flex w-full sm:w-64 flex-col space-y-2">
                 <label className="text-left text-sm">Name:</label>
                 <input
-                  className="input input-md input-bordered px-2"
+                  className="input input-md  px-2"
                   type="text"
                   placeholder="Type here ..."
                   {...register("name", {
@@ -74,7 +74,7 @@ function FormContainerType({ OnCancel }) {
               <div className="flex w-full sm:w-64 flex-col space-y-2">
                 <label className="text-left text-sm">Material:</label>
                 <input
-                  className="input input-md input-bordered px-2"
+                  className="input input-md  px-2"
                   type="text"
                   placeholder="Type here ..."
                   {...register("material", {
@@ -90,7 +90,7 @@ function FormContainerType({ OnCancel }) {
               <div className="flex w-full sm:w-64 flex-col space-y-2">
                 <label className="text-left text-sm">{"Volume (m³) :"}</label>
                 <input
-                  className="input input-md input-bordered px-2"
+                  className="input input-md  px-2"
                   type="number"
                   step=".1"
                   min={"1"}
@@ -113,7 +113,7 @@ function FormContainerType({ OnCancel }) {
                   {"Carrying capacity (tons) :"}
                 </label>
                 <input
-                  className="input input-md input-bordered px-2"
+                  className="input input-md  px-2"
                   type="number"
                   step=".1"
                   min={"1"}
@@ -141,7 +141,7 @@ function FormContainerType({ OnCancel }) {
                   Radioactivity Level:
                 </label>
                 <input
-                  className="input input-md input-bordered px-2"
+                  className="input input-md  px-2"
                   type="text"
                   placeholder="Type here ..."
                   {...register("radioactivityLevel", {
@@ -160,7 +160,7 @@ function FormContainerType({ OnCancel }) {
                   Physical properties:
                 </label>
                 <input
-                  className="input input-md input-bordered px-2"
+                  className="input input-md  px-2"
                   type="text"
                   placeholder="Type here ..."
                   {...register("physicalProperties", {
@@ -180,7 +180,7 @@ function FormContainerType({ OnCancel }) {
                   {"Footprint (m²) :"}
                 </label>
                 <input
-                  className="input input-md input-bordered px-2"
+                  className="input input-md  px-2"
                   type="number"
                   step=".1"
                   min={"1"}
@@ -203,7 +203,7 @@ function FormContainerType({ OnCancel }) {
               <div className="flex w-full sm:w-64 flex-col space-y-2">
                 <label className="text-left text-sm">Description:</label>
                 <textarea
-                  className="textarea textarea-bordered"
+                  className="textarea "
                   rows={4}
                   cols={50}
                   type="text"

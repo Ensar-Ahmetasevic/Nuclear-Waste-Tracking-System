@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/server/scoped-database.cjs";
+import { withApiAuth } from "@/lib/server/api-route";
 
 // Createing  data
-export async function POST(req, res) {
+async function POSTHandler(req, res) {
   const formData = await req.json();
 
   const {
@@ -27,7 +27,7 @@ export async function POST(req, res) {
     );
   }
 
-  try {
+  {
     await prisma.wasteProfile.create({
       data: {
         name,
@@ -47,41 +47,27 @@ export async function POST(req, res) {
       { message: "New Waste Profile added successfully." },
       { status: 200 },
     );
-  } catch (error) {
-    console.error("Failed to create Waste Profile: ", error);
-    return NextResponse.json(
-      { message: "Failed to create Waste Profile" },
-      { status: 500 },
-      { error: `${error.message}` },
-    );
   }
 }
 
 // Fetch data
-export async function GET() {
-  try {
+async function GETHandler() {
+  {
     const wasteProfileData = await prisma.wasteProfile.findMany({
       orderBy: { id: "desc" },
       include: { containerType: true },
     });
 
     return NextResponse.json({ wasteProfileData }, { status: 200 });
-  } catch (error) {
-    console.error("Failed to catch Waste Profile Data: ", error);
-    return NextResponse.json(
-      { message: "Failed to catch Waste Profile Data." },
-      { status: 500 },
-      { error: error.message },
-    );
   }
 }
 
 //  Delete data
 
-export async function DELETE(req) {
+async function DELETEHandler(req) {
   const { id } = await req.json();
 
-  try {
+  {
     await prisma.wasteProfile.delete({
       where: { id: id },
     });
@@ -89,19 +75,12 @@ export async function DELETE(req) {
       { message: "Waste Profile deleted successfully." },
       { status: 200 },
     );
-  } catch (error) {
-    console.error("Failed to delete Waste Profile: ", error);
-    return NextResponse.json(
-      { message: "Failed to delete Waste Profile data." },
-      { status: 500 },
-      { error: error.message },
-    );
   }
 }
 
 // Update container type
 
-export async function PUT(req, res) {
+async function PUTHandler(req, res) {
   const { dataForUpdate } = await req.json();
 
   const {
@@ -118,26 +97,24 @@ export async function PUT(req, res) {
     id,
   } = dataForUpdate;
 
-  if (
-    (!name,
-    !typeOfWaste,
-    !wasteDescription,
-    !risksAndHazards,
-    !processingMethods,
-    !chemicalProperties,
-    !physicalProperties,
-    !biologicalProperties,
-    !collectionProcedures,
-    !containerTypeId,
-    !id)
-  ) {
+  if (!name || 
+    !typeOfWaste || 
+    !wasteDescription || 
+    !risksAndHazards || 
+    !processingMethods || 
+    !chemicalProperties || 
+    !physicalProperties || 
+    !biologicalProperties || 
+    !collectionProcedures || 
+    !containerTypeId || 
+    !id) {
     return NextResponse.json(
       { message: "All fields are required" },
       { status: 400 },
     );
   }
 
-  try {
+  {
     const updateWasteProfile = await prisma.wasteProfile.update({
       where: { id: parseInt(id) },
       data: {
@@ -158,25 +135,12 @@ export async function PUT(req, res) {
       { message: "Waste Profile updated successfully", updateWasteProfile },
       { status: 200 },
     );
-  } catch (error) {
-    if (
-      error.code === "P2002" &&
-      error.meta?.target?.includes("containerTypeId")
-    ) {
-      return NextResponse.json(
-        {
-          message:
-            "The selected container type is already assigned to another waste profile. Please select a different container type.",
-          error:
-            "The selected container type is already assigned to another waste profile. Please select a different container type.",
-        },
-        { status: 400 },
-      );
-    }
-
-    return NextResponse.json(
-      { message: "Error updating waste profile", error: error.message },
-      { status: 500 },
-    );
   }
 }
+
+export const POST = withApiAuth(POSTHandler);
+export const GET = withApiAuth(GETHandler);
+export const DELETE = withApiAuth(DELETEHandler);
+export const PUT = withApiAuth(PUTHandler, { bodyObjects: ["dataForUpdate"] });
+
+export const dynamic = "force-dynamic";

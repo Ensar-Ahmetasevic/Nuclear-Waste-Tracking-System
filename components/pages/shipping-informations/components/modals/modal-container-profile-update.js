@@ -61,7 +61,7 @@ export default function ModalContainerProfilUpdate({
               {/* Quantity */}
               <label className="text-left text-sm">Quantity:</label>
               <input
-                className="input input-md input-bordered px-2"
+                className="input input-md  px-2"
                 type="number"
                 step="1"
                 min="1"
@@ -86,7 +86,7 @@ export default function ModalContainerProfilUpdate({
                 Please select location origin
               </label>
               <select
-                className="select select-bordered select-md px-2"
+                className="select  select-md px-2"
                 id="location-origin"
                 defaultValue={locationOrigin?.id}
                 {...register("locationOrigin", {
@@ -119,7 +119,7 @@ export default function ModalContainerProfilUpdate({
                 Please select waste profile
               </label>
               <select
-                className="select select-bordered select-md px-2"
+                className="select  select-md px-2"
                 id="waste-profile"
                 defaultValue={wasteProfile?.id}
                 {...register("wasteProfile", {

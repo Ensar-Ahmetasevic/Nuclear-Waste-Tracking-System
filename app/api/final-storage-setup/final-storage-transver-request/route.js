@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
-const { PrismaClient } = require("@prisma/client");
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/server/scoped-database.cjs";
+import { withApiAuth } from "@/lib/server/api-route";
 
 // Creating new request to pre-storage
 
-export async function POST(req, res) {
+async function POSTHandler(req, res) {
   const formData = await req.json();
 
   const {
@@ -29,7 +28,7 @@ export async function POST(req, res) {
     );
   }
 
-  try {
+  {
     await prisma.storageTransferRequest.create({
       data: {
         requestedQuantity,
@@ -43,20 +42,13 @@ export async function POST(req, res) {
       { message: "New request to pre-storage created successfully." },
       { status: 200 },
     );
-  } catch (error) {
-    console.error("Faild to create request to pre-storage:", error);
-    return NextResponse.json(
-      { message: "Faild to create request to pre-storage" },
-      { status: 500 },
-      { error: `${error.message}` },
-    );
   }
 }
 
 // Fetch data
 
-export async function GET() {
-  try {
+async function GETHandler() {
+  {
     const finalStorageTransverRequestData =
       await prisma.storageTransferRequest.findMany({
         orderBy: {
@@ -67,10 +59,10 @@ export async function GET() {
     if (finalStorageTransverRequestData.length === 0) {
       return NextResponse.json(
         {
-          finalStorageTransverRequestData: null,
+          finalStorageTransverRequestData: [],
           message: "No requests to pre-storage data available.",
         },
-        { status: 204 }, // No Content
+        { status: 200 }, // No Content
       );
     }
 
@@ -81,21 +73,13 @@ export async function GET() {
       },
       { status: 200 },
     );
-  } catch (error) {
-    return NextResponse.json(
-      {
-        message: "Failed to fetch data requests to pre-storage.",
-        error: error.message,
-      },
-      { status: 500 },
-    );
   }
 }
 
-export async function PUT(req, res) {
+async function PUTHandler(req, res) {
   const { operationType, data } = await req.json();
 
-  try {
+  {
     switch (operationType) {
       case "PRE_STORAGE_ACCEPT_REQUEST":
         if (!data.requestedQuantity || !data.approvedByEmployeeId) {
@@ -171,24 +155,15 @@ export async function PUT(req, res) {
           { status: 400 },
         );
     }
-  } catch (error) {
-    console.error("Failed to update Final Storage Transfer Request.", error);
-    return NextResponse.json(
-      {
-        message: "Failed to process the request. Please try again.",
-        error: error.message,
-      },
-      { status: 500 },
-    );
   }
 }
 
 // Helper function for updating storage transfer request
 async function updateTransferRequest(updateData, successMessage) {
-  try {
+  {
     const updated = await prisma.storageTransferRequest.update({
       where: { id: updateData.id },
-      data: updateData,
+      data: Object.fromEntries(Object.entries(updateData).filter(([key]) => key !== "id")),
     });
     return NextResponse.json(
       {
@@ -197,14 +172,11 @@ async function updateTransferRequest(updateData, successMessage) {
       },
       { status: 200 },
     );
-  } catch (error) {
-    console.error("Failed to update transfer request:", error);
-    return NextResponse.json(
-      {
-        message: `Error: ${error.message}`,
-        error: error.message,
-      },
-      { status: 500 },
-    );
   }
 }
+
+export const POST = withApiAuth(POSTHandler);
+export const GET = withApiAuth(GETHandler);
+export const PUT = withApiAuth(PUTHandler, { bodyObjects: ["data"] });
+
+export const dynamic = "force-dynamic";

@@ -7,9 +7,33 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+
+model Organization {
+  id Int @id @default(autoincrement())
+  name String
+  createdAt DateTime @default(now())
+  userProfileRecords UserProfile[]
+  shippingInformationRecords ShippingInformation[]
+  containerProfileRecords ContainerProfile[]
+  locationOriginRecords LocationOrigin[]
+  wasteProfileRecords WasteProfile[]
+  containerTypeRecords ContainerType[]
+  preStorageLocationRecords PreStorageLocation[]
+  preStorageEntryRecords PreStorageEntry[]
+  preStorageResponsibleEmployeeRecords PreStorageResponsibleEmployee[]
+  preStorageConditionsRecords PreStorageConditions[]
+  finalStorageLocationRecords FinalStorageLocation[]
+  storageTransferRequestRecords StorageTransferRequest[]
+  finalStorageResponsibleEmployeeRecords FinalStorageResponsibleEmployee[]
+  finalStorageConditionRecords FinalStorageCondition[]
 }
 
 model UserProfile {
+  organizationId Int?
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  @@index([organizationId])
   id                   Int                   @id @default(autoincrement())
   email                String                @unique
   password             String
@@ -17,6 +41,7 @@ model UserProfile {
   companyId            Int
   companyName          String
   address              String
+  active               Boolean               @default(true)
   administrator        Boolean
   shippingInformations ShippingInformation[]
 }
@@ -24,6 +49,9 @@ model UserProfile {
 // Setep 1 Shipping Informations
 
 model ShippingInformation {
+  organizationId Int?
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  @@index([organizationId])
   id                 Int                @id @default(autoincrement())
   entryDateTime      DateTime           @default(now())
   exitDateTime       DateTime?
@@ -39,6 +67,9 @@ model ShippingInformation {
 }
 
 model ContainerProfile {
+  organizationId Int?
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  @@index([organizationId])
   id                    Int                  @id @default(autoincrement())
   createdAt             DateTime             @default(now())
   // Statuts: "pending", "accepted", "rejected"
@@ -53,6 +84,9 @@ model ContainerProfile {
 }
 
 model LocationOrigin {
+  organizationId Int?
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  @@index([organizationId])
   id                Int                @id @default(autoincrement())
   name              String
   address           String
@@ -64,6 +98,9 @@ model LocationOrigin {
 }
 
 model WasteProfile {
+  organizationId Int?
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  @@index([organizationId])
   id                   Int                @id @default(autoincrement())
   name                 String
   typeOfWaste          String
@@ -80,6 +117,9 @@ model WasteProfile {
 }
 
 model ContainerType {
+  organizationId Int?
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  @@index([organizationId])
   id                 Int           @id @default(autoincrement())
   name               String
   material           String
@@ -95,6 +135,9 @@ model ContainerType {
 // Step 2 "Pre-storage of waste"
 
 model PreStorageLocation {
+  organizationId Int?
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  @@index([organizationId])
   id                   Int                    @id @default(autoincrement())
   name                 String
   surfaceArea          Int
@@ -107,6 +150,9 @@ model PreStorageLocation {
 }
 
 model PreStorageEntry {
+  organizationId Int?
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  @@index([organizationId])
   id                              Int                            @id @default(autoincrement())
   createdAt                       DateTime                       @default(now())
   quantity                        Int
@@ -117,6 +163,9 @@ model PreStorageEntry {
 }
 
 model PreStorageResponsibleEmployee {
+  organizationId Int?
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  @@index([organizationId])
   id                   Int                      @id @default(autoincrement())
   name                 String
   surname              String
@@ -132,6 +181,9 @@ model PreStorageResponsibleEmployee {
 // Step 2.1 Pre-Storage Conditions
 
 model PreStorageConditions {
+  organizationId Int?
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  @@index([organizationId])
   id                              Int                           @id @default(autoincrement())
   createdAt                       DateTime                      @default(now())
   preStorageTemperature           Float
@@ -147,6 +199,9 @@ model PreStorageConditions {
 // Step 3 "Final Storage of waste"
 
 model FinalStorageLocation {
+  organizationId Int?
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  @@index([organizationId])
   id                      Int                      @id @default(autoincrement())
   name                    String
   containerType           String
@@ -159,6 +214,9 @@ model FinalStorageLocation {
 }
 
 model StorageTransferRequest {
+  organizationId Int?
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  @@index([organizationId])
   id                 Int      @id @default(autoincrement())
   createdAt          DateTime @default(now())
   finalStorageStatus String   @default("requestPending") // "requestPending", "transportPending","requestRejeted", "accepted", "rejected"
@@ -180,6 +238,9 @@ model StorageTransferRequest {
 }
 
 model FinalStorageResponsibleEmployee {
+  organizationId Int?
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  @@index([organizationId])
   id                     Int                      @id @default(autoincrement())
   name                   String
   surname                String
@@ -195,6 +256,9 @@ model FinalStorageResponsibleEmployee {
 // Step 3.1 Storage Conditions
 
 model FinalStorageCondition {
+  organizationId Int?
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  @@index([organizationId])
   id                                Int                              @id @default(autoincrement())
   createdAt                         DateTime                         @default(now())
   finalStorageTemperature           Float
@@ -205,4 +269,11 @@ model FinalStorageCondition {
   finalStorageLocation              FinalStorageLocation             @relation(fields: [finalStorageLocationId], references: [id], onDelete: Cascade)
   finalStorageResponsibleEmployeeId Int?
   finalStorageResponsibleEmployee   FinalStorageResponsibleEmployee? @relation(fields: [finalStorageResponsibleEmployeeId], references: [id], onDelete: SetNull)
+}
+
+model AuthRateLimit {
+  key String @id
+  attempts Int @default(1)
+  expiresAt DateTime
+  @@index([expiresAt])
 }

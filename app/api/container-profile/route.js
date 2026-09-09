@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/server/scoped-database.cjs";
+import { withApiAuth } from "@/lib/server/api-route";
 
 // Creating  data
-export async function POST(req, res) {
+async function POSTHandler(req, res) {
   const formData = await req.json();
 
   const { quantity, locationOriginId, wasteProfileId, shippingInformationId } =
@@ -28,7 +28,7 @@ export async function POST(req, res) {
   const parsedWasteProfileId = parseInt(wasteProfileId);
   const parsedShippingInformationId = parseInt(shippingInformationId);
 
-  try {
+  {
     await prisma.containerProfile.create({
       data: {
         quantity: parsedQuantity,
@@ -45,18 +45,12 @@ export async function POST(req, res) {
       },
       { status: 200 },
     );
-  } catch (error) {
-    console.error("Error creating Container Profile:", error);
-    return NextResponse.json(
-      { message: "Failed to create Container Profile", error: error.message },
-      { status: 500 },
-    );
   }
 }
 
 // Fetch data
-export async function GET() {
-  try {
+async function GETHandler() {
+  {
     const containerProfileData = await prisma.containerProfile.findMany({
       orderBy: { id: "desc" },
     });
@@ -64,7 +58,7 @@ export async function GET() {
     if (!containerProfileData) {
       return NextResponse.json(
         {
-          containerProfileData: null,
+          containerProfileData: [],
           message: "No container information available",
         },
         { status: 200 },
@@ -72,23 +66,15 @@ export async function GET() {
     }
 
     return NextResponse.json({ containerProfileData }, { status: 200 });
-  } catch (error) {
-    return NextResponse.json(
-      {
-        message: "Failed to fetch Shipping Information Data.",
-        error: error.message,
-      },
-      { status: 500 },
-    );
   }
 }
 
 //  Delete data
 
-export async function DELETE(req) {
+async function DELETEHandler(req) {
   const { id } = await req.json();
 
-  try {
+  {
     await prisma.containerProfile.delete({
       where: { id: parseInt(id) },
     });
@@ -96,20 +82,12 @@ export async function DELETE(req) {
       { message: "Container Profile deleted successfully." },
       { status: 200 },
     );
-  } catch (error) {
-    return NextResponse.json(
-      {
-        message: "Failed to delete Container Profile data.",
-        error: error.message,
-      },
-      { status: 500 },
-    );
   }
 }
 
 // Update container profile on the Entry Form
 
-export async function PUT(req) {
+async function PUTHandler(req) {
   const { preparedData } = await req.json();
 
   const { id, quantity, locationOrigin, wasteProfile } = preparedData;
@@ -121,7 +99,7 @@ export async function PUT(req) {
     );
   }
 
-  try {
+  {
     const updatedProfile = await prisma.containerProfile.update({
       where: { id: parseInt(id) },
       data: {
@@ -136,19 +114,13 @@ export async function PUT(req) {
       { message: "Container Profile updated successfully.", updatedProfile },
       { status: 200 },
     );
-  } catch (error) {
-    console.error("Error updating Container Profile:", error);
-    return NextResponse.json(
-      { message: "Failed to update Container Profile", error: error.message },
-      { status: 500 },
-    );
   }
 }
 
 // Update container profile STATUS in the hall
 
-export async function PATCH(request) {
-  try {
+async function PATCHHandler(request) {
+  {
     const { containerStatusUpdateData } = await request.json();
 
     const { containerProfileId, containerStatus } = containerStatusUpdateData;
@@ -179,8 +151,13 @@ export async function PATCH(request) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Error updating container status:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+export const POST = withApiAuth(POSTHandler);
+export const GET = withApiAuth(GETHandler);
+export const DELETE = withApiAuth(DELETEHandler);
+export const PUT = withApiAuth(PUTHandler, { bodyObjects: ["preparedData"] });
+export const PATCH = withApiAuth(PATCHHandler, { bodyObjects: ["containerStatusUpdateData"] });
+
+export const dynamic = "force-dynamic";

@@ -46,7 +46,7 @@ export default function TruckDataDetails({ data }) {
         {items.map((item) => (
           <div
             key={item.label}
-            className="rounded-md bg-base-200 p-3 shadow-sm"
+            className="rounded-md bg-base-200 p-3 shadow-xs"
           >
             <div className="text-sm text-base-content/60">{item.label}</div>
             <div className="break-words text-base font-semibold sm:text-lg md:text-xl">

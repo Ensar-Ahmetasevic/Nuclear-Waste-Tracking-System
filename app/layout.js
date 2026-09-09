@@ -10,7 +10,7 @@ import Navbar from "./../components/navbar/navbar";
 const rubik = Rubik({
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-rubik",
+  variable: "--font-rubik-face",
 });
 
 export const viewport = {
@@ -39,7 +39,6 @@ export default function RootLayout({ children }) {
             pauseOnHover
             className="mt-16 max-w-[95vw] text-center sm:max-w-md"
             toastClassName="bg-gray-900 text-white"
-            bodyClassName="text-sm"
           />
           <Navbar />
           {children}

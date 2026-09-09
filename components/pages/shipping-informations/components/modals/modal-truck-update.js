@@ -59,7 +59,7 @@ export default function ModalTruckUpdate({ modalTruckFormData, closeModal }) {
               <div className="flex w-full sm:w-64 flex-col space-y-2">
                 <label className="text-left text-sm">Company Name:</label>
                 <input
-                  className="input input-md input-bordered px-2"
+                  className="input input-md  px-2"
                   type="text"
                   placeholder="Type here"
                   defaultValue={companyName}
@@ -77,7 +77,7 @@ export default function ModalTruckUpdate({ modalTruckFormData, closeModal }) {
               <div className="flex w-full sm:w-64 flex-col space-y-2">
                 <label className="text-left text-sm">Driver Name:</label>
                 <input
-                  className="input input-md input-bordered px-2"
+                  className="input input-md  px-2"
                   type="text"
                   placeholder="Type here"
                   defaultValue={driverName}
@@ -97,7 +97,7 @@ export default function ModalTruckUpdate({ modalTruckFormData, closeModal }) {
                   Registration Plates:
                 </label>
                 <input
-                  className="input input-md input-bordered px-2"
+                  className="input input-md  px-2"
                   type="text"
                   placeholder="Type here"
                   defaultValue={registrationPlates}

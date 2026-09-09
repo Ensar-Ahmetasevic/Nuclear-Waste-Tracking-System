@@ -32,10 +32,7 @@ export default function useUpdateFinalStorageTransferRequestMutation() {
     mutationFn: updateFinalStorageTransferRequestMutation,
     onSuccess: (data) => {
       // Invalidate and refetch
-      queryClient.invalidateQueries({
-        queryKey: ["finalStorageTransferRequestQueryKey"],
-        queryKey: ["finalStorageLocationQueryKey"],
-      });
+      Promise.all([queryClient.invalidateQueries({queryKey: ["finalStorageTransferRequestQueryKey"]}), queryClient.invalidateQueries({queryKey: ["finalStorageLocationQueryKey"]})]);
       // Use the server's success message
       toast.success(data.message, {
         autoClose: 2000,

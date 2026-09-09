@@ -57,7 +57,7 @@ export default function AllShippingData({ truck }) {
   return (
     <div className="mx-auto w-full max-w-4xl px-2 pt-6 sm:px-4 md:pt-8">
       <article
-        className={`rounded-lg border border-l-4 border-base-300 bg-base-100 p-4 shadow-sm md:hidden ${borderColor}`}
+        className={`rounded-lg border border-l-4 border-base-300 bg-base-100 p-4 shadow-xs md:hidden ${borderColor}`}
       >
         <div className="space-y-4">
           <div className="flex items-start justify-between gap-3">

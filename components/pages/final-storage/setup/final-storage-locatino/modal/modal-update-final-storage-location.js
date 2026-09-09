@@ -67,7 +67,7 @@ export default function ModalUpdateFinalStorageLocation({
                 <div className="flex flex-col space-y-2">
                   <label className="text-left text-sm">Name:</label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="text"
                     placeholder="Type here ..."
                     defaultValue={name}
@@ -88,7 +88,7 @@ export default function ModalUpdateFinalStorageLocation({
                     {"Surface Area (m²)"}:
                   </label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="number"
                     step="1"
                     min="1"
@@ -110,7 +110,7 @@ export default function ModalUpdateFinalStorageLocation({
                     {"Container Footprint (m²)"}:
                   </label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="number"
                     step="1"
                     min="1"
@@ -130,7 +130,7 @@ export default function ModalUpdateFinalStorageLocation({
                 <div className="flex flex-col space-y-2">
                   <label className="text-left text-sm">Container Type:</label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="text"
                     placeholder="Type here ..."
                     {...register("containerType", {
@@ -148,7 +148,7 @@ export default function ModalUpdateFinalStorageLocation({
                 <div className="flex w-full sm:w-64 flex-col space-y-2">
                   <label className="text-left text-sm">{"Depth (m)"}:</label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="number"
                     step="1"
                     min="1"

@@ -74,7 +74,7 @@ export default function ModalUpdatePreStorageLocation({
                 <div className="flex flex-col space-y-2">
                   <label className="text-left text-sm">Name:</label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="text"
                     placeholder="Type here ..."
                     defaultValue={name}
@@ -95,7 +95,7 @@ export default function ModalUpdatePreStorageLocation({
                     {"Surface Area (m²)"}:
                   </label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="number"
                     step="1"
                     min="1"
@@ -117,7 +117,7 @@ export default function ModalUpdatePreStorageLocation({
                     {"Container Footprint (m²)"}:
                   </label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="number"
                     step="1"
                     min="1"
@@ -137,7 +137,7 @@ export default function ModalUpdatePreStorageLocation({
                 <div className="flex flex-col space-y-2">
                   <label className="text-left text-sm">Container Type:</label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="text"
                     placeholder="Type here ..."
                     {...register("containerType", {
@@ -155,7 +155,7 @@ export default function ModalUpdatePreStorageLocation({
                 <div className="flex flex-col space-y-2">
                   <label className="text-left text-sm">Waste Profile:</label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="text"
                     placeholder="Type here ..."
                     {...register("wasteProfile", {
@@ -173,7 +173,7 @@ export default function ModalUpdatePreStorageLocation({
                 <div className="flex flex-col space-y-2">
                   <label className="text-left text-sm">Pre-Storage For:</label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="text"
                     placeholder="Type here ..."
                     defaultValue={preStorageFor}
@@ -221,7 +221,7 @@ export default function ModalUpdatePreStorageLocation({
                 <div className="flex flex-col space-y-2">
                   <label className="text-left text-sm">Name:</label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="text"
                     placeholder="Type here ..."
                     defaultValue={name}
@@ -237,7 +237,7 @@ export default function ModalUpdatePreStorageLocation({
                     {"Surface Area (m²)"}:
                   </label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="number"
                     step="1" // Restrict to whole numbers
                     min="1" // Prevent 0 or negative values
@@ -263,7 +263,7 @@ export default function ModalUpdatePreStorageLocation({
                     {"Container Footprint (m²)"}:
                   </label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="number"
                     step="1" // Restrict to whole numbers
                     min="1" // Prevent 0 or negative values
@@ -288,7 +288,7 @@ export default function ModalUpdatePreStorageLocation({
                 <div className="flex flex-col space-y-2">
                   <label className="text-left text-sm">Container Type:</label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="text"
                     placeholder="Type here ..."
                     {...register("containerType", {
@@ -302,7 +302,7 @@ export default function ModalUpdatePreStorageLocation({
                 <div className="flex flex-col space-y-2">
                   <label className="text-left text-sm">Waste Profile:</label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="text"
                     placeholder="Type here ..."
                     {...register("wasteProfile", {
@@ -316,7 +316,7 @@ export default function ModalUpdatePreStorageLocation({
                 <div className="flex w-full sm:w-64 flex-col space-y-2">
                   <label className="text-left text-sm">Pre-Storage For:</label>
                   <textarea
-                    className="textarea textarea-bordered"
+                    className="textarea "
                     rows={4}
                     cols={50}
                     type="text"

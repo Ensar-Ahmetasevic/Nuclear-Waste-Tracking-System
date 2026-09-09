@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/server/scoped-database.cjs";
+import { withApiAuth } from "@/lib/server/api-route";
 
 // Createing  data
-export async function POST(req, res) {
+async function POSTHandler(req, res) {
   const formData = await req.json();
 
   const {
@@ -16,7 +16,7 @@ export async function POST(req, res) {
     safetyTraining,
   } = formData;
 
-  console.log("formData: ", formData);
+  
 
   if (
     !name ||
@@ -35,7 +35,7 @@ export async function POST(req, res) {
     );
   }
 
-  try {
+  {
     await prisma.finalStorageResponsibleEmployee.create({
       data: {
         name,
@@ -51,19 +51,12 @@ export async function POST(req, res) {
       { message: "New Final-Storage Employee added successfully." },
       { status: 200 },
     );
-  } catch (error) {
-    console.error("Faild to create Final-Storage Employee: ", error);
-    return NextResponse.json(
-      { message: "Failed to create Final-Storage Employee" },
-      { status: 500 },
-      { error: `${error.message}` },
-    );
   }
 }
 
 // Fetch data
-export async function GET() {
-  try {
+async function GETHandler() {
+  {
     const finalStorageEmployeeData =
       await prisma.finalStorageResponsibleEmployee.findMany({
         orderBy: { id: "desc" },
@@ -72,7 +65,7 @@ export async function GET() {
     if (!finalStorageEmployeeData) {
       return NextResponse.json(
         {
-          containerEmployeeData: null,
+          containerEmployeeData: [],
           message: "No Container Type information available",
         },
         { status: 200 },
@@ -80,24 +73,15 @@ export async function GET() {
     }
 
     return NextResponse.json({ finalStorageEmployeeData }, { status: 200 });
-  } catch (error) {
-    console.error("Faild to fetch Final Storage Employee: ", error);
-    return NextResponse.json(
-      {
-        message: "Failed to fetch Final Storage Employee.",
-        error: error.message,
-      },
-      { status: 500 },
-    );
   }
 }
 
 //  Delete data
 
-export async function DELETE(req) {
+async function DELETEHandler(req) {
   const { id } = await req.json();
 
-  try {
+  {
     await prisma.finalStorageResponsibleEmployee.delete({
       where: { id: id },
     });
@@ -105,21 +89,12 @@ export async function DELETE(req) {
       { message: "Final Storage Employee deleted successfully." },
       { status: 200 },
     );
-  } catch (error) {
-    console.error("Faild to delete Final Storage Employee: ", error);
-    return NextResponse.json(
-      {
-        message: "Faild to delete Final Storage Employee: ",
-        error: error.message,
-      },
-      { status: 500 },
-    );
   }
 }
 
 // Update container type
 
-export async function PUT(req, res) {
+async function PUTHandler(req, res) {
   const { dataForUpdate } = await req.json();
 
   const {
@@ -147,7 +122,7 @@ export async function PUT(req, res) {
     );
   }
 
-  try {
+  {
     const updateContainerType =
       await prisma.finalStorageResponsibleEmployee.update({
         where: { id: parseInt(id) },
@@ -168,14 +143,12 @@ export async function PUT(req, res) {
       },
       { status: 200 },
     );
-  } catch (error) {
-    console.error("Faild to update Final Storage Employee: ", error);
-    return NextResponse.json(
-      {
-        message: "Faild to update Final Storage Employee: ",
-        error: error.message,
-      },
-      { status: 500 },
-    );
   }
 }
+
+export const POST = withApiAuth(POSTHandler);
+export const GET = withApiAuth(GETHandler);
+export const DELETE = withApiAuth(DELETEHandler);
+export const PUT = withApiAuth(PUTHandler, { bodyObjects: ["dataForUpdate"] });
+
+export const dynamic = "force-dynamic";

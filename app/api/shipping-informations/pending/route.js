@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/server/scoped-database.cjs";
+import { withApiAuth } from "@/lib/server/api-route";
 
 // GET request to fetch pending ShippingInformation filtered by hall ID (preStorageID)
-export async function GET() {
-  try {
+async function GETHandler() {
+  {
     const pendingShippingInformations =
       await prisma.shippingInformation.findMany({
         where: {
@@ -31,21 +30,12 @@ export async function GET() {
       });
 
     return NextResponse.json({ pendingShippingInformations }, { status: 200 });
-  } catch (error) {
-    console.error("Error fetching Pending Shipping Informations:", error);
-    return NextResponse.json(
-      {
-        message: "Failed to fetch Pending Shipping Informations",
-        error: error.message,
-      },
-      { status: 500 },
-    );
   }
 }
 
 // Update the status of the shipping information
-export async function PATCH(request) {
-  try {
+async function PATCHHandler(request) {
+  {
     const { shippingStatusData } = await request.json();
 
     const { status, id } = shippingStatusData;
@@ -56,14 +46,10 @@ export async function PATCH(request) {
     });
 
     return NextResponse.json(updatedShippingInformation, { status: 200 });
-  } catch (error) {
-    console.error("Error updating shipping information status:", error);
-    return NextResponse.json(
-      {
-        message: "Failed to update shipping information status",
-        error: error.message,
-      },
-      { status: 500 },
-    );
   }
 }
+
+export const GET = withApiAuth(GETHandler);
+export const PATCH = withApiAuth(PATCHHandler, { bodyObjects: ["shippingStatusData"] });
+
+export const dynamic = "force-dynamic";

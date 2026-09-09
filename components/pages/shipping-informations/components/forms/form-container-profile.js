@@ -55,7 +55,7 @@ export default function FormContainerProfile({ closeModal, shippingID }) {
           {/* Quantity */}
           <label className="text-left text-sm">Quantity:</label>
           <input
-            className="input input-md input-bordered px-2"
+            className="input input-md  px-2"
             type="number"
             step="1"
             min="1"
@@ -77,7 +77,7 @@ export default function FormContainerProfile({ closeModal, shippingID }) {
           </label>
 
           <select
-            className="select select-bordered select-md px-2"
+            className="select  select-md px-2"
             id="location-origin"
             {...register("locationOrigin", {
               required: "Location origin is required",
@@ -105,7 +105,7 @@ export default function FormContainerProfile({ closeModal, shippingID }) {
           </label>
 
           <select
-            className="select select-bordered select-md px-2"
+            className="select  select-md px-2"
             id="waste-profile"
             {...register("wasteProfile", {
               required: "Waste profile is required",

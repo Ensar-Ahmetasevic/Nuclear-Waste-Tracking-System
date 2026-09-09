@@ -23,7 +23,7 @@ export default function RegisterPage() {
     setIsLoading(true);
     try {
       await axios.post("/api/auth/register", data);
-      toast.success("Account created. Please sign in.");
+      toast.success("Registration received. Your organization access must be activated.");
       router.push("/login");
     } catch (error) {
       toast.error(error.response?.data?.message || "Registration failed");
@@ -43,100 +43,113 @@ export default function RegisterPage() {
             className="flex flex-col space-y-3"
           >
             <div className="form-control">
-              <label className="label">
+              <label className="label" htmlFor="register-email">
                 <span className="label-text">Email</span>
               </label>
               <input
                 type="email"
-                className="input input-bordered"
+                className="input "
+                id="register-email"
+                autoComplete="email"
+                aria-invalid={Boolean(errors.email)}
+                aria-describedby={errors.email ? "register-email-error" : undefined}
                 {...register("email", { required: "Email is required" })}
               />
               {errors.email && (
-                <span className="text-sm text-red-500">
+                <span id="register-email-error" role="alert" className="text-sm text-red-500">
                   {errors.email.message}
                 </span>
               )}
             </div>
 
             <div className="form-control">
-              <label className="label">
-                <span className="label-text">Password (min 6)</span>
+              <label className="label" htmlFor="register-password">
+                <span className="label-text">Password (min 12)</span>
               </label>
               <input
                 type="password"
-                className="input input-bordered"
+                className="input "
+                id="register-password"
+                autoComplete="new-password"
+                aria-invalid={Boolean(errors.password)}
+                aria-describedby={errors.password ? "register-password-error" : undefined}
                 {...register("password", {
                   required: "Password is required",
-                  minLength: { value: 6, message: "At least 6 characters" },
+                  minLength: { value: 12, message: "At least 12 characters" },
                 })}
               />
               {errors.password && (
-                <span className="text-sm text-red-500">
+                <span id="register-password-error" role="alert" className="text-sm text-red-500">
                   {errors.password.message}
                 </span>
               )}
             </div>
 
             <div className="form-control">
-              <label className="label">
+              <label className="label" htmlFor="register-companyName">
                 <span className="label-text">Company Name</span>
               </label>
               <input
                 type="text"
-                className="input input-bordered"
+                className="input "
+                id="register-companyName"
+                autoComplete="organization"
+                aria-invalid={Boolean(errors.companyName)}
+                aria-describedby={errors.companyName ? "register-companyName-error" : undefined}
                 {...register("companyName", {
                   required: "Company name is required",
                 })}
               />
               {errors.companyName && (
-                <span className="text-sm text-red-500">
+                <span id="register-companyName-error" role="alert" className="text-sm text-red-500">
                   {errors.companyName.message}
                 </span>
               )}
             </div>
 
             <div className="form-control">
-              <label className="label">
+              <label className="label" htmlFor="register-companyId">
                 <span className="label-text">Company ID</span>
               </label>
               <input
                 type="number"
-                className="input input-bordered"
+                className="input "
+                id="register-companyId"
+                autoComplete="off"
+                aria-invalid={Boolean(errors.companyId)}
+                aria-describedby={errors.companyId ? "register-companyId-error" : undefined}
                 {...register("companyId", {
                   required: "Company ID is required",
                 })}
               />
               {errors.companyId && (
-                <span className="text-sm text-red-500">
+                <span id="register-companyId-error" role="alert" className="text-sm text-red-500">
                   {errors.companyId.message}
                 </span>
               )}
             </div>
 
             <div className="form-control">
-              <label className="label">
+              <label className="label" htmlFor="register-address">
                 <span className="label-text">Address</span>
               </label>
               <input
                 type="text"
-                className="input input-bordered"
+                className="input "
+                id="register-address"
+                autoComplete="street-address"
+                aria-invalid={Boolean(errors.address)}
+                aria-describedby={errors.address ? "register-address-error" : undefined}
                 {...register("address", { required: "Address is required" })}
               />
               {errors.address && (
-                <span className="text-sm text-red-500">
+                <span id="register-address-error" role="alert" className="text-sm text-red-500">
                   {errors.address.message}
                 </span>
               )}
             </div>
 
-            <label className="label cursor-pointer justify-start space-x-3">
-              <input
-                type="checkbox"
-                className="checkbox"
-                {...register("administrator")}
-              />
-              <span className="label-text">Administrator account</span>
-            </label>
+            <p className="text-sm">Organization access is activated after registration.</p>
 
             <button
               type="submit"

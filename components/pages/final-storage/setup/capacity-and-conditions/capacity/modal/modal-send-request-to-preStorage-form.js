@@ -95,7 +95,7 @@ export default function ModalSendRequestToPreStorageForm({
                 {/* Quantity */}
                 <label className="text-left text-sm">Quantity:</label>
                 <input
-                  className="input input-md input-bordered input-info px-2"
+                  className="input input-md  input-info px-2"
                   type="number"
                   step="1" // Restrict to whole numbers
                   min="1" // Prevent 0 or negative values
@@ -122,7 +122,7 @@ export default function ModalSendRequestToPreStorageForm({
                 </label>
 
                 <select
-                  className="select select-bordered select-info select-md px-2"
+                  className="select  select-info select-md px-2"
                   id="responsible-employee"
                   {...register("responsibleEmployee", {
                     required: "Please select responsible employee",

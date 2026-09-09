@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/server/scoped-database.cjs";
+import { withApiAuth } from "@/lib/server/api-route";
 
 // GET request to fetch shipping information by ID
-export async function GET(req, { params }) {
-  const { shippingID } = params;
+async function GETHandler(req, { params }) {
+  const { shippingID } = await params;
 
-  try {
+  {
     const shippingData = await prisma.shippingInformation.findUnique({
       where: { id: parseInt(shippingID) },
       include: {
@@ -28,11 +27,9 @@ export async function GET(req, { params }) {
     }
 
     return NextResponse.json({ shippingData }, { status: 200 });
-  } catch (error) {
-    console.error("Error fetching Shipping data by id:", error);
-    return NextResponse.json(
-      { message: "Failed to fetch Shipping Information", error: error.message },
-      { status: 500 },
-    );
   }
 }
+
+export const GET = withApiAuth(GETHandler);
+
+export const dynamic = "force-dynamic";

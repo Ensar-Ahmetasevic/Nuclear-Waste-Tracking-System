@@ -60,7 +60,7 @@ export default function FormPreStorageEmployee({ OnCancel }) {
             <div className="flex flex-col space-y-2">
               <label className="text-left text-sm">Name:</label>
               <input
-                className="input input-md input-bordered px-2"
+                className="input input-md  px-2"
                 type="text"
                 placeholder="Type here ..."
                 {...register("name", {
@@ -77,7 +77,7 @@ export default function FormPreStorageEmployee({ OnCancel }) {
             <div className="flex w-full sm:w-64 flex-col space-y-2">
               <label className="text-left text-sm">Surname:</label>
               <input
-                className="input input-md input-bordered px-2"
+                className="input input-md  px-2"
                 type="text"
                 placeholder="Type here ..."
                 {...register("surname", {
@@ -92,7 +92,7 @@ export default function FormPreStorageEmployee({ OnCancel }) {
             <div className="flex w-full sm:w-64 flex-col space-y-2">
               <label className="text-left text-sm">Address:</label>
               <input
-                className="input input-md input-bordered px-2"
+                className="input input-md  px-2"
                 type="text"
                 placeholder="Type here ..."
                 {...register("address", {
@@ -113,7 +113,7 @@ export default function FormPreStorageEmployee({ OnCancel }) {
             <div className="flex w-full sm:w-64 flex-col space-y-2">
               <label className="text-left text-sm">Qualifications:</label>
               <input
-                className="input input-md input-bordered px-2"
+                className="input input-md  px-2"
                 type="text"
                 placeholder="Type here ..."
                 {...register("qualifications", {
@@ -132,7 +132,7 @@ export default function FormPreStorageEmployee({ OnCancel }) {
             <div className="flex flex-col space-y-2">
               <label className="text-left text-sm">Date Of Birth:</label>
               <input
-                className="input input-md input-bordered px-2"
+                className="input input-md  px-2"
                 type="date"
                 placeholder="Select date"
                 {...register("dateOfBirth", {

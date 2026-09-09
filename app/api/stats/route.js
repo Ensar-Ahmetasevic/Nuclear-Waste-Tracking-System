@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/server/scoped-database.cjs";
+import { withApiAuth } from "@/lib/server/api-route";
 
-const prisma = new PrismaClient();
-
-export async function GET() {
-  try {
+async function GETHandler() {
+  {
     const [
       preStorageLocations,
       finalStorageLocations,
@@ -74,11 +73,9 @@ export async function GET() {
       },
       { status: 200 },
     );
-  } catch (error) {
-    console.error("Failed to fetch dashboard stats:", error);
-    return NextResponse.json(
-      { message: "Failed to fetch stats", error: error.message },
-      { status: 500 },
-    );
   }
 }
+
+export const GET = withApiAuth(GETHandler);
+
+export const dynamic = "force-dynamic";

@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/server/scoped-database.cjs";
+import { withApiAuth } from "@/lib/server/api-route";
 
 // Createing  data
-export async function POST(req, res) {
+async function POSTHandler(req, res) {
   const formData = await req.json();
 
   const {
@@ -38,7 +38,7 @@ export async function POST(req, res) {
   const containerFootprintNumber = containerFootprint.toFixed(2);
   // Store up to two decimal places but it returns a string so befor seding to the database we need to convert it to a number again
 
-  try {
+  {
     await prisma.preStorageLocation.create({
       data: {
         name,
@@ -54,19 +54,12 @@ export async function POST(req, res) {
       { message: "New Pre-Storage Location added successfully." },
       { status: 200 },
     );
-  } catch (error) {
-    console.error("Faild to create Pre-Storage Location: ", error);
-    return NextResponse.json(
-      { message: "Failed to create Pre-Storage Location" },
-      { status: 500 },
-      { error: `${error.message}` },
-    );
   }
 }
 
 // Fetch data
-export async function GET() {
-  try {
+async function GETHandler() {
+  {
     const preStorageLocationData = await prisma.preStorageLocation.findMany({
       orderBy: { id: "desc" },
       include: {
@@ -77,7 +70,7 @@ export async function GET() {
     if (!preStorageLocationData) {
       return NextResponse.json(
         {
-          preStorageLocationData: null,
+          preStorageLocationData: [],
           message: "No Pre-Storage Location information available",
         },
         { status: 200 },
@@ -85,24 +78,15 @@ export async function GET() {
     }
 
     return NextResponse.json({ preStorageLocationData }, { status: 200 });
-  } catch (error) {
-    console.error("Faild to fetch Pre-Storage Location: ", error);
-    return NextResponse.json(
-      {
-        message: "Failed to fetch Pre-Storage Location.",
-        error: error.message,
-      },
-      { status: 500 },
-    );
   }
 }
 
 //  Delete data
 
-export async function DELETE(req) {
+async function DELETEHandler(req) {
   const { id } = await req.json();
 
-  try {
+  {
     await prisma.preStorageLocation.delete({
       where: { id: id },
     });
@@ -110,21 +94,12 @@ export async function DELETE(req) {
       { message: "Pre-Storage Location deleted successfully." },
       { status: 200 },
     );
-  } catch (error) {
-    console.error("Faild to delete Pre-Storage Location. ", error);
-    return NextResponse.json(
-      {
-        message: "Faild to delete Pre-Storage Location. ",
-        error: error.message,
-      },
-      { status: 500 },
-    );
   }
 }
 
 // Update preStorage Location
 
-export async function PUT(req, res) {
+async function PUTHandler(req, res) {
   const { dataForUpdate } = await req.json();
 
   const {
@@ -162,7 +137,7 @@ export async function PUT(req, res) {
     );
   }
 
-  try {
+  {
     const updatePreStorageLocation = await prisma.preStorageLocation.update({
       where: { id: parseInt(id) },
       data: {
@@ -182,14 +157,12 @@ export async function PUT(req, res) {
       },
       { status: 200 },
     );
-  } catch (error) {
-    console.error("Faild to update Pre-Storage Location.", error);
-    return NextResponse.json(
-      {
-        message: "Faild to update Pre-Storage Location.",
-        error: error.message,
-      },
-      { status: 500 },
-    );
   }
 }
+
+export const POST = withApiAuth(POSTHandler);
+export const GET = withApiAuth(GETHandler);
+export const DELETE = withApiAuth(DELETEHandler);
+export const PUT = withApiAuth(PUTHandler, { bodyObjects: ["dataForUpdate"] });
+
+export const dynamic = "force-dynamic";

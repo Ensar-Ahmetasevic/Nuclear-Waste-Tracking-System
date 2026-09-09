@@ -1,4 +1,5 @@
 "use client";
+import { useParams } from "next/navigation";
 
 import useFinalStorageByIdQuery from "../../../requests/request-final-storage/request-final-storage-location/use-fetch-final-storage-by-id-query";
 
@@ -7,7 +8,8 @@ import FinalCapacityAndConditionsDetails from "./../../../components/pages/final
 import LoadingSpinnerPage from "./../../../components/shared/loading-spiner-page";
 import AlertWarning from "./../../../components/shared/alert-warning";
 
-export default function DisplayFinalStorageData({ params }) {
+export default function DisplayFinalStorageData() {
+  const params = useParams();
   const finalStorageID = params.finalStorageID;
 
   const { data, isLoading, isError } = useFinalStorageByIdQuery(finalStorageID);

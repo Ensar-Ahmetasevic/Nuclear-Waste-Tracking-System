@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
-const { PrismaClient } = require("@prisma/client");
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/server/scoped-database.cjs";
+import { withApiAuth } from "@/lib/server/api-route";
 
 // Creating data
 
-export async function POST(req, res) {
+async function POSTHandler(req, res) {
   const formData = await req.json();
 
   const {
@@ -33,7 +32,7 @@ export async function POST(req, res) {
     );
   }
 
-  try {
+  {
     await prisma.preStorageConditions.create({
       data: {
         preStorageTemperature: parseFloat(preStorageTemperature),
@@ -51,12 +50,9 @@ export async function POST(req, res) {
       { message: "New Pre-Storage Conditions add successfully." },
       { status: 200 },
     );
-  } catch (error) {
-    console.error("Faild to creat Pre-Storage Conditions:", error);
-    return NextResponse.json(
-      { message: "Faild to add Pre-Storage Conditions" },
-      { status: 500 },
-      { error: `${error.message}` },
-    );
   }
 }
+
+export const POST = withApiAuth(POSTHandler);
+
+export const dynamic = "force-dynamic";

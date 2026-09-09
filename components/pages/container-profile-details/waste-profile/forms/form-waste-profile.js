@@ -98,7 +98,7 @@ function FormWasteProfile({ OnCancel }) {
               <div className="flex w-full sm:w-64 flex-col space-y-2">
                 <label className="text-left text-sm">Name:</label>
                 <input
-                  className="input input-md input-bordered px-2"
+                  className="input input-md  px-2"
                   type="text"
                   placeholder="Type here ..."
                   {...register("name", {
@@ -115,7 +115,7 @@ function FormWasteProfile({ OnCancel }) {
               <div className="flex w-full sm:w-64 flex-col space-y-2">
                 <label className="text-left text-sm">Type Of Waste:</label>
                 <input
-                  className="input input-md input-bordered px-2"
+                  className="input input-md  px-2"
                   type="text"
                   placeholder="Type here ..."
                   {...register("typeOfWaste", {
@@ -134,7 +134,7 @@ function FormWasteProfile({ OnCancel }) {
               <div className="flex w-full sm:w-64 flex-col space-y-2">
                 <label className="text-left text-sm">Waste Description:</label>
                 <input
-                  className="input input-md input-bordered px-2"
+                  className="input input-md  px-2"
                   type="text"
                   placeholder="Type here ..."
                   {...register("wasteDescription", {
@@ -153,7 +153,7 @@ function FormWasteProfile({ OnCancel }) {
               <div className="flex w-full sm:w-64 flex-col space-y-2">
                 <label className="text-left text-sm">Risks And Hazards:</label>
                 <input
-                  className="input input-md input-bordered px-2"
+                  className="input input-md  px-2"
                   type="text"
                   placeholder="Type here ..."
                   {...register("risksAndHazards", {
@@ -172,7 +172,7 @@ function FormWasteProfile({ OnCancel }) {
               <div className="flex w-full sm:w-64 flex-col space-y-2">
                 <label className="text-left text-sm">Processing Methods:</label>
                 <input
-                  className="input input-md input-bordered px-2"
+                  className="input input-md  px-2"
                   type="text"
                   placeholder="Type here ..."
                   {...register("processingMethods", {
@@ -194,7 +194,7 @@ function FormWasteProfile({ OnCancel }) {
                   Physical Properties:
                 </label>
                 <input
-                  className="input input-md input-bordered px-2"
+                  className="input input-md  px-2"
                   type="text"
                   placeholder="Type here ..."
                   {...register("physicalProperties", {
@@ -213,7 +213,7 @@ function FormWasteProfile({ OnCancel }) {
                   Chemical Properties:
                 </label>
                 <input
-                  className="input input-md input-bordered px-2"
+                  className="input input-md  px-2"
                   type="text"
                   placeholder="Type here ..."
                   {...register("chemicalProperties", {
@@ -233,7 +233,7 @@ function FormWasteProfile({ OnCancel }) {
                   Biological Properties:
                 </label>
                 <input
-                  className="input input-md input-bordered px-2"
+                  className="input input-md  px-2"
                   type="text"
                   placeholder="Type here ..."
                   {...register("biologicalProperties", {
@@ -253,7 +253,7 @@ function FormWasteProfile({ OnCancel }) {
                   Collection Procedures:
                 </label>
                 <input
-                  className="input input-md input-bordered px-2"
+                  className="input input-md  px-2"
                   type="text"
                   placeholder="Type here ..."
                   {...register("collectionProcedures", {
@@ -275,7 +275,7 @@ function FormWasteProfile({ OnCancel }) {
                 </label>
 
                 <select
-                  className="select select-bordered select-md px-2"
+                  className="select  select-md px-2"
                   id="location-origin"
                   {...register("recommendationsForTransport", {
                     required: "Transport recommendations are required",

@@ -131,7 +131,7 @@ export default function ModalFinalStorageCapacityForm({
                 {/* Quantity */}
                 <label className="text-left text-sm">Quantity:</label>
                 <input
-                  className="input input-md input-bordered px-2"
+                  className="input input-md  px-2"
                   type="number"
                   step="1" // Restrict to whole numbers
                   min="1" // Prevent 0 or negative values
@@ -157,7 +157,7 @@ export default function ModalFinalStorageCapacityForm({
                 </label>
 
                 <select
-                  className="select select-bordered select-md px-2"
+                  className="select  select-md px-2"
                   id="responsible-employee"
                   {...register("responsibleEmployee", {
                     required: "Please select responsible employee",

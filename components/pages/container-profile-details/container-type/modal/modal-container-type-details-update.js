@@ -65,7 +65,7 @@ export default function ModalContainerTypeDetailsUpdate({
                 <div className="flex w-full sm:w-64 flex-col space-y-2">
                   <label className="text-left text-sm">Name:</label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="text"
                     defaultValue={name}
                     placeholder="Type here"
@@ -82,7 +82,7 @@ export default function ModalContainerTypeDetailsUpdate({
                 <div className="flex w-full sm:w-64 flex-col space-y-2">
                   <label className="text-left text-sm">Material:</label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="text"
                     defaultValue={material}
                     placeholder="Type here"
@@ -99,7 +99,7 @@ export default function ModalContainerTypeDetailsUpdate({
                 <div className="flex w-full sm:w-64 flex-col space-y-2">
                   <label className="text-left text-sm">{"Volume (m³) :"}</label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="number"
                     step=".1"
                     min="1"
@@ -125,7 +125,7 @@ export default function ModalContainerTypeDetailsUpdate({
                     {"Carrying capacity (tons) :"}
                   </label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="number"
                     step=".1"
                     min="1"
@@ -151,7 +151,7 @@ export default function ModalContainerTypeDetailsUpdate({
                     Radioactivity Level:
                   </label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="text"
                     defaultValue={radioactivityLevel}
                     placeholder="Type here"
@@ -171,7 +171,7 @@ export default function ModalContainerTypeDetailsUpdate({
                     Physical properties:
                   </label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="text"
                     defaultValue={physicalProperties}
                     placeholder="Type here"
@@ -191,7 +191,7 @@ export default function ModalContainerTypeDetailsUpdate({
                     {"Footprint (m²) :"}
                   </label>
                   <input
-                    className="input input-md input-bordered px-2"
+                    className="input input-md  px-2"
                     type="number"
                     step=".1"
                     min="1"
@@ -216,7 +216,7 @@ export default function ModalContainerTypeDetailsUpdate({
               <div className="flex w-full flex-col space-y-2">
                 <label className="text-left text-sm">Description:</label>
                 <textarea
-                  className="textarea textarea-bordered"
+                  className="textarea "
                   rows={8}
                   cols={50}
                   type="text"

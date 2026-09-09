@@ -3,44 +3,70 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "doppler run -p nuclear-waste-tracking-system -c dev -- next dev --turbo",
-    "dev:local": "next dev --turbo",
+    "dev": "next dev",
+    "dev:local": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "seed": "node prisma/seed.js"
-  },
-  "prisma": {
-    "seed": "node prisma/seed.js"
+    "lint": "eslint app/api lib scripts tests",
+    "seed": "node prisma/seed.js",
+    "dev:doppler": "doppler run -p nuclear-waste-tracking-system -c dev -- next dev",
+    "db:validate": "prisma validate",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --test-isolation=none tests/validation.test.cjs",
+    "test:integration": "node scripts/test-database.mjs",
+    "organization:provision": "node --env-file-if-exists=.env scripts/provision-organization.cjs",
+    "dev:demo": "node scripts/dev-demo.mjs",
+    "check": "npm run db:validate && npm run lint && npm run typecheck && npm test"
   },
   "dependencies": {
-    "@prisma/client": "^6.0.1",
-    "@tanstack/react-query": "^5.40.1",
-    "axios": "^1.7.2",
-    "bcryptjs": "^3.0.3",
-    "dayjs": "^1.11.11",
-    "next": "14.0.4",
-    "next-auth": "^4.24.14",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-hook-form": "^7.51.5",
-    "react-icons": "^5.2.1",
-    "react-query": "^3.39.3",
-    "react-toastify": "^10.0.5",
-    "react-tooltip": "^5.28.0",
-    "recharts": "^2.12.7"
+    "@prisma/client": "6.19.3",
+    "@tanstack/react-query": "5.102.3",
+    "axios": "1.19.0",
+    "bcryptjs": "3.0.3",
+    "dayjs": "1.11.23",
+    "next": "16.3.4",
+    "next-auth": "4.24.15",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-hook-form": "7.86.0",
+    "react-icons": "5.7.0",
+    "react-toastify": "11.1.0",
+    "react-tooltip": "5.30.1",
+    "recharts": "3.10.1"
   },
   "devDependencies": {
-    "@tailwindcss/typography": "^0.5.15",
-    "@types/node": "20.11.10",
-    "@types/react": "18.2.48",
-    "autoprefixer": "^10.4.19",
-    "daisyui": "^4.12.2",
+    "@eslint/js": "10.0.1",
+    "@next/eslint-plugin-next": "16.3.4",
+    "@tailwindcss/postcss": "4.3.3",
+    "@tailwindcss/typography": "0.5.20",
+    "@types/node": "24.13.3",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.5",
+    "daisyui": "5.7.22",
+    "embedded-postgres": "18.4.0-beta.17",
+    "eslint": "10.9.1",
+    "globals": "17.11.0",
     "postcss": "^8.4.38",
-    "prettier": "^3.3.1",
-    "prettier-plugin-tailwindcss": "^0.5.14",
-    "prisma": "^6.0.1",
-    "tailwindcss": "^3.4.4",
-    "typescript": "5.3.3"
+    "prettier": "3.9.6",
+    "prettier-plugin-tailwindcss": "0.7.4",
+    "prisma": "6.19.3",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "allowScripts": {
+    "@prisma/client": true,
+    "@prisma/engines": true,
+    "prisma": true,
+    "@embedded-postgres/linux-x64": true
+  },
+  "overrides": {
+    "@prisma/config": {
+      "deepmerge-ts": "8.0.0"
+    }
   }
 }
