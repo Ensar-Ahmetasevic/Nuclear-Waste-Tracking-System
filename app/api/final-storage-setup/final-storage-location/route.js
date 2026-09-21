@@ -1,3 +1,4 @@
+import { storageBalances } from "@/lib/server/storage-balances";
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/server/scoped-database.cjs";
@@ -81,6 +82,8 @@ async function GETHandler() {
       );
     }
 
+    const balances = (await storageBalances()).final;
+    for (const location of finalStorageLocationData) location.inventory = balances.find(row => row.id === location.id)?.inventory;
     return NextResponse.json({ finalStorageLocationData }, { status: 200 });
   }
 }

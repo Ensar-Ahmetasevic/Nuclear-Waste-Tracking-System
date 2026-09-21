@@ -21,3 +21,36 @@ test('request reader bounds body size and rejects non-object JSON', async () => 
   await assert.rejects(readJson(new Request('http://localhost', { method: 'POST', body: JSON.stringify({ text: 'x'.repeat(70000) }) })), { status: 413 });
   await assert.rejects(readJson(new Request('http://localhost', { method: 'POST', body: '[]' })), { status: 400 });
 });
+
+const { shipmentGroup, newestShipments } = require('../lib/shipping-overview.cjs');
+test('shipping overview follows insertion order even with backdated arrivals', () => {
+  const trucks = [{ id: 5, entryDateTime: '2026-09-11T12:00:52Z' }, { id: 6, entryDateTime: '2026-09-11T09:29:41Z' }];
+  assert.deepEqual(newestShipments(trucks).map(t => t.id), [6, 5]);
+  assert.equal(trucks[0].id, 5);
+});
+test('departed trucks stay OUT even without content; pending profiles count as recorded', () => {
+  assert.equal(shipmentGroup({ truckStatus: 'OUT', containerProfiles: [] }), 'out');
+  assert.equal(shipmentGroup({ truckStatus: 'IN', containerProfiles: [] }), 'missing');
+  assert.equal(shipmentGroup({ truckStatus: 'IN', containerProfiles: [{ containerStatus: 'pending', quantity: 15 }] }), 'recorded');
+});
+
+const { apiAllowed, pageAllowed } = require('../lib/workspaces.cjs');
+test('workspace policy blocks cross-step data and separates transfer directions', () => {
+  const shipping = {role:'EMPLOYEE',workArea:'SHIPPING'};
+  const pre = {role:'EMPLOYEE',workArea:'PRE_STORAGE'};
+  const final = {role:'EMPLOYEE',workArea:'FINAL_STORAGE'};
+  assert.equal(apiAllowed(shipping,'/api/pre-storage-setup','GET'),false);
+  assert.equal(apiAllowed(pre,'/api/shipping-informations','GET'),false);
+  assert.equal(apiAllowed(pre,'/api/shipping-informations/pending','GET'),true);
+  assert.equal(apiAllowed(final,'/api/shipping-informations/pending','GET'),false);
+  assert.equal(apiAllowed(shipping,'/api/container-profile','POST'),false);
+  assert.equal(apiAllowed(pre,'/api/pre-storage-setup/pre-storage-location','PUT'),false);
+  const path='/api/final-storage-setup/final-storage-transver-request';
+  for(const actor of [pre,final]) {
+    assert.equal(apiAllowed(actor,path,'PUT',{operationType:'PRE_STORAGE_ACCEPT_REQUEST'}),actor===pre);
+    assert.equal(apiAllowed(actor,path,'PUT',{operationType:'FINAL_STORAGE_ACCEPT_RESPONSE'}),actor===final);
+  }
+  assert.equal(pageAllowed(pre,'/final-storage/1'),false);
+  assert.equal(pageAllowed(pre,'/pre-storage/setup'),false);
+  assert.equal(apiAllowed({role:'EMPLOYEE'},'/api/shipping-informations','GET'),false);
+});

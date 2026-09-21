@@ -28,7 +28,6 @@ export default function RequestDrawerFromEntry({
               >
                 Show Requests
                 <span className="relative -top-6 left-6 right-6 flex h-4 w-4">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-75"></span>
                   <span className="relative inline-flex h-4 w-4 rounded-full bg-sky-500"></span>
                 </span>
               </label>

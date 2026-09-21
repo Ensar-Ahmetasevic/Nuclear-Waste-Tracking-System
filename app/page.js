@@ -1,127 +1,142 @@
 "use client";
-
+import { useSession } from "next-auth/react";
 import { useQuery } from "@tanstack/react-query";
-import axios from "axios";
 import Link from "next/link";
-
-import LoadingSpinnerPage from "../components/shared/loading-spiner-page";
-
-const fetchStats = async () => {
-  const response = await axios.get("/api/stats");
-  return response.data;
-};
-
-export default function HomePage() {
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ["dashboardStats"],
-    queryFn: fetchStats,
+import DataFreshness, {
+  manualRefreshOptions,
+} from "../components/shared/data-freshness";
+import { areas, manages } from "../lib/workspaces.cjs";
+export default function Home() {
+  const { data: session } = useSession();
+  const user = session?.user;
+  const assigned = manages(user) || Boolean(areas[user?.workArea]);
+  const query = useQuery({
+    ...manualRefreshOptions,
+    queryKey: ["workspace", user?.id, user?.workArea],
+    enabled: Boolean(user) && assigned,
+    queryFn: async () => {
+      const response = await fetch("/api/workspace", {
+        signal: AbortSignal.timeout(20000),
+      });
+      if (!response.ok) throw new Error("Unable to load workspace");
+      return response.json();
+    },
   });
-
+  const { data, isLoading } = query;
+  if (!assigned)
+    return (
+      <main className="mx-auto max-w-xl p-8">
+        <h1 className="text-2xl font-bold">Work area not assigned</h1>
+        <p className="my-4">
+          Ask your administrator to assign Step 1, Step 2 or Step 3 to your
+          account.
+        </p>
+        <Link className="btn" href="/account">
+          My account
+        </Link>
+      </main>
+    );
   return (
-    <main className="min-h-screen bg-base-300">
-      {/* Hero Section */}
-      <section className="hero min-h-[30vh] bg-base-300 px-4 pb-0">
-        <div className="hero-content text-center">
-          <div className="max-w-3xl">
-            <h1 className="text-3xl font-bold sm:text-4xl md:text-5xl">
-              Nuclear Waste Tracking System
-            </h1>
-            <p className="py-6 text-sm sm:text-base">
-              Comprehensive solution for managing and monitoring nuclear waste
-              throughout its lifecycle - from origin to final storage.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Safety Stats Section */}
-      <section className="flex justify-center bg-base-300 px-4 pb-8 pt-0">
-        {isLoading ? (
-          <LoadingSpinnerPage />
-        ) : isError ? (
-          <p className="text-error">Failed to load statistics</p>
-        ) : (
-          <div className="stats stats-vertical w-full max-w-4xl shadow lg:stats-horizontal">
-            <div className="stat place-items-center">
-              <div className="stat-title">Active Containers</div>
-              <div className="stat-value">{data?.activeContainers ?? 0}</div>
-              <div className="stat-desc">
-                Across pre-storage & final-storage
-              </div>
+    <main className="mx-auto max-w-6xl space-y-6 px-4 py-8 sm:px-6">
+      <header>
+        <p className="text-sm text-base-content/60">Welcome, {user?.name}</p>
+        <h1 className="mt-2 text-3xl font-bold">
+          {manages(user) ? "System overview" : areas[user.workArea].title}
+        </h1>
+        <p className="mt-2 text-base-content/70">
+          {manages(user)
+            ? "Choose a work area to review tasks and continue operations."
+            : "Your work area, current workload and next actions."}
+        </p>
+      </header>
+      {isLoading && <p role="status">Loading your workspace…</p>}
+      <DataFreshness query={query} />
+      {data?.workspaces.map((area) => (
+        <section
+          key={area.key}
+          className="space-y-4 rounded-xl border border-base-content/15 bg-base-100 p-5"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-sm text-primary">Step {area.step}</p>
+              <h2 className="text-xl font-semibold">{area.title}</h2>
+              <p className="text-sm text-base-content/60">{area.description}</p>
             </div>
-
-            <div className="stat place-items-center">
-              <div className="stat-title">Storage Capacity Used</div>
-              <div
-                className={`stat-value ${
-                  (data?.capacityUsedPercentage ?? 0) > 80
-                    ? "text-error"
-                    : "text-success"
-                }`}
+            <Link className="btn btn-primary" href={area.href}>
+              Open{" "}
+              {area.step === 1
+                ? "shipments"
+                : area.step === 2
+                  ? "pre-storage"
+                  : "final storage"}{" "}
+              →
+            </Link>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {area.metrics.map(([label, value, href]) => (
+              <Link
+                href={href || area.href}
+                key={label}
+                className="rounded-lg bg-base-200 p-4"
               >
-                {data?.capacityUsedPercentage ?? 0}%
-              </div>
-              <div className="stat-desc">Of total storage surface area</div>
-            </div>
-
-            <div className="stat place-items-center">
-              <div className="stat-title">Active Shipments</div>
-              <div className="stat-value">{data?.activeShipments ?? 0}</div>
-              <div className="stat-desc">Trucks with status IN</div>
-            </div>
+                <span className="block text-sm text-base-content/70">
+                  {label}
+                </span>
+                <span className="text-3xl font-bold">{value}</span>
+              </Link>
+            ))}
           </div>
-        )}
-      </section>
-
-      {/* Key Features Grid */}
-      <section className="flex justify-center p-4 sm:p-8">
-        <div className="grid w-full max-w-6xl grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {/* Waste Management */}
-          <div className="card bg-base-100 shadow-xl">
-            <div className="card-body">
-              <h2 className="card-title">Waste Management</h2>
-              <p>
-                Track different waste profiles, container types, and storage
-                requirements
-              </p>
-              <div className="card-actions justify-end">
-                <Link href="/container-profile" className="btn btn-primary">
-                  Manage Waste
-                </Link>
-              </div>
+          <h3 className="font-semibold">
+            {area.step === 1
+              ? "Needs content"
+              : area.step === 2
+                ? "Receiving halls"
+                : "Storage rooms"}
+          </h3>
+          {area.tasks.length ? (
+            <ul className="divide-y divide-base-content/10">
+              {area.tasks.map((task) => (
+                <li key={task.id}>
+                  <Link
+                    href={task.href}
+                    className="flex flex-wrap items-center justify-between gap-2 py-3"
+                  >
+                    <span>
+                      <span className="block font-medium">{task.label}</span>
+                      <span className="text-sm text-base-content/60">
+                        {task.detail}
+                      </span>
+                    </span>
+                    <span aria-hidden="true">→</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-base-content/60">
+              {area.step === 1
+                ? "No shipments waiting for content."
+                : "No locations configured. Contact your administrator."}
+            </p>
+          )}
+          {area.step !== 1 && (
+            <div className="flex flex-wrap gap-3 border-t border-base-content/10 pt-4">
+              <Link
+                className="btn btn-outline btn-sm"
+                href={`${area.href}/history`}
+              >
+                Records & history
+              </Link>
+              <Link
+                className="btn btn-outline btn-sm"
+                href={`${area.href}/alerts`}
+              >
+                Conditions overview
+              </Link>
             </div>
-          </div>
-
-          {/* Storage Monitoring */}
-          <div className="card bg-base-100 shadow-xl">
-            <div className="card-body">
-              <h2 className="card-title">Storage Monitoring</h2>
-              <p>
-                Monitor temperature, radiation, humidity and pressure in storage
-                facilities
-              </p>
-              <div className="card-actions justify-end">
-                <Link href="/pre-storage" className="btn btn-primary">
-                  View Storage
-                </Link>
-              </div>
-            </div>
-          </div>
-
-          {/* Transportation */}
-          <div className="card bg-base-100 shadow-xl">
-            <div className="card-body">
-              <h2 className="card-title">Transportation</h2>
-              <p>Track shipping information and container movements</p>
-              <div className="card-actions justify-end">
-                <Link href="/shipping-informations" className="btn btn-primary">
-                  Track Shipments
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+          )}
+        </section>
+      ))}
     </main>
   );
 }

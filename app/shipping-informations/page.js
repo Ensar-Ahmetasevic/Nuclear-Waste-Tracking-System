@@ -1,194 +1,227 @@
 "use client";
 
-import { useState, useEffect } from "react";
-
-import { useForm } from "react-hook-form";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Suspense } from "react";
 import dayjs from "dayjs";
-
-import AllShippingData from "./../../components/pages/shipping-informations/all-shipping-data";
-
+import AllShippingData from "../../components/pages/shipping-informations/all-shipping-data";
 import useShippingInformationQuery from "../../requests/request-shipping-information/use-fetch-shipping-informations-query";
-
-import { FaSearch } from "react-icons/fa";
 import LoadingSpinnerPage from "../../components/shared/loading-spiner-page";
-import AlertWarning from "../../components/shared/alert-warning";
+import DataFreshness, {
+  manualRefreshOptions,
+} from "../../components/shared/data-freshness";
+import {
+  shipmentGroup,
+  newestShipments,
+} from "../../lib/shipping-overview.cjs";
+
+const views = [
+  { id: "all", label: "All shipments", hint: "Arrival and departure records" },
+  {
+    id: "missing",
+    label: "IN · Content missing",
+    hint: "No Container Profile recorded",
+  },
+  {
+    id: "recorded",
+    label: "IN · Content recorded",
+    hint: "Container Profiles added",
+  },
+  {
+    id: "out",
+    label: "OUT · Departed",
+    hint: "Trucks that have left the site",
+  },
+];
 
 export default function ShippingInformations() {
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  return (
+    <Suspense fallback={<p className="p-8">Loading shipments…</p>}>
+      <ShippingList />
+    </Suspense>
+  );
+}
 
-  // Initialize React Hook Form
-  const { register, handleSubmit, watch } = useForm();
-  const searchQuery = watch("searchQuery", "");
-
-  // Move the query hook before any data processing
-  const { data, isLoading, isError } = useShippingInformationQuery();
-
-  // Define handlers
-  const scrollToTop = () => {
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
-  };
-
-  const handlePreviousPage = () => {
-    setCurrentPage((prevPage) => Math.max(prevPage - 1, 1));
-  };
-
-  const handleNextPage = () => {
-    setCurrentPage((prevPage) => Math.min(prevPage + 1, totalPages));
-  };
-
-  const onSubmit = (data) => {
-    setCurrentPage(1);
-  };
-
-  // Effects
-  useEffect(() => {
-    scrollToTop();
-  }, [currentPage]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery]);
-
-  // Early returns for loading and error states
-  if (isLoading) {
+function ShippingList() {
+  const params = useSearchParams();
+  const router = useRouter();
+  const rawPage = Number(params.get("page") || 1);
+  const currentPage =
+    Number.isSafeInteger(rawPage) && rawPage > 0 ? rawPage : 1;
+  const searchQuery = params.get("search") || "";
+  function updateFilters(changes) {
+    const next = new URLSearchParams(params.toString());
+    for (const [key, value] of Object.entries(changes)) {
+      if (value === "") next.delete(key);
+      else next.set(key, String(value));
+    }
+    router.replace(`/shipping-informations?${next}`, { scroll: false });
+  }
+  const view = views.some((option) => option.id === params.get("view"))
+    ? params.get("view")
+    : "all";
+  const queryState = useShippingInformationQuery(manualRefreshOptions);
+  const { data, isLoading } = queryState;
+  if (isLoading)
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex min-h-96 items-center justify-center">
         <LoadingSpinnerPage />
       </div>
     );
-  }
-
-  if (!data || isError) {
+  if (!data)
     return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <AlertWarning text={"Error loading shipping informations data"} />
-      </div>
+      <main className="mx-auto max-w-6xl p-6">
+        <h1 className="mb-4 text-3xl font-bold">Shipping information</h1>
+        <DataFreshness query={queryState} />
+      </main>
     );
-  }
 
-  const shippingDatas = data.shippingData || [];
-
-  // Move data processing logic here
-  const filteredData = shippingDatas.filter((truck) => {
-    const filterByFullDate = dayjs(truck.entryDateTime).format("DD-MM-YYYY");
-    const filterByYear = dayjs(truck.entryDateTime).format("YYYY");
-    const filterByMonth = dayjs(truck.entryDateTime).format("MM");
-    const filterByDay = dayjs(truck.entryDateTime).format("DD");
-
-    const lowerCaseQuery = searchQuery.toLowerCase();
-
-    if (lowerCaseQuery.startsWith("d")) {
-      const dayQuery = lowerCaseQuery.slice(1);
-      return filterByDay === dayQuery;
-    } else if (lowerCaseQuery.startsWith("m")) {
-      const monthQuery = lowerCaseQuery.slice(1);
-      return filterByMonth === monthQuery;
-    } else if (lowerCaseQuery.startsWith("y")) {
-      const yearQuery = lowerCaseQuery.slice(1);
-      return filterByYear === yearQuery;
-    } else {
-      return (
-        truck.companyName.toLowerCase().includes(lowerCaseQuery) ||
-        truck.truckStatus.toLowerCase() === lowerCaseQuery ||
-        filterByFullDate === lowerCaseQuery
-      );
-    }
+  const trucks = newestShipments(data.shippingData || []);
+  const counts = { all: trucks.length, missing: 0, recorded: 0, out: 0 };
+  trucks.forEach((truck) => {
+    counts[shipmentGroup(truck)]++;
   });
-
-  // Calculate pagination values
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-  const inStatusCount = shippingDatas.filter(
-    (truck) => truck.truckStatus === "IN",
-  ).length;
+  const query = searchQuery.trim().toLowerCase();
+  const filtered = trucks.filter((truck) => {
+    if (view !== "all" && shipmentGroup(truck) !== view) return false;
+    const date = dayjs(truck.entryDateTime);
+    // Only numeric D/M/Y shortcuts are dates; company names remain searchable.
+    if (/^d\d{1,2}$/.test(query)) return date.date() === Number(query.slice(1));
+    if (/^m\d{1,2}$/.test(query))
+      return date.month() + 1 === Number(query.slice(1));
+    if (/^y\d{4}$/.test(query)) return date.year() === Number(query.slice(1));
+    return [
+      truck.companyName,
+      truck.driverName,
+      truck.registrationPlates,
+      String(truck.id),
+      truck.truckStatus,
+      date.format("DD-MM-YYYY"),
+      date.format("YYYY-MM-DD"),
+    ].some((value) => value?.toLowerCase().includes(query));
+  });
+  const totalPages = Math.max(1, Math.ceil(filtered.length / 10));
+  const page = Math.min(currentPage, totalPages);
+  const items = filtered.slice((page - 1) * 10, page * 10);
 
   return (
-    <>
-      <div className="flex justify-center px-4 pt-4 sm:pt-6">
-        <form
-          onSubmit={handleSubmit(onSubmit)}
-          className="form-control w-full max-w-md space-y-3"
+    <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8 sm:px-6">
+      <header>
+        <p className="text-sm font-medium text-primary">Step 1 · Arrivals</p>
+        <h1 className="mt-1 text-3xl font-bold">Shipping information</h1>
+        <p className="mt-2 text-sm text-base-content/70">
+          Track trucks on site, identify missing content and review departures.
+        </p>
+      </header>
+      <DataFreshness query={queryState} />
+      <div
+        className="grid grid-cols-2 gap-3 lg:grid-cols-4"
+        aria-label="Filter shipments by progress"
+      >
+        {views.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            aria-pressed={view === option.id}
+            onClick={() => {
+              updateFilters({ view: option.id, page: 1 });
+            }}
+            className={`rounded-xl border p-4 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${view === option.id ? "border-blue-500 bg-blue-500/10 ring-1 ring-blue-500" : "border-base-content/15 bg-base-100 hover:border-primary/60"}`}
+          >
+            <span
+              className={`block text-sm font-semibold ${option.id === "missing" ? "text-amber-400" : ""}`}
+            >
+              {option.label}
+              {view === option.id && (
+                <span className="ml-2" aria-hidden="true">
+                  ✓
+                </span>
+              )}
+            </span>
+            <span className="my-1 block text-3xl font-bold">
+              {counts[option.id]}
+            </span>
+            <span className="block text-xs text-base-content/65">
+              {option.hint}
+            </span>
+          </button>
+        ))}
+      </div>
+      <div className="rounded-xl border border-base-content/15 bg-base-100 p-4">
+        <label
+          htmlFor="searchShippings"
+          className="mb-2 block text-sm font-semibold"
         >
-          <div className="mx-auto space-x-2">
-            <label htmlFor="searchShippings">Filter by:</label>
-            <label className="font-semibold" htmlFor="searchShippings">
-              Company Name, Date or Status
-            </label>
-          </div>
-          <label className="input  input-primary flex items-center gap-2">
-            <input
-              className="grow"
-              id="searchShippings"
-              type="text"
-              placeholder='e.g. "20-08-2024" or "D20" or "M08" or "Y2024"'
-              {...register("searchQuery")}
-            />
-            <FaSearch />
-          </label>
-        </form>
+          Search shipments
+        </label>
+        <input
+          id="searchShippings"
+          type="search"
+          className="input-bordered input w-full"
+          placeholder="Company, driver, plates, ID or date"
+          value={searchQuery}
+          onChange={(event) => {
+            updateFilters({ search: event.target.value, page: 1 });
+          }}
+        />
+        <p className="mt-2 text-xs text-base-content/60">
+          Date: DD-MM-YYYY · Shortcuts: D11, M09, Y2026
+        </p>
       </div>
-
-      <div className="divider mb-8 mt-16">All Shipping Informations</div>
-
-      {/* Number of trucks with IN status */}
-      <div className="flex justify-center px-4">
-        <div className="stats stats-vertical w-full max-w-md shadow sm:stats-horizontal sm:w-auto">
-          <div className="stat place-items-center">
-            <div className="stat-title">Number of trucks</div>
-            <div className="stat-value">{inStatusCount}</div>
-          </div>
-
-          <div className="stat place-items-center">
-            <div className="stat-title">Status</div>
-            <div className="stat-value text-green-500">IN</div>
-          </div>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+        <p role="status">
+          {filtered.length} shipments ·{" "}
+          {views.find((option) => option.id === view).label}
+        </p>
+        <p className="text-base-content/60">Newest entries first</p>
       </div>
-
-      <main className="container mx-auto mb-12 flex-col items-center">
-        <div className="px-2 sm:px-6 lg:px-20">
-          {filteredData.length === 0 ? (
-            <div className="text-center text-gray-500">
-              No data found matching your search criteria.
-            </div>
-          ) : (
-            <>
-              <ul>
-                {currentItems.map((truck) => (
-                  <li key={truck.id}>
-                    <AllShippingData truck={truck} />
-                  </li>
-                ))}
-              </ul>
-              <div className="join mt-12 flex justify-center">
-                <button
-                  className="btn join-item"
-                  onClick={handlePreviousPage}
-                  disabled={currentPage === 1}
-                >
-                  «
-                </button>
-                <button className="btn join-item" onClick={() => scrollToTop()}>
-                  Page {currentPage} of {totalPages}
-                </button>
-                <button
-                  className="btn join-item"
-                  onClick={handleNextPage}
-                  disabled={currentPage === totalPages}
-                >
-                  »
-                </button>
-              </div>
-            </>
-          )}
+      {items.length ? (
+        <ul className="space-y-3">
+          {items.map((truck) => (
+            <li key={truck.id}>
+              <AllShippingData truck={truck} />
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="rounded-xl border border-dashed border-base-content/25 p-8 text-center">
+          <p className="font-semibold">No shipments in this view</p>
+          <p className="mt-2 text-sm text-base-content/65">
+            Choose another status or clear your search.
+          </p>
+          <button
+            className="btn mt-3 btn-ghost"
+            onClick={() => {
+              updateFilters({ view: "all", search: "", page: 1 });
+            }}
+          >
+            Reset filters
+          </button>
         </div>
-      </main>
-    </>
+      )}
+      {totalPages > 1 && (
+        <nav
+          aria-label="Shipment pages"
+          className="flex items-center justify-center gap-4"
+        >
+          <button
+            className="btn"
+            disabled={page === 1}
+            onClick={() => updateFilters({ page: page - 1 })}
+          >
+            Previous
+          </button>
+          <span>
+            Page {page} of {totalPages}
+          </span>
+          <button
+            className="btn"
+            disabled={page === totalPages}
+            onClick={() => updateFilters({ page: page + 1 })}
+          >
+            Next
+          </button>
+        </nav>
+      )}
+    </main>
   );
 }

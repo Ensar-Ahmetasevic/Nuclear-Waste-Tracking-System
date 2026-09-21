@@ -13,7 +13,7 @@ export default function useUpdateWasteProfileMutation() {
      
       return response.data;
     } catch (error) {
-      toast.error(`Error: ${error.response.data.message}`);
+      toast.error(`Error: ${error.response?.data?.message || "Unable to update waste profile"}`);
       throw error; // Throw the error to trigger onError callback
     }
   };

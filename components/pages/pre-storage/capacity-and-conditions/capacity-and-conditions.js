@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Link from "next/link";
 
-import useShippingInformationQuery from "../../../../requests/request-shipping-information/use-fetch-shipping-informations-query";
+import useShippingInformationQuery from "../../../../requests/request-shipping-information/use-fetch-shipping-information-status-query";
 
 import LoadingSpinnerButton from "./../../../shared/loading-spiner-button";
 import Indicator from "./../../../shared/indicator";
@@ -41,14 +41,13 @@ export default function CapacityAndConditions({ data }) {
     );
   }
 
-  /* Helper function for checking if there are pending statuses for a specific hale */
-  const hasPendingStatus = (haleName) => {
-    if (!entryData.shippingData) return false;
+  /* Match the configured waste profile instead of parsing a hall name. */
+  const hasPendingStatus = () => {
+    if (!entryData) return false;
 
-    // We only extract M01 or M02 from "Hall M01" or "Hall M02"
-    const shortHaleName = haleName.split(" ")[1];
+    const shortHaleName = data.wasteProfile || data.containerType;
 
-    return entryData.shippingData.some((shipment) =>
+    return entryData.some((shipment) =>
       shipment.containerProfiles.some(
         (profile) =>
           profile.containerStatus === "pending" &&
@@ -60,7 +59,7 @@ export default function CapacityAndConditions({ data }) {
   const halesurface = data.surfaceArea;
   const containerFootprint = data.containerFootprint;
 
-  const totalContainers = data.preStorageEntry.reduce(
+  const totalContainers = data.inventory?.quantity ?? data.preStorageEntry.reduce(
     (total, waste) => total + waste.quantity,
     0,
   );

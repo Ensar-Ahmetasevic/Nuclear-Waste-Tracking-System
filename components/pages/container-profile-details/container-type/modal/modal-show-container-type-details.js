@@ -9,6 +9,8 @@ export default function ModalShowContainerDetails({
         type="checkbox"
         id="modal_container_details"
         className="modal-toggle"
+        checked={true}
+        readOnly
       />
       <div className="modal" role="dialog">
         <div className="modal-box w-11/12 max-w-3xl">

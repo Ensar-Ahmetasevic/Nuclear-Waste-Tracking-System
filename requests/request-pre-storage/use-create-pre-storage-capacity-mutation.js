@@ -19,6 +19,8 @@ export default function useCreatePreStorageCapacityMutation() {
   const mutation = useMutation({
     mutationFn: createPreStorageCapacityMutation,
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["workspace"] });
+      queryClient.invalidateQueries({ queryKey: ["shippingInformationQueryKey"] });
       // Invalidate and refetch
       queryClient.invalidateQueries({
         queryKey: ["preStorageCapacityQueryKey"],

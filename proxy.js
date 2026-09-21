@@ -12,5 +12,7 @@ export const config = {
     "/pre-storage/:path*",
     "/final-storage/:path*",
     "/statistics/:path*",
+    "/users/:path*",
+    "/account/:path*",
   ],
 };

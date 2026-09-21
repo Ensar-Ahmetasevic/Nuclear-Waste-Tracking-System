@@ -1,3 +1,5 @@
+import { useState } from "react";
+import useWasteProfileQuery from "../../../../../requests/request-container-profile/request-waste-profile/use-fetch-waste-profile-query";
 import { useForm } from "react-hook-form";
 import useCreateWasteProfileMutation from "../../../../../requests/request-container-profile/request-waste-profile/use-create-waste-profile-mutation";
 import LoadingSpinnerPage from "./../../../../shared/loading-spiner-page";
@@ -6,6 +8,8 @@ import AlertWarning from "./../../../../shared/alert-warning";
 import LoadingSpinnerButton from "./../../../../shared/loading-spiner-button";
 
 function FormWasteProfile({ OnCancel }) {
+  const profiles = useWasteProfileQuery();
+  const [submitError, setSubmitError] = useState("");
   const {
     register,
     handleSubmit,
@@ -22,7 +26,7 @@ function FormWasteProfile({ OnCancel }) {
     isError: isContainerTypeError,
   } = useContainerTypeQuery();
 
-  if (isContainerTypeLoading) {
+  if (isContainerTypeLoading || profiles.isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <LoadingSpinnerPage />
@@ -30,7 +34,7 @@ function FormWasteProfile({ OnCancel }) {
     );
   }
 
-  if (!containerTypeData || isContainerTypeError) {
+  if (!containerTypeData || isContainerTypeError || profiles.isError) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <AlertWarning text={"Error loading data"} />
@@ -78,16 +82,25 @@ function FormWasteProfile({ OnCancel }) {
       recommendationsForTransport: numberRecommendationsForTransport,
     };
 
-    await createWasteProfileMutation({ formData });
-
-    OnCancel(null);
-    reset();
+    setSubmitError("");
+    try {
+      await createWasteProfileMutation({ formData });
+      OnCancel(null);
+      reset();
+    } catch (error) {
+      setSubmitError(error.response?.data?.message || "Unable to save waste profile. Please try again.");
+      if (error.response?.status === 409) profiles.refetch();
+    }
   };
 
   return (
     <>
       <div className="mt-10 flex flex-col items-center space-y-12 rounded-md border-2 border-red-500 bg-gray-900 p-5">
         <h1 className="text-xl font-bold">Add new "Waste profile"</h1>
+        {submitError && <p role="alert" className="text-error">{submitError}</p>}
+        {!containerTypeData.some(type => !profiles.data?.some(profile => profile.containerTypeId === type.id)) && (
+          <p role="status">All container types are assigned. Add a new Container Type before creating another Waste Profile.</p>
+        )}
         <form
           className="flex flex-col items-center space-y-8 px-4 pb-4 sm:items-end sm:px-12"
           onSubmit={handleSubmit(isFormSubmit)}
@@ -284,8 +297,8 @@ function FormWasteProfile({ OnCancel }) {
                   <option value="">---</option>
 
                   {containerTypeData.map((type) => (
-                    <option key={type.id} value={type.id}>
-                      {type.name}
+                    <option key={type.id} value={type.id} disabled={profiles.data?.some(profile => profile.containerTypeId === type.id)}>
+                      {type.name}{profiles.data?.some(profile => profile.containerTypeId === type.id) ? " (already assigned)" : ""}
                     </option>
                   ))}
                 </select>
@@ -299,11 +312,12 @@ function FormWasteProfile({ OnCancel }) {
           </div>
 
           <div className=" space-x-2">
-            <button className="btnSave" type="submit" disabled={isPending}>
+            <button className="btnSave" type="submit" disabled={isPending || !containerTypeData.some(type => !profiles.data?.some(profile => profile.containerTypeId === type.id))}>
               {isPending ? <LoadingSpinnerButton /> : "Save"}
             </button>
             <button
               className="btnCancel"
+              type="button"
               onClick={() => {
                 OnCancel(null);
                 reset();

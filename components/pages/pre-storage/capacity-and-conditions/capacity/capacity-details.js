@@ -1,7 +1,7 @@
 import dynamic from "next/dynamic";
 
 import useShippingInformationsStautsQuery from "./../../../../../requests/request-shipping-information/use-fetch-shipping-information-status-query";
-import useFinalStorageLocationQuery from "./../../../../../requests/request-final-storage/request-final-storage-location/use-fetch-final-storage-location-query";
+import useFinalStorageLocationQuery from "./../../../../../requests/use-pre-storage-transfers";
 
 import RequestDrawerFromEntry from "./components/request-drawer-from-entry";
 import RequestDrawerFromFinalStorage from "./components/request-drawer-from-final-storage";
@@ -90,7 +90,7 @@ export default function CapacityDetails({
   const filteredPendingShippingInformations =
     pendingShippingInformations.filter((info) =>
       info.containerProfiles.some(
-        (profile) => profile.wasteProfile.name === hallContainerType,
+        (profile) => profile.wasteProfile.name === (hallData.wasteProfile || hallContainerType),
       ),
     );
 
@@ -100,7 +100,7 @@ export default function CapacityDetails({
       // Get the total quantity of containers of the relevant wasteProfile type
       const totalQuantity = shippingInfo.containerProfiles.reduce(
         (sum, profile) =>
-          profile.wasteProfile.name === hallContainerType
+          profile.wasteProfile.name === (hallData.wasteProfile || hallContainerType)
             ? sum + profile.quantity
             : sum,
         0,
@@ -108,18 +108,19 @@ export default function CapacityDetails({
 
       // Status of all continers relevant to the hall
       const containerStatus = shippingInfo.containerProfiles
-        .filter((profile) => profile.wasteProfile.name === hallContainerType)
+        .filter((profile) => profile.wasteProfile.name === (hallData.wasteProfile || hallContainerType))
         .map((profile) => profile.containerStatus);
 
       // IDs of all continers relevant to the hall
       const containerProfileIds = shippingInfo.containerProfiles
-        .filter((profile) => profile.wasteProfile.name === hallContainerType)
+        .filter((profile) => profile.wasteProfile.name === (hallData.wasteProfile || hallContainerType))
         .map((profile) => profile.id);
 
       return {
         totalQuantity,
         containerStatus,
         containerProfileIds,
+        profiles: shippingInfo.containerProfiles.filter(profile => containerProfileIds.includes(profile.id)),
         companyName: shippingInfo.companyName,
         registrationPlates: shippingInfo.registrationPlates,
         status: shippingInfo.status,

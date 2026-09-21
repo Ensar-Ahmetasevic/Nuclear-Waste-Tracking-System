@@ -1,81 +1,17 @@
-import { NextResponse } from "next/server";
 import { prisma } from "@/lib/server/scoped-database.cjs";
 import { withApiAuth } from "@/lib/server/api-route";
-
-async function GETHandler() {
-  {
-    const [
-      preStorageLocations,
-      finalStorageLocations,
-      preStorageEntriesAgg,
-      activeShipments,
-    ] = await Promise.all([
-      prisma.preStorageLocation.findMany({
-        select: {
-          surfaceArea: true,
-          containerFootprint: true,
-          preStorageEntry: { select: { quantity: true } },
-        },
-      }),
-      prisma.finalStorageLocation.findMany({
-        select: {
-          surfaceArea: true,
-          containerFootprint: true,
-          quantity: true,
-        },
-      }),
-      prisma.preStorageEntry.aggregate({ _sum: { quantity: true } }),
-      prisma.shippingInformation.count({ where: { truckStatus: "IN" } }),
-    ]);
-
-    const preStorageContainers = preStorageEntriesAgg._sum.quantity || 0;
-    const finalStorageContainers = finalStorageLocations.reduce(
-      (sum, loc) => sum + (loc.quantity || 0),
-      0,
-    );
-    const activeContainers = preStorageContainers + finalStorageContainers;
-
-    // Used surface area = (sum of entries quantity * containerFootprint) per location
-    const preUsedSurface = preStorageLocations.reduce((sum, loc) => {
-      const qty = (loc.preStorageEntry || []).reduce(
-        (q, e) => q + (e.quantity || 0),
-        0,
-      );
-      return sum + qty * (loc.containerFootprint || 0);
-    }, 0);
-    const finalUsedSurface = finalStorageLocations.reduce(
-      (sum, loc) => sum + (loc.quantity || 0) * (loc.containerFootprint || 0),
-      0,
-    );
-
-    const preTotalSurface = preStorageLocations.reduce(
-      (sum, loc) => sum + (loc.surfaceArea || 0),
-      0,
-    );
-    const finalTotalSurface = finalStorageLocations.reduce(
-      (sum, loc) => sum + (loc.surfaceArea || 0),
-      0,
-    );
-
-    const totalSurface = preTotalSurface + finalTotalSurface;
-    const usedSurface = preUsedSurface + finalUsedSurface;
-
-    const capacityUsedPercentage =
-      totalSurface > 0 ? Math.round((usedSurface / totalSurface) * 100) : 0;
-
-    return NextResponse.json(
-      {
-        activeContainers,
-        capacityUsedPercentage,
-        activeShipments,
-        preStorageLocations: preStorageLocations.length,
-        finalStorageLocations: finalStorageLocations.length,
-      },
-      { status: 200 },
-    );
-  }
-}
-
-export const GET = withApiAuth(GETHandler);
-
+import { storageBalances } from "@/lib/server/storage-balances";
+export const GET = withApiAuth(async () => {
+  const { pre, final } = await storageBalances();
+  const locations = [...pre, ...final];
+  const activeContainers = locations.reduce((sum, row) => sum + row.inventory.quantity, 0);
+  const usedSurface = locations.reduce((sum, row) => sum + row.inventory.quantity * row.containerFootprint, 0);
+  const totalSurface = locations.reduce((sum, row) => sum + row.surfaceArea, 0);
+  return Response.json({ activeContainers, capacityUsedPercentage: totalSurface ? Math.round(100 * usedSurface / totalSurface) : 0,
+    activeShipments: await prisma.shippingInformation.count({ where: { truckStatus: "IN" } }), preStorageLocations: pre.length, finalStorageLocations: final.length,
+    inventoryNote: "Recorded balances include existing stored counts and linked completed transfers. Older unlinked transfers are not added again.",
+    unlinkedFinalTransfers: final.reduce((sum,row)=>sum+row.inventory.unlinkedTransfers,0),
+    inconsistentLocations: pre.filter(row=>row.inventory.inconsistent).length,
+  });
+});
 export const dynamic = "force-dynamic";

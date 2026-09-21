@@ -61,7 +61,7 @@ export default function FinalStorageCapacityAndConditions({ data }) {
   const halesurface = data.surfaceArea;
   const containerFootprint = data.containerFootprint;
 
-  const totalContainers = data.quantity;
+  const totalContainers = data.inventory?.quantity ?? data.quantity;
 
   const usedSpace = totalContainers * containerFootprint;
 

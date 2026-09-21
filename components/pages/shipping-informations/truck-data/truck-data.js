@@ -9,12 +9,20 @@ import { MdDeleteSweep } from "react-icons/md";
 import { CiEdit } from "react-icons/ci";
 
 import useDeleteShippingInformationsMutations from "./../../../../requests/request-shipping-information/use-delete-shipping-informations-mutation";
-import useUpdateShippingStatusMutation from "./../../../../requests/request-shipping-information/use-update-shipping-status-mutation";
+import DepartureReview from "../components/modals/departure-review";
 
 import LoadingSpinnerButton from "./../../../shared/loading-spiner-button";
 import ConfirmDelete from "./../../../shared/confirmDelete";
 
-export default function TruckData({ data, isLoading, error, shippingID }) {
+export default function TruckData({
+  data,
+  isLoading,
+  error,
+  shippingID,
+  canEdit = false,
+}) {
+  const [statusCorrectionOpen, setStatusCorrectionOpen] = useState(false);
+  const [departureOpen, setDepartureOpen] = useState(false);
   const [openModalUpdate, setOpenModalUpdate] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -24,16 +32,7 @@ export default function TruckData({ data, isLoading, error, shippingID }) {
     mutateAsync: deleteMutateAsync,
     isSuccess: successfullyDeleted,
     isPending: deleteLoading,
-    isError: deleteError,
   } = useDeleteShippingInformationsMutations();
-
-  // Update Shipping Status
-  const {
-    mutateAsync: updateMutateAsync,
-    isSuccess: successfullyUpdated,
-    isPending: updateLoading,
-    isError: updateError,
-  } = useUpdateShippingStatusMutation();
 
   if (isLoading) {
     return (
@@ -57,22 +56,10 @@ export default function TruckData({ data, isLoading, error, shippingID }) {
 
   // Destructure the necessary data
   const {
-    id,
     companyName,
     truckStatus,
     status: containerStatus,
   } = data.shippingData;
-
-  // Updating Truck Status
-  const updateStatus = (shippingStatus) => {
-    const shippingStatusData = {
-      id,
-      truckStatus: shippingStatus,
-      exitDateTime: new Date().toISOString(),
-    };
-
-    updateMutateAsync(shippingStatusData);
-  };
 
   //Open Delete Confirmation Modal
   const handleDelete = async () => {
@@ -81,6 +68,7 @@ export default function TruckData({ data, isLoading, error, shippingID }) {
 
   //Confirm Delete
   const confirmDelete = async () => {
+    if (!canEdit) return;
     await deleteMutateAsync(data.shippingData.id);
     setShowDeleteConfirm(false);
 
@@ -99,40 +87,61 @@ export default function TruckData({ data, isLoading, error, shippingID }) {
           {/* Company Name */}
           <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:gap-x-2">
             <p className="shrink-0 text-base-content/70">Transport data for:</p>
-            <p className="break-words font-bold">{companyName}</p>
+            <p className="font-bold break-words">{companyName}</p>
           </div>
 
-          <div className="flex flex-row flex-wrap gap-2 sm:gap-3">
-            {/* Add Containers */}
-            {containerStatus === "accepted" ? null : (
-              <CreateContainerProfile shippingID={shippingID} />
-            )}
+          {truckStatus === "OUT" && (
+            <p className="text-sm text-base-content/70" role="status">
+              {canEdit
+                ? "Truck has left the unloading zone. Corrections are available to administrators only."
+                : "Truck has left the unloading zone. This shipment is read-only. Contact an administrator for corrections."}
+            </p>
+          )}
+          {truckStatus !== "OUT" && !canEdit && (
+            <p className="text-sm text-base-content/70">
+              You have read-only access.
+            </p>
+          )}
 
-            {/* Edit Truck Data */}
-            <div className="tooltip" data-tip="Edit">
-              <label
-                htmlFor="update_modal_shipping_data"
-                className="btnUpdate"
-                onClick={() => setOpenModalUpdate(true)}
-              >
-                <CiEdit />
-              </label>
-            </div>
+          {canEdit && (
+            <div className="flex flex-row flex-wrap gap-2 sm:gap-3">
+              {/* Add Containers */}
+              {containerStatus !== "accepted" &&
+                data.permissions?.canEditContainers && (
+                  <CreateContainerProfile shippingID={shippingID} />
+                )}
 
-            {/* Delete Truck Data */}
-            {containerStatus === "accepted" ? null : (
-              <div className="tooltip" data-tip="Delete">
+              {/* Edit Truck Data */}
+              <div className="tooltip" data-tip="Edit">
                 <button
-                  className="btnDelete"
-                  id="deleteButton"
-                  disabled={deleteLoading || successfullyDeleted}
-                  onClick={() => handleDelete()}
+                  type="button"
+                  aria-label="Edit shipment details"
+                  className="btnUpdate"
+                  onClick={() => setOpenModalUpdate(true)}
                 >
-                  {deleteLoading ? <LoadingSpinnerButton /> : <MdDeleteSweep />}
+                  <CiEdit />
                 </button>
               </div>
-            )}
-          </div>
+
+              {/* Delete Truck Data */}
+              {containerStatus === "accepted" ? null : (
+                <div className="tooltip" data-tip="Delete">
+                  <button
+                    className="btnDelete"
+                    id="deleteButton"
+                    disabled={deleteLoading || successfullyDeleted}
+                    onClick={() => handleDelete()}
+                  >
+                    {deleteLoading ? (
+                      <LoadingSpinnerButton />
+                    ) : (
+                      <MdDeleteSweep />
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Status */}
@@ -150,9 +159,9 @@ export default function TruckData({ data, isLoading, error, shippingID }) {
                   ? "border-green-700 bg-green-700 text-white"
                   : "border-slate-700 text-slate-700"
               }`}
-              disabled={truckStatus === "IN" || isLoading}
+              disabled
             >
-              {updateLoading ? <LoadingSpinnerButton /> : "IN"}
+              IN
             </button>
 
             {/* OUT */}
@@ -161,19 +170,74 @@ export default function TruckData({ data, isLoading, error, shippingID }) {
               className={`h-9 w-14 shrink-0 rounded border-2 text-sm font-semibold ${
                 truckStatus === "OUT"
                   ? "pointer-events-none border-red-600 bg-red-600 text-white"
-                  : "cursor-pointer border-red-600 text-slate-700 hover:bg-red-50 sm:hover:scale-105"
+                  : "cursor-pointer border-red-600 text-slate-700 hover:bg-red-50"
               }`}
-              onClick={() => updateStatus("OUT")}
-              disabled={truckStatus === "OUT" || isLoading}
+              onClick={() => setDepartureOpen(true)}
+              disabled={!canEdit || truckStatus === "OUT" || isLoading}
             >
-              {updateLoading ? <LoadingSpinnerButton /> : "OUT"}
+              OUT
             </button>
           </div>
         </div>
       </div>
 
+      {data.permissions?.canCorrectStatus && <button className="btn btn-outline my-3 min-h-11" onClick={() => setStatusCorrectionOpen(true)}>Correct status or dates</button>}
+      {data.permissions?.canCorrectStatus && statusCorrectionOpen && <ModalTruckUpdate lifecycle modalTruckFormData={data.shippingData} closeModal={() => setStatusCorrectionOpen(false)} />}
+      {canEdit && departureOpen && (
+        <DepartureReview
+          shipment={data.shippingData}
+          close={() => setDepartureOpen(false)}
+        />
+      )}
+      {data.departure && (
+        <p className="my-3 text-sm">
+          Last recorded departure #{data.departure.id} ·{" "}
+          {new Date(data.departure.createdAt).toLocaleString()} · User #
+          {data.departure.actorId}
+        </p>
+      )}
+      {data.corrections?.length > 0 && (
+        <section className="my-4 rounded-lg border border-base-content/20 p-4">
+          <h2 className="text-lg font-semibold">
+            Recent administrative corrections
+          </h2>
+          <p className="text-sm text-base-content/65">
+            Latest 10 recorded corrections to shipment details, status or dates.
+          </p>
+          {data.corrections.map((record) => (
+            <details
+              key={record.id}
+              className="mt-3 rounded border border-base-content/15 p-3"
+            >
+              <summary className="min-h-11 cursor-pointer">
+                Correction #{record.id} ·{" "}
+                {new Date(record.createdAt).toLocaleString()} · User #
+                {record.actorId}
+              </summary>
+              <p className="my-2 break-words">Reason: {record.reason}</p>
+              {[
+                ["companyName", "Company"],
+                ["driverName", "Driver"],
+                ["registrationPlates", "Plates"],
+                ["truckStatus", "Status"],
+                ["entryDateTime", "Arrival time"],
+                ["exitDateTime", "Departure time"],
+              ]
+                .filter(([key]) => record.before[key] !== record.after[key])
+                .map(([key, label]) => (
+                  <div key={key} className="my-2 break-words">
+                    <p className="font-semibold">{label}</p>
+                    <p>Before: {record.before[key] ?? "Not recorded"}</p>
+                    <p>After: {record.after[key] ?? "Not recorded"}</p>
+                  </div>
+                ))}
+            </details>
+          ))}
+        </section>
+      )}
+
       {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
+      {canEdit && showDeleteConfirm && (
         <ConfirmDelete
           setShowDeleteConfirm={setShowDeleteConfirm}
           confirmDelete={confirmDelete}
@@ -181,7 +245,7 @@ export default function TruckData({ data, isLoading, error, shippingID }) {
       )}
 
       {/* Update Truck Data Modal */}
-      {openModalUpdate ? (
+      {canEdit && openModalUpdate ? (
         <ModalTruckUpdate
           closeModal={() => setOpenModalUpdate(false)}
           modalTruckFormData={data.shippingData}

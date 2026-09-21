@@ -1,3 +1,4 @@
+import { storageBalances } from "@/lib/server/storage-balances";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/server/scoped-database.cjs";
 import { withApiAuth } from "@/lib/server/api-route";
@@ -26,6 +27,7 @@ async function GETHandler(req, { params }) {
       );
     }
 
+    preStorageDataById.inventory = (await storageBalances()).pre.find(row => row.id === preStorageDataById.id)?.inventory;
     return NextResponse.json({ preStorageDataById }, { status: 200 });
   }
 }

@@ -8,6 +8,8 @@ export default function ModalShowLocationOriginDetails({
         type="checkbox"
         id="modal_origin_details"
         className="modal-toggle"
+        checked={true}
+        readOnly
       />
       <div className="modal" role="dialog">
         <div className="modal-box ">

@@ -3,8 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "dev:local": "next dev",
+    "dev": "node scripts/dev-demo.mjs",
+    "dev:local": "node scripts/dev-demo.mjs",
+    "dev:database": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint app/api lib scripts tests",

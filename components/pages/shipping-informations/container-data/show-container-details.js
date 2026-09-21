@@ -12,7 +12,7 @@ import { TbListDetails } from "react-icons/tb";
 import LoadingSpinnerButton from "./../../../shared/loading-spiner-button";
 import ConfirmDelete from "./../../../shared/confirmDelete";
 
-export default function ShowContainerDetails({ data }) {
+export default function ShowContainerDetails({ data, canEdit = false }) {
   const [modalContenData, setModalContentData] = useState(null);
   const [openModalDetails, setOpenModalDetails] = useState(false);
   const [openModalUpdate, setOpenModalUpdate] = useState(false);
@@ -34,6 +34,7 @@ export default function ShowContainerDetails({ data }) {
 
   //Confirm Delete
   const confirmDelete = async () => {
+    if (!canEdit) return;
     await deleteContainerProfileMutations(id);
     setShowDeleteConfirm(false);
   };
@@ -83,7 +84,7 @@ export default function ShowContainerDetails({ data }) {
                   {wasteProfile.name}
                 </span>
               </p>
-              <p className="break-words font-normal">
+              <p className="font-normal break-words">
                 from{" "}
                 <span className="font-bold underline underline-offset-4">
                   {locationOrigin.name}
@@ -91,8 +92,8 @@ export default function ShowContainerDetails({ data }) {
               </p>
             </div>
             <div>
-              <details className="collapse collapse-arrow bg-base-200">
-                <summary className="collapse-title !min-h-0 py-2 text-base font-medium leading-snug after:!top-3">
+              <details className="collapse-arrow collapse bg-base-200">
+                <summary className="collapse-title !min-h-0 py-2 text-base leading-snug font-medium after:!top-3">
                   <div className="flex flex-row items-center gap-2">
                     <TbListDetails className="h-4 w-4 shrink-0" />
                     <span>Details</span>
@@ -108,7 +109,7 @@ export default function ShowContainerDetails({ data }) {
                       <p className="font-normal text-base-content/70">
                         {detail.title}
                       </p>
-                      <p className="break-words font-medium">{detail.name}</p>
+                      <p className="font-medium break-words">{detail.name}</p>
 
                       <div className="tooltip" data-tip="Extend">
                         <label
@@ -125,7 +126,9 @@ export default function ShowContainerDetails({ data }) {
               </details>
             </div>
 
-            {containerStatus === "pending" || containerStatus === "rejected" ? (
+            {canEdit &&
+            (containerStatus === "pending" ||
+              containerStatus === "rejected") ? (
               <div className="mt-4 flex justify-end space-x-2">
                 {/* Edit/Update button */}
                 <div className="tooltip" data-tip="Edit">
@@ -158,7 +161,7 @@ export default function ShowContainerDetails({ data }) {
         </div>
 
         {/* Delete Confirmation Modal */}
-        {showDeleteConfirm && (
+        {canEdit && showDeleteConfirm && (
           <ConfirmDelete
             setShowDeleteConfirm={setShowDeleteConfirm}
             confirmDelete={confirmDelete}
@@ -173,7 +176,7 @@ export default function ShowContainerDetails({ data }) {
           />
         ) : null}
 
-        {openModalUpdate ? (
+        {canEdit && openModalUpdate ? (
           <ModalContainerProfilUpdate
             closeModal={() => setOpenModalUpdate(false)}
             modalContainerProfilData={data}

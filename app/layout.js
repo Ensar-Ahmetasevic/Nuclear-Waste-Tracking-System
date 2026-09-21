@@ -23,7 +23,7 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={`${rubik.variable} scroll-smooth`}>
+    <html lang="en" data-scroll-behavior="smooth" className={`${rubik.variable} scroll-smooth`}>
       <body className="overflow-x-hidden font-rubik">
         <Providers>
           <ToastContainer

@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 
 const FetchshippingInformationData = async () => {
-  const response = await axios.get("/api/shipping-informations");
+  const response = await axios.get("/api/shipping-informations", { timeout: 20000 });
   const data = response.data;
 
   return data;

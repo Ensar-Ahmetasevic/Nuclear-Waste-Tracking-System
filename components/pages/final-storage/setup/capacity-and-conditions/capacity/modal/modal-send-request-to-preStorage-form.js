@@ -1,173 +1,252 @@
 "use client";
-
-import { useForm } from "react-hook-form";
-
-import useCreateFinalStorageTransverRequestMutation from "../../../../../../../requests/request-final-storage/request-final-storage-transver-request/use-create-final-storage-transver-request-mutation";
-
+import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import useFinalStorageEmployeeQuery from "../../../../../../../requests/request-final-storage/request-final-storage-employee/use-fetch-final-storage-employee-query";
-
-import LoadingSpinnerButton from "../../../../../../shared/loading-spiner-button";
-import LoadingSpinnerPage from "../../../../../../shared/loading-spiner-page";
-import AlertWarning from "../../../../../../shared/alert-warning";
-
 export default function ModalSendRequestToPreStorageForm({
   isOpen,
   closeModal,
   roomData,
 }) {
-  // 1. All React hooks must be at the top
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm();
-
-  // 2. Data fetching
-  const {
-    data: finalStorageEmployeeData,
-    isLoading,
-    isError,
-  } = useFinalStorageEmployeeQuery();
-
-  // 3. Mutation hook
-
-  const {
-    mutateAsync: createFinalStorageTransverRequestMutation,
-    isPending: transferRequestPending,
-    isSuccess: transferRequestSuccess,
-  } = useCreateFinalStorageTransverRequestMutation();
-
-  // 4. Event handlers
-  const isFormSubmit = async ({ quantity, responsibleEmployee }) => {
-    // Ensure values are numbers
-    const formData = {
-      requestedQuantity: parseInt(quantity),
-      requestedByRoom: roomData.name,
-      requestedByEmployeeId: parseInt(responsibleEmployee),
-      finalStorageLocationId: roomData.id,
+  return isOpen ? <RequestReview close={closeModal} room={roomData} /> : null;
+}
+function RequestReview({ close, room }) {
+  const [destination] = useState(() => ({ id: room.id, name: room.name }));
+  const [quantity, setQuantity] = useState("");
+  const [employee, setEmployee] = useState("");
+  const [employeeName, setEmployeeName] = useState("");
+  const [phase, setPhase] = useState("edit");
+  const [message, setMessage] = useState("");
+  const [result, setResult] = useState(null);
+  const employees = useFinalStorageEmployeeQuery();
+  const client = useQueryClient();
+  const dialog = useRef(null),
+    heading = useRef(null),
+    payload = useRef(null),
+    busy = useRef(false);
+  useEffect(() => {
+    const node = dialog.current,
+      trigger = document.activeElement;
+    node.showModal();
+    heading.current?.focus();
+    return () => {
+      node.close();
+      if (trigger?.isConnected) trigger.focus();
     };
-
+  }, []);
+  useEffect(() => {
+    if (phase === "edit") (dialog.current?.querySelector("input") || heading.current)?.focus();
+    else heading.current?.focus();
+  }, [phase]);
+  async function finish() {
+    if (busy.current) return;
+    close();
+    if (result || phase === "unknown" || phase === "conflict")
+      await client.invalidateQueries();
+  }
+  function review(event) {
+    event.preventDefault();
+    const selected = employees.data?.find((row) => row.id === Number(employee));
+    if (!selected) return;
+    payload.current = null;
+    setEmployeeName(`${selected.name} ${selected.surname}`);
+    setMessage("");
+    setPhase("review");
+    heading.current?.focus();
+  }
+  async function send() {
+    if (busy.current) return;
+    busy.current = true;
+    setPhase("saving");
+    setMessage("");
+    payload.current ||= {
+      requestedQuantity: Number(quantity),
+      requestedByRoom: destination.name,
+      requestedByEmployeeId: Number(employee),
+      finalStorageLocationId: destination.id,
+      actionKey: crypto.randomUUID(),
+    };
     try {
-      // Step 1: Create the FinalStorage capacity entry
-      await createFinalStorageTransverRequestMutation(formData);
-
-      // Step 2: // Resetting the form after successful submission and close modal
-      reset();
-      closeModal();
-    } catch (error) {
-      console.error("Error handling the form submission:", error);
+      const response = await fetch(
+        "/api/final-storage-setup/final-storage-transver-request",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload.current),
+          signal: AbortSignal.timeout(20000),
+        },
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        if (response.status >= 500) throw Error("Unconfirmed");
+        setPhase(response.status === 409 ? "conflict" : "error");
+        setMessage(data.message || "Unable to send request.");
+        return;
+      }
+      if (!data.result?.id) throw Error("Missing result");
+      setResult(data);
+      setPhase("success");
+      heading.current?.focus();
+    } catch {
+      setPhase("unknown");
+      setMessage(
+        "Sending could not be confirmed. Check the same request before creating another one.",
+      );
+    } finally {
+      busy.current = false;
     }
-  };
-
-  // 3. Early returns for loading and error states
-  if (isLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <LoadingSpinnerPage />
-      </div>
-    );
   }
-
-  if (isError || !finalStorageEmployeeData) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <AlertWarning text={"Error loading Final Storage Employee request"} />
-      </div>
-    );
-  }
-
   return (
-    <>
-      {isOpen ? (
-        <div className="modal modal-open">
-          <div className="modal-box w-11/12 max-w-3xl">
-            <div className="mb-8">
-              <h2>Sending request from {roomData.name}</h2>
-            </div>
-
-            {/* Form */}
-            <form
-              className="flex flex-col items-start space-y-4"
-              onSubmit={handleSubmit(isFormSubmit)}
-            >
-              <div className="flex flex-col space-y-2">
-                {/* Quantity */}
-                <label className="text-left text-sm">Quantity:</label>
-                <input
-                  className="input input-md  input-info px-2"
-                  type="number"
-                  step="1" // Restrict to whole numbers
-                  min="1" // Prevent 0 or negative values
-                  placeholder="Type here ..."
-                  {...register("quantity", {
-                    required:
-                      "Requested quantity must be greater than or equal to 1",
-                  })}
-                />
-                {errors.quantity && (
-                  <p className="text-sm text-red-500">
-                    {errors.quantity.message}
-                  </p>
-                )}
-              </div>
-
-              {/*Responsible employee */}
-              <div className="flex w-full sm:w-64 flex-col space-y-2">
-                <label
-                  className="text-left text-sm"
-                  htmlFor="responsible-employee"
-                >
-                  Please select Responsible employee
-                </label>
-
-                <select
-                  className="select  select-info select-md px-2"
-                  id="responsible-employee"
-                  {...register("responsibleEmployee", {
-                    required: "Please select responsible employee",
-                  })}
-                >
-                  <option value="">---</option>
-
-                  {finalStorageEmployeeData.map((employee) => (
-                    <option key={employee.id} value={employee.id}>
-                      {employee.name} {employee.surname}
-                    </option>
-                  ))}
-                </select>
-                {errors.responsibleEmployee && (
-                  <p className="text-sm text-red-500">
-                    {errors.responsibleEmployee.message}
-                  </p>
-                )}
-              </div>
-
-              {/* Submit button */}
-              <div className=" space-x-2">
-                <button
-                  className="btnSave"
-                  type="submit"
-                  disabled={transferRequestPending}
-                >
-                  {transferRequestPending ? <LoadingSpinnerButton /> : "Send"}
-                </button>
-              </div>
-            </form>
-
-            <div className="modal-action">
-              <button
-                className="btnCancel"
-                onClick={() => {
-                  closeModal(), reset();
-                }}
-              >
-                Cancel
-              </button>
-            </div>
+    <dialog
+      ref={dialog}
+      aria-labelledby="new-transfer-title"
+      onCancel={(event) => {
+        event.preventDefault();
+        finish();
+      }}
+      className="receipt-dialog operational-panel rounded-xl border border-base-content/20 bg-base-100 p-6 text-base-content"
+    >
+      <h2
+        ref={heading}
+        tabIndex={-1}
+        id="new-transfer-title"
+        className="text-2xl font-bold"
+      >
+        {result
+          ? "Transfer request saved"
+          : phase === "edit"
+            ? "Prepare transfer request"
+            : "Review transfer request"}
+      </h2>
+      <p className="my-4">
+        Step 3 · Destination: {destination.name} · Room #{destination.id}
+      </p>
+      {phase === "edit" ? (
+        employees.isLoading ? (
+          <p role="status">Loading responsible employees…</p>
+        ) : employees.isError ? (
+          <div role="alert">
+            Unable to load employees.{" "}
+            <button className="btn" onClick={() => employees.refetch()}>
+              Retry
+            </button>
           </div>
+        ) : (
+          <form className="space-y-4" onSubmit={review}>
+            <label className="block">
+              Requested quantity
+              <input
+                className="input mt-2 w-full"
+                required
+                type="number"
+                step="1"
+                min="1"
+                max="2147483647"
+                value={quantity}
+                onChange={(event) => setQuantity(event.target.value)}
+              />
+            </label>
+            <label className="block">
+              Responsible employee
+              <select
+                className="select mt-2 w-full"
+                required
+                value={employee}
+                onChange={(event) => setEmployee(event.target.value)}
+              >
+                <option value="">Select an employee</option>
+                {employees.data?.map((row) => (
+                  <option key={row.id} value={row.id}>
+                    {row.name} {row.surname}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {!employees.data?.length && (
+              <p>
+                No responsible employees configured. Contact your administrator.
+              </p>
+            )}
+            <button
+              className="btn min-h-11 btn-primary"
+              disabled={!employees.data?.length}
+              type="submit"
+            >
+              Review request
+            </button>
+          </form>
+        )
+      ) : (
+        <div className="space-y-4">
+          <dl className="rounded-lg bg-base-200 p-4">
+            <dt>Requested quantity</dt>
+            <dd className="font-semibold">{quantity} containers</dd>
+            <dt className="mt-3">Responsible employee</dt>
+            <dd>{employeeName}</dd>
+          </dl>
+          {result ? (
+            <div className="operational-confirm" role="status">
+              <p className="font-semibold text-success">
+                Transfer #{result.transferId} saved
+              </p>
+              <p>
+                {new Date(result.result.createdAt).toLocaleString()} · User #
+                {result.result.actorId}
+              </p>
+              <p className="mt-2">
+                Waiting for pre-storage approval. Receipt has not been
+                confirmed.
+              </p>
+            </div>
+          ) : (
+            <>
+              <p>
+                This sends a request to pre-storage for review. It does not
+                confirm transport or receipt.
+              </p>
+              {phase === "review" && (
+                <div className="flex flex-wrap gap-3">
+                  <button className="btn min-h-11 btn-primary" onClick={send}>
+                    Send request for {quantity} containers
+                  </button>
+                  <button
+                    className="btn min-h-11 btn-outline"
+                    onClick={() => setPhase("edit")}
+                  >
+                    Back to edit
+                  </button>
+                </div>
+              )}
+              {phase === "saving" && (
+                <button className="btn min-h-11" disabled>
+                  Sending…
+                </button>
+              )}
+              {phase === "error" && <button className="btn min-h-11 btn-outline" onClick={() => setPhase("edit")}>Back to edit</button>}
+              {phase === "unknown" && (
+                <button className="btn min-h-11 btn-primary" onClick={send}>
+                  Check request result
+                </button>
+              )}
+            </>
+          )}
         </div>
-      ) : null}
-    </>
+      )}
+      <p className="my-4 text-sm" aria-live="polite">
+        {message}
+      </p>
+      <div className="mt-5 flex justify-end border-t border-base-content/15 pt-4">
+        <button
+          disabled={phase === "saving"}
+          className="btn min-h-11 btn-outline"
+          onClick={finish}
+        >
+          {result
+            ? "Done — return to tasks"
+            : phase === "conflict"
+              ? "Close and reload destination"
+              : "Cancel"}
+        </button>
+      </div>
+    </dialog>
   );
 }

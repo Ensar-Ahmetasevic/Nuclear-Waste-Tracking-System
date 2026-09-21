@@ -13,8 +13,7 @@ function useCreateWasteProfileMutation() {
       );
       return response;
     } catch (error) {
-      console.error("Failed to create new Waste Profile data", error);
-      toast.error(`Error: ${error}`);
+      toast.error(error.response?.data?.message || "Unable to create waste profile");
       throw error;
     }
   };

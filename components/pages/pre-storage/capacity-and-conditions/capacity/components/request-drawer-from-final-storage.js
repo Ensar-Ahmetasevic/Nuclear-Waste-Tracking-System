@@ -1,64 +1,52 @@
+"use client";
+import { useState } from "react";
 import RequestFromFinalStorage from "./inner-components/request-from-final-storage";
-
 export default function RequestDrawerFromFinalStorage({
   hasPendingContainersFromFinalStorage,
   requestData,
 }) {
+  const [selectedPage, setPage] = useState(1);
+  const pages = Math.max(1, Math.ceil(requestData.length / 10));
+  const page = Math.min(selectedPage, pages);
+  if (!hasPendingContainersFromFinalStorage) return null;
   return (
-    <>
-      {hasPendingContainersFromFinalStorage && (
-        <div className="alert alert-info flex flex-col items-center justify-center text-center">
-          <div className="flex flex-row space-x-2">
-            <p>You have new request from Final Storage!</p>
-          </div>
-          {/* Side drawer for the requests */}
-          <div className="drawer">
-            <input
-              id="my-drawer-final-storage"
-              type="checkbox"
-              className="drawer-toggle"
-            />
-            <div className="drawer-content static">
-              {/* Page content here */}
-              <label
-                htmlFor="my-drawer-final-storage"
-                className="btn btn-warning drawer-button z-0 text-black"
-              >
-                Show Requests
-                <span className="relative -top-6 left-6 right-6 flex h-4 w-4">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
-                  <span className="relative inline-flex h-4 w-4 rounded-full bg-red-500"></span>
-                </span>
-              </label>
-            </div>
-            <div className="drawer-side z-10">
-              <label
-                htmlFor="my-drawer-final-storage"
-                aria-label="close sidebar"
-                className="drawer-overlay"
-              ></label>
-              <div className="menu min-h-full w-full md:w-1/2 bg-base-200 p-4 text-base-content">
-                {/* Sidebar content here */}
-                {requestData.map((request) => (
-                  <RequestFromFinalStorage
-                    key={request.id}
-                    requestData={request}
-                  />
-                ))}
-
-                <div className="mt-10 flex justify-end">
-                  <label
-                    htmlFor="my-drawer-final-storage"
-                    className="btnCancel drawer-button w-32"
-                  >
-                    Close
-                  </label>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+    <section className="my-4 rounded-xl border border-base-content/20 p-4">
+      <h2 className="text-lg font-semibold">
+        Work area tasks · Transfer requests
+      </h2>
+      <p className="mt-1 text-sm text-base-content/70">
+        Review requests from final storage. Oldest requests first.
+      </p>
+      {[...requestData]
+        .sort((a, b) => a.id - b.id)
+        .slice((page - 1) * 10, page * 10)
+        .map((request) => (
+          <RequestFromFinalStorage key={request.id} requestData={request} />
+        ))}
+      {pages > 1 && (
+        <nav
+          aria-label="Transfer request pages"
+          className="flex items-center gap-3"
+        >
+          <button
+            className="btn min-h-11"
+            disabled={page === 1}
+            onClick={() => setPage(page - 1)}
+          >
+            Previous
+          </button>
+          <span>
+            Page {page} of {pages}
+          </span>
+          <button
+            className="btn min-h-11"
+            disabled={page === pages}
+            onClick={() => setPage(page + 1)}
+          >
+            Next
+          </button>
+        </nav>
       )}
-    </>
+    </section>
   );
 }

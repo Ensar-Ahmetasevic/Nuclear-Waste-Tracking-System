@@ -2,10 +2,7 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 
 import ModalSendRequestToPreStorageForm from "./modal/modal-send-request-to-preStorage-form";
-import useShippingInformationsStautsQuery from "../../../../../../requests/request-shipping-information/use-fetch-shipping-information-status-query";
 
-import LoadingSpinnerPage from "../../../../../shared/loading-spiner-page";
-import AlertWarning from "../../../../../shared/alert-warning";
 
 import RequestDrawer from "./components/request-drawer";
 
@@ -37,71 +34,6 @@ export default function CapacityDetails({
         request.finalStorageStatus === "transportPending" ||
         request.finalStorageStatus === "requestRejected",
     );
-
-  // Make request to the pre-storage
-  const {
-    data: pendingShippingInformations,
-    isLoading,
-    isError,
-  } = useShippingInformationsStautsQuery();
-
-  if (isLoading) {
-    return <LoadingSpinnerPage />;
-  }
-
-  if (isError || !pendingShippingInformations) {
-    return <AlertWarning text={"Error loading FinalStorage request"} />;
-  }
-
-  // Get the waste type or container type for the current hall
-  const hallContainerType = roomData.containerType;
-
-  // Filter the pending shipping informations for this hall
-  const filteredPendingShippingInformations =
-    pendingShippingInformations.filter((info) =>
-      info.containerProfiles.some(
-        (profile) => profile.wasteProfile.name === hallContainerType,
-      ),
-    );
-
-  // Map through filtered shipping informations
-  const requestQuantity = filteredPendingShippingInformations.map(
-    (shippingInfo) => {
-      // Get the total quantity of containers of the relevant wasteProfile type
-      const totalQuantity = shippingInfo.containerProfiles.reduce(
-        (sum, profile) =>
-          profile.wasteProfile.name === hallContainerType
-            ? sum + profile.quantity
-            : sum,
-        0,
-      );
-
-      // Status of all continers relevant to the hall
-      const containerStatus = shippingInfo.containerProfiles
-        .filter((profile) => profile.wasteProfile.name === hallContainerType)
-        .map((profile) => profile.containerStatus);
-
-      // IDs of all continers relevant to the hall
-      const containerProfileIds = shippingInfo.containerProfiles
-        .filter((profile) => profile.wasteProfile.name === hallContainerType)
-        .map((profile) => profile.id);
-
-      return {
-        totalQuantity,
-        containerStatus,
-        containerProfileIds,
-        companyName: shippingInfo.companyName,
-        registrationPlates: shippingInfo.registrationPlates,
-        status: shippingInfo.status,
-        id: shippingInfo.id,
-      };
-    },
-  );
-
-  // Check if there is any "pending" container status for this hall
-  // const hasPendingContainersInHall = requestQuantity.some((request) =>
-  //   request.containerStatus.includes("pending"),
-  // );
 
   return (
     <>
@@ -138,7 +70,6 @@ export default function CapacityDetails({
           <RequestDrawer
             hasActiveStorageTransferRequests={hasActiveStorageTransferRequests}
             roomData={roomData}
-            requestQuantity={requestQuantity}
           />
         ) : (
           <button

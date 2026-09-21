@@ -1,0 +1,2 @@
+CREATE TYPE "WorkArea" AS ENUM ('SHIPPING', 'PRE_STORAGE', 'FINAL_STORAGE');
+ALTER TABLE "UserProfile" ADD COLUMN "workArea" "WorkArea";

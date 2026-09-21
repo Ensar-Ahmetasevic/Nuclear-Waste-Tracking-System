@@ -91,3 +91,18 @@ span {
 .btnSearch {
   @apply btn btn-sm border-2 border-blue-500 bg-transparent text-blue-500 hover:border-blue-400 hover:bg-blue-700 hover:text-white;
 }
+
+/* Operational motion: short, one-time feedback; state never depends on animation. */
+:root { --motion-fast: 120ms; --motion-panel: 180ms; }
+@keyframes operational-enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes operational-confirm { from { opacity: 0; } to { opacity: 1; } }
+.operational-panel { animation: operational-enter var(--motion-panel) ease-out; }
+.operational-confirm { animation: operational-confirm var(--motion-panel) ease-out; }
+.operational-control { transition: background-color var(--motion-fast), border-color var(--motion-fast); }
+.receipt-dialog { max-height: 90dvh; width: min(42rem, calc(100vw - 2rem)); margin: auto; overflow: auto; }
+.receipt-dialog::backdrop { background: rgb(0 0 0 / 60%); }
+html[data-reduce-motion="true"] *, html[data-reduce-motion="true"] *::before, html[data-reduce-motion="true"] *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+html[data-reduce-motion="true"] { scroll-behavior: auto !important; }

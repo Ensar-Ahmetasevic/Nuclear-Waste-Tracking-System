@@ -11,6 +11,15 @@ datasource db {
 }
 
 model Organization {
+  shipmentDepartures ShipmentDeparture[]
+  shipmentArrivals ShipmentArrival[]
+  accountChanges AccountChange[]
+  accountCreations AccountCreation[]
+  containerCorrections ContainerCorrection[]
+  receiptAllocations ReceiptAllocation[]
+  transferSources TransferSource[]
+  shippingCorrections ShippingCorrection[]
+  transferActions TransferAction[]
   id Int @id @default(autoincrement())
   name String
   createdAt DateTime @default(now())
@@ -30,7 +39,24 @@ model Organization {
   finalStorageConditionRecords FinalStorageCondition[]
 }
 
+enum UserRole {
+  ADMINISTRATOR
+  SUPERVISION
+  EMPLOYEE
+}
+
+enum WorkArea {
+  SHIPPING
+  PRE_STORAGE
+  FINAL_STORAGE
+}
+
 model UserProfile {
+  workArea WorkArea?
+  role UserRole @default(EMPLOYEE)
+  username String? @unique
+  displayName String?
+  sessionVersion Int @default(0)
   organizationId Int?
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   @@index([organizationId])
@@ -150,6 +176,8 @@ model PreStorageLocation {
 }
 
 model PreStorageEntry {
+  receiptKey String? @unique
+  receiptFingerprint String?
   organizationId Int?
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   @@index([organizationId])
@@ -181,6 +209,8 @@ model PreStorageResponsibleEmployee {
 // Step 2.1 Pre-Storage Conditions
 
 model PreStorageConditions {
+  submissionKey String? @unique
+  recordedById Int?
   organizationId Int?
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   @@index([organizationId])
@@ -214,6 +244,8 @@ model FinalStorageLocation {
 }
 
 model StorageTransferRequest {
+  version Int @default(0)
+  actions TransferAction[]
   organizationId Int?
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   @@index([organizationId])
@@ -256,6 +288,8 @@ model FinalStorageResponsibleEmployee {
 // Step 3.1 Storage Conditions
 
 model FinalStorageCondition {
+  submissionKey String? @unique
+  recordedById Int?
   organizationId Int?
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   @@index([organizationId])
@@ -276,4 +310,144 @@ model AuthRateLimit {
   attempts Int @default(1)
   expiresAt DateTime
   @@index([expiresAt])
+}
+
+model TransferAction {
+  id Int @id @default(autoincrement())
+  organizationId Int
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  transferId Int
+  transfer StorageTransferRequest @relation(fields: [transferId], references: [id], onDelete: Restrict)
+  actionKey String @unique
+  fingerprint String
+  action String
+  quantity Int
+  actorId Int
+  reason String?
+  createdAt DateTime @default(now())
+  @@index([organizationId, transferId])
+}
+
+model ShippingCorrection {
+  id Int @id @default(autoincrement())
+  organizationId Int
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  shipmentId Int
+  actorId Int
+  reason String
+  before Json
+  after Json
+  actionKey String @unique
+  fingerprint String
+  createdAt DateTime @default(now())
+  @@index([organizationId, shipmentId])
+}
+
+model ShipmentDeparture {
+  id Int @id @default(autoincrement())
+  organizationId Int
+  organization Organization @relation(fields:[organizationId], references:[id], onDelete:Restrict)
+  shipmentId Int
+  actorId Int
+  actionKey String @unique
+  fingerprint String
+  snapshot Json
+  createdAt DateTime @default(now())
+  @@index([organizationId,shipmentId])
+}
+
+model ShipmentArrival {
+  id Int @id @default(autoincrement())
+  organizationId Int
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  shipmentId Int
+  actorId Int
+  actionKey String @unique
+  fingerprint String
+  snapshot Json
+  createdAt DateTime @default(now())
+  @@index([organizationId, shipmentId])
+}
+
+model AccountChange {
+  id Int @id @default(autoincrement())
+  organizationId Int
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  targetUserId Int
+  actorId Int
+  actionKey String @unique
+  fingerprint String
+  reason String
+  before Json
+  after Json
+  changedFields Json
+  createdAt DateTime @default(now())
+  @@index([organizationId, targetUserId])
+}
+
+model ReceiptAllocation {
+  id Int @id @default(autoincrement())
+  organizationId Int
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  receiptId Int
+  shipmentId Int
+  containerProfileId Int
+  locationId Int
+  quantity Int
+  actorId Int
+  responsibleEmployeeId Int
+  createdAt DateTime @default(now())
+  @@index([organizationId, shipmentId])
+  @@unique([receiptId, containerProfileId])
+}
+
+model TransferSource {
+  id Int @id @default(autoincrement())
+  organizationId Int
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  transferId Int
+  receiptAllocationId Int
+  shipmentId Int
+  containerProfileId Int
+  locationId Int
+  destinationId Int
+  quantity Int
+  state String @default("reserved")
+  approvalActionId Int
+  resolutionActionId Int?
+  @@unique([approvalActionId, receiptAllocationId])
+  @@index([resolutionActionId])
+  @@index([organizationId, receiptAllocationId])
+  @@index([organizationId, shipmentId])
+}
+
+// Immutable creation receipt; credentials and personal fields are not stored here.
+model AccountCreation {
+  id Int @id @default(autoincrement())
+  organizationId Int
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  targetUserId Int
+  actorId Int
+  actionKey String @unique
+  fingerprint String
+  role UserRole
+  workArea WorkArea?
+  createdAt DateTime @default(now())
+  @@index([organizationId, targetUserId])
+}
+
+model ContainerCorrection {
+  id Int @id @default(autoincrement())
+  organizationId Int
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  shipmentId Int
+  containerProfileId Int
+  actorId Int
+  actionKey String @unique
+  fingerprint String
+  reason String
+  before Json
+  after Json
+  createdAt DateTime @default(now())
+  @@index([organizationId, shipmentId])
 }

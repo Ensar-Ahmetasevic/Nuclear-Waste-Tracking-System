@@ -1,7 +1,17 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/server/scoped-database.cjs";
+import { HttpError } from "@/lib/server/errors.cjs";
 import { withApiAuth } from "@/lib/server/api-route";
+
+async function assertContainerTypeAvailable(containerTypeId, currentId) {
+  if (!Number.isSafeInteger(containerTypeId) || containerTypeId <= 0) throw new HttpError(400, "Select a valid container type");
+  await prisma.containerType.findUniqueOrThrow({ where: { id: containerTypeId } });
+  const assigned = await prisma.wasteProfile.findFirst({ where: { containerTypeId } });
+  if (assigned && assigned.id !== currentId) {
+    throw new HttpError(409, `This container type is already assigned to waste profile "${assigned.name}". Choose an unused type or keep the current type.`);
+  }
+}
 
 // Createing  data
 async function POSTHandler(req, res) {
@@ -28,6 +38,7 @@ async function POSTHandler(req, res) {
   }
 
   {
+    await assertContainerTypeAvailable(parseInt(recommendationsForTransport));
     await prisma.wasteProfile.create({
       data: {
         name,
@@ -115,6 +126,8 @@ async function PUTHandler(req, res) {
   }
 
   {
+    await prisma.wasteProfile.findUniqueOrThrow({ where: { id: parseInt(id) } });
+    await assertContainerTypeAvailable(parseInt(containerTypeId), parseInt(id));
     const updateWasteProfile = await prisma.wasteProfile.update({
       where: { id: parseInt(id) },
       data: {

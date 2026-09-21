@@ -1,3 +1,4 @@
+import ShipmentTimeline from "./shipment-timeline";
 import ShowContainerDetails from "./container-data/show-container-details";
 import TruckData from "./truck-data/truck-data";
 import TruckDataDetails from "./truck-data/truck-data-details";
@@ -17,6 +18,7 @@ export default function DetailsShippingData({
   }
 
   const { containerProfiles } = data.shippingData;
+  const canEdit = data.permissions?.canEdit === true;
 
   // Step 3: Check the statuses of container
   const hasRejectedContainers = containerProfiles.some(
@@ -49,11 +51,15 @@ export default function DetailsShippingData({
         .slice()
         .reverse()
         .map((profile) => (
-          <ShowContainerDetails key={profile.id} data={profile} />
+          <ShowContainerDetails
+            key={profile.id}
+            data={profile}
+            canEdit={data.permissions?.canEditContainers === true}
+          />
         ))
     ) : (
       <div className="flex justify-center py-8">
-        <p className="text-base-content/70">No containers in the truck</p>
+        <p className="text-base-content/70">Waiting for Container Profile · Supervision</p>
       </div>
     );
 
@@ -80,12 +86,13 @@ export default function DetailsShippingData({
             isLoading={isLoading}
             error={error}
             shippingID={shippingID}
+            canEdit={canEdit}
           />
 
           <div className="flex flex-col gap-4 lg:hidden">{summaryBlock}</div>
 
           <section className="space-y-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-base-content/60 lg:hidden">
+            <h2 className="text-sm font-semibold tracking-wide text-base-content/60 uppercase lg:hidden">
               Containers
             </h2>
             {containerList}
@@ -96,6 +103,7 @@ export default function DetailsShippingData({
           {summaryBlock}
         </aside>
       </div>
+      <ShipmentTimeline timeline={data.timeline} />
     </>
   );
 }

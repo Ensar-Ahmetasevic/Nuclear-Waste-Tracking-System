@@ -1,3 +1,4 @@
+import InventoryNote from "@/components/shared/inventory-note";
 import { useState, useMemo } from "react";
 
 import ModalFinalStorageConditionsForm from "./conditions/modal/modal-final-storage-conditions-form";
@@ -23,13 +24,13 @@ export default function FinalCapacityAndConditionsDetails({
   const containerFootprint = finalStorageData.containerFootprint;
 
   // Check if finalStorageEntry exists and has items
-  const hasContainers = finalStorageData.storageTransferRequests.length > 0;
+
 
   // Total sum of containers in room (only calculate if there are containers)
-  const totalContainers = hasContainers ? finalStorageData.quantity : 0;
+  const totalContainers = finalStorageData.inventory?.quantity ?? finalStorageData.quantity;
 
   // Calculate maximum number of containers which can fit in the hall
-  const maxContainer = Math.round(roomSurface / containerFootprint);
+  const maxContainer = Math.floor(roomSurface / containerFootprint);
 
   // Calculate of how many more containers can fit in the hall
   const freeContainers = maxContainer - totalContainers;
@@ -70,6 +71,7 @@ export default function FinalCapacityAndConditionsDetails({
       <div className="container mx-auto mt-20 flex max-w-4xl flex-col place-items-center rounded-box border-2 border-yellow-600 bg-base-300 p-6">
         {/* Back button */}
         <BackButton route={"final-storage"} />
+        <InventoryNote final inventory={finalStorageData.inventory} />
 
         {/* Display the name of the final-storage location */}
         <div className="mb-10 mt-5">

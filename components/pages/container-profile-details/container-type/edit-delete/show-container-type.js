@@ -1,4 +1,5 @@
 import { useState } from "react";
+import ModalPortal from "../../../../shared/modal-portal";
 import { useRouter } from "next/navigation";
 
 import useDeleteContainerTypeMutation from "./../../../../../requests/request-container-profile/request-container-type/use-delete-container-type-mutation";
@@ -77,6 +78,7 @@ export default function ShowContainerType({ containerData }) {
         </td>
       </tr>
 
+      <ModalPortal>
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <ConfirmDelete
@@ -98,6 +100,7 @@ export default function ShowContainerType({ containerData }) {
           modalContainerTypeData={containerData}
         />
       ) : null}
+      </ModalPortal>
     </>
   );
 }

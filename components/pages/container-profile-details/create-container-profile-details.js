@@ -1,18 +1,31 @@
 "use client";
 
 import { useState } from "react";
+import { useSession } from "next-auth/react";
+import Link from "next/link";
+import useLocationOriginQuery from "../../../requests/request-container-profile/request-location-origin/use-fetch-location-origin-query";
+import useWasteProfileQuery from "../../../requests/request-container-profile/request-waste-profile/use-fetch-waste-profile-query";
+import useContainerTypeQuery from "../../../requests/request-container-profile/request-container-type/use-fetch-container-type-query";
 
-import ContainerTypeDropdown from "./container-type/container-type-dropdown";
 import DynamicFormDisplay from "./dynamic-form-display";
-import WasteProfileDropdown from "./waste-profile/waste-profile-dropdown";
-import LocationOriginDropdown from "./location-origin/location-origin-dropdown";
 
 export default function CreateContainerProfileDetails() {
   const [activeButton, setActiveButton] = useState(null);
+  const { data: session } = useSession();
+  const canManage = session?.user?.role === "ADMINISTRATOR";
+  const origins = useLocationOriginQuery();
+  const waste = useWasteProfileQuery();
+  const types = useContainerTypeQuery();
+  const loading = origins.isLoading || waste.isLoading || types.isLoading;
+  const failed = origins.isError || waste.isError || types.isError;
+  const ready = origins.data?.length > 0 && waste.data?.some(profile => types.data?.some(type => type.id === profile.containerTypeId));
 
-  const handleButtonClick = (buttonsData) => {
-    setActiveButton(buttonsData);
-  };
+  const sections = [
+    { label: "Location Origin", key: "Location origin" },
+    { label: "Waste Profile", key: "Waste profile" },
+    { label: "Container Type", key: "Container type" },
+  ];
+  const selected = sections.find(section => activeButton?.startsWith(section.key));
 
   return (
     <section id="containerProfileSetup">
@@ -68,34 +81,44 @@ export default function CreateContainerProfileDetails() {
             </div>
 
             <p className="mt-4 text-sm text-base-content/80">
-              Create data for all components to enable Container Profile
-              creation
+              {loading ? "Checking available components…" : failed ? "Unable to check components. Please refresh and retry." : ready
+                ? "Components are ready. Open an IN shipment and choose Add Containers to create a Container Profile."
+                : canManage ? "Add a location origin and a waste profile linked to a container type to create a Container Profile."
+                : "Ask an administrator to configure the missing components before adding containers."}
             </p>
+            {!loading && !failed && ready && (
+              <Link className="btn btn-primary" href="/shipping-informations">Open shipments</Link>
+            )}
           </div>
         </div>
 
-        {/* Dropdown Buttons */}
-        <div className="m-4 flex w-full max-w-3xl flex-col justify-center gap-3 px-4 sm:m-6 sm:flex-row sm:gap-0 sm:space-x-3 sm:px-0">
-          <LocationOriginDropdown
-            activeButton={activeButton}
-            OnActiveButton={handleButtonClick}
-          />
-          <WasteProfileDropdown
-            activeButton={activeButton}
-            OnActiveButton={handleButtonClick}
-          />
-          <ContainerTypeDropdown
-            activeButton={activeButton}
-            OnActiveButton={handleButtonClick}
-          />
-        </div>
-
-        <div>
-          <DynamicFormDisplay
-            activeButton={activeButton}
-            setActiveButton={setActiveButton}
-          />
-        </div>
+        {canManage ? (
+          <section className="w-full min-w-0 space-y-5" aria-label="Component management">
+            <div className="flex flex-wrap justify-center gap-3" aria-label="Component selection">
+              {sections.map(section => (
+                <button key={section.key} type="button" aria-pressed={selected?.key === section.key}
+                  className={`btn ${selected?.key === section.key ? "btn-primary" : "btn-outline"}`}
+                  onClick={() => setActiveButton(`${section.key} Table`)}>
+                  {section.label}
+                </button>
+              ))}
+            </div>
+            {selected && (
+              <div className="space-y-4" aria-live="polite">
+                <h2 className="text-center text-xl font-semibold">{selected.label}</h2>
+                <div className="flex flex-wrap justify-center gap-3">
+                  <button type="button" className="btn btn-sm" aria-pressed={activeButton.endsWith("Table")} onClick={() => setActiveButton(`${selected.key} Table`)}>View / Edit</button>
+                  <button type="button" className="btn btn-sm" aria-pressed={activeButton.endsWith("Form")} onClick={() => setActiveButton(`${selected.key} Form`)}>Add new</button>
+                </div>
+                <DynamicFormDisplay activeButton={activeButton} setActiveButton={setActiveButton} />
+              </div>
+            )}
+          </section>
+        ) : (
+          <p className="text-center text-sm text-base-content/70">
+            Component definitions are managed by administrators. You can use existing components when adding containers to an IN shipment.
+          </p>
+        )}
       </div>
     </section>
   );

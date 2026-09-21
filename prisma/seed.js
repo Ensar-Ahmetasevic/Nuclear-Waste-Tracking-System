@@ -1,6 +1,18 @@
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
+const { seedConcept } = require('./seed-concept.cjs');
 const prisma = new PrismaClient();
+async function demoAccounts(admin) {
+  for (const account of JSON.parse(process.env.SEED_DEMO_ACCOUNTS || '[]')) {
+    const existing = await prisma.userProfile.findUnique({ where: { email: account.email } });
+    if (existing) {
+      if (existing.organizationId !== admin.organizationId || existing.role !== account.role) throw new Error('Demo account conflict; existing account was preserved');
+      continue;
+    }
+    await prisma.userProfile.create({ data: { username: account.username, email: account.email, role: account.role, workArea: account.workArea || null, displayName: account.role === 'SUPERVISION' ? 'Demo Supervisor' : 'Demo Employee', password: await bcrypt.hash(account.password, 12), organizationId: admin.organizationId, companyId: admin.companyId, companyName: admin.companyName, address: 'Demo address', administrator: false, active: true } });
+  }
+}
+
 async function main() {
   const url = new URL(process.env.DATABASE_URL || '');
   if (process.env.NWTS_ALLOW_DEMO_SEED !== '1' || !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) || !['/nwts_dev', '/nwts_test'].includes(url.pathname)) {
@@ -12,6 +24,8 @@ async function main() {
   const existing = await prisma.userProfile.findUnique({ where: { email } });
   if (existing) {
     if (!existing.organizationId || !existing.active || !existing.administrator) throw new Error('Existing account is not an active demo administrator. No data was changed.');
+    await demoAccounts(existing);
+    await seedConcept(prisma, existing.organizationId);
     console.log('Demo account already exists; existing data and password were preserved.');
     return;
   }
@@ -19,7 +33,7 @@ async function main() {
   await prisma.$transaction(async tx => {
     const organization = await tx.organization.create({ data: { name: 'NWTS Demo' } });
     const organizationId = organization.id;
-    const admin = await tx.userProfile.create({ data: { organizationId, email, password: hashed, companyId: 1001, companyName: 'NWTS Demo', address: 'Demo address', administrator: true, active: true } });
+    const admin = await tx.userProfile.create({ data: { organizationId, email, password: hashed, companyId: 1001, companyName: 'NWTS Demo', address: 'Demo address', administrator: true, role: 'ADMINISTRATOR', active: true } });
     const type = await tx.containerType.create({ data: { organizationId, name: 'Demo container', material: 'Demo material', volume: 1, carryingCapacity: 100, radioactivityLevel: 'Demo', physicalProperties: 'Demo only', footprint: 1, description: 'Synthetic test data; not an operational specification.' } });
     const waste = await tx.wasteProfile.create({ data: { organizationId, containerTypeId: type.id, name: 'Demo waste', ...Object.fromEntries(['typeOfWaste','wasteDescription','risksAndHazards','processingMethods','physicalProperties','chemicalProperties','biologicalProperties','collectionProcedures'].map(key => [key,'Synthetic demo data'])) } });
     const origin = await tx.locationOrigin.create({ data: { organizationId, name: 'Demo origin', address: 'Demo address', origin: 'Demo location' } });
@@ -31,6 +45,9 @@ async function main() {
     await tx.preStorageResponsibleEmployee.create({ data: employee });
     await tx.finalStorageResponsibleEmployee.create({ data: employee });
   });
+  const admin = await prisma.userProfile.findUniqueOrThrow({ where: { email } });
+  await demoAccounts(admin);
+  await seedConcept(prisma, admin.organizationId);
   console.log('Isolated demo organization and sample records created.');
 }
 main().catch(error => { console.error(error.message); process.exitCode = 1; }).finally(() => prisma.$disconnect());

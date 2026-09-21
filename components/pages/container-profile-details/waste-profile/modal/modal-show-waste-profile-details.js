@@ -8,6 +8,8 @@ export default function ModalShowWasteProfileDetails({
         type="checkbox"
         id="modal_waste_details"
         className="modal-toggle"
+        checked={true}
+        readOnly
       />
       <div className="modal" role="dialog">
         <div className="modal-box w-11/12 max-w-5xl">

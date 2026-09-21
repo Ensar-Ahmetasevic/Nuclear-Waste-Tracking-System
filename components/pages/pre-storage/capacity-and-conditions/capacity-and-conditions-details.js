@@ -1,3 +1,4 @@
+import InventoryNote from "@/components/shared/inventory-note";
 import { useState, useMemo } from "react";
 
 import ModalPreStorageConditionsForm from "./conditions/modal/modal-pre-storage-conditions-form";
@@ -21,13 +22,13 @@ export default function CapacityAndConditionsDetails({ preStorageData }) {
   const containerFootprint = preStorageData.containerFootprint;
 
   // Total sum of containers in hale
-  const totalContainers = preStorageData.preStorageEntry.reduce(
+  const totalContainers = preStorageData.inventory?.quantity ?? preStorageData.preStorageEntry.reduce(
     (total, waste) => total + waste.quantity,
     0,
   );
 
   // Calculate maximum number of containers which can fit in the hall
-  const maxContainer = Math.round(halesurface / containerFootprint);
+  const maxContainer = Math.floor(halesurface / containerFootprint);
 
   // Calculate of how many more containers can fit in the hall
   const freeContainers = maxContainer - totalContainers;
@@ -68,6 +69,7 @@ export default function CapacityAndConditionsDetails({ preStorageData }) {
       <div className="container mx-auto mt-20 flex max-w-4xl flex-col place-items-center rounded-box border-2 border-yellow-600 bg-base-300 p-6">
         {/* Back button */}
         <BackButton route={"pre-storage"} />
+        <InventoryNote inventory={preStorageData.inventory} />
 
         {/* Display the name of the pre-storage location */}
         <div className="mb-10 mt-5">

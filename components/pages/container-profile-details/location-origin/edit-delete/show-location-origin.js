@@ -1,4 +1,5 @@
 import { useState } from "react";
+import ModalPortal from "../../../../shared/modal-portal";
 import { useRouter } from "next/navigation";
 
 import useDeleteLocationOriginMutation from "./../../../../../requests/request-container-profile/request-location-origin/use-delete-location-origin-mutation";
@@ -78,6 +79,7 @@ export default function ShowLocationOrigin({ originData }) {
         </td>
       </tr>
 
+      <ModalPortal>
       {/* Show Details */}
       {openModalDetails ? (
         <ModalShowLocationOriginDetails
@@ -101,6 +103,7 @@ export default function ShowLocationOrigin({ originData }) {
           confirmDelete={confirmDelete}
         />
       )}
+      </ModalPortal>
     </>
   );
 }

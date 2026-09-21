@@ -15,8 +15,9 @@ export default function BackButton({ route }) {
   return (
     <div className="flex w-full justify-start">
       <button
+        aria-label="Back to list"
         onClick={() => handleBackClick()}
-        className="inline-flex h-10 w-10 transform items-center justify-center rounded-full border bg-gray-200 transition-transform duration-300 ease-in-out hover:scale-125"
+        className="inline-flex h-11 w-11 items-center justify-center rounded-full border bg-gray-200 operational-control hover:bg-gray-300"
       >
         {isNavigating ? (
           <LoadingSpinnerButton />

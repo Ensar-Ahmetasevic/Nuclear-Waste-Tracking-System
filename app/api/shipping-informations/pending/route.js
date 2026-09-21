@@ -9,6 +9,7 @@ async function GETHandler() {
       await prisma.shippingInformation.findMany({
         where: {
           status: "pending",
+          truckStatus: "IN",
           containerProfiles: {
             some: {
               containerStatus: "pending",
@@ -16,14 +17,16 @@ async function GETHandler() {
             },
           },
         },
-        include: {
+        select: {
+          id: true, companyName: true, registrationPlates: true, status: true,
           containerProfiles: {
             where: {
               containerStatus: "pending",
               // Only include pending containers
             },
             include: {
-              wasteProfile: true,
+              wasteProfile: {include:{containerType:true}},
+              locationOrigin: {select:{name:true}},
             },
           },
         },
@@ -50,6 +53,6 @@ async function PATCHHandler(request) {
 }
 
 export const GET = withApiAuth(GETHandler);
-export const PATCH = withApiAuth(PATCHHandler, { bodyObjects: ["shippingStatusData"] });
+export const PATCH = withApiAuth(PATCHHandler, { access: "member", bodyObjects: ["shippingStatusData"] });
 
 export const dynamic = "force-dynamic";

@@ -1,5 +1,6 @@
 import { useForm } from "react-hook-form";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import useWasteProfileQuery from "../../../../../requests/request-container-profile/request-waste-profile/use-fetch-waste-profile-query";
 
 import useUpdateWasteProfileMutation from "./../../../../../requests/request-container-profile/request-waste-profile/use-update-waste-profile-mutation";
 import useContainerTypeQuery from "./../../../../../requests/request-container-profile/request-container-type/use-fetch-container-type-query";
@@ -11,10 +12,11 @@ export default function ModalWasteProfileDetailsUpdate({
   modalContainerTypeData,
   closeModal,
 }) {
+  const [submitError, setSubmitError] = useState("");
+  const profiles = useWasteProfileQuery();
   const {
     register,
     handleSubmit,
-    reset,
     formState: { errors },
   } = useForm({});
 
@@ -46,6 +48,7 @@ export default function ModalWasteProfileDetailsUpdate({
   } = modalContainerTypeData;
 
   const isFormSubmit = async (formData) => {
+    setSubmitError("");
     // Trim all string values
     const trimmedData = {
       name: formData.name.trim(),
@@ -65,13 +68,12 @@ export default function ModalWasteProfileDetailsUpdate({
       await updateWasteProfileMutation(trimmedData);
       closeModal();
     } catch (error) {
-      console.error("Error updating Waste Profile:", error);
-
-      closeModal();
+      setSubmitError(error.response?.data?.message || "Unable to save changes. Please try again.");
+      if (error.response?.status === 409) profiles.refetch();
     }
   };
 
-  if (isContainerTypeLoading) {
+  if (isContainerTypeLoading || profiles.isLoading) {
     return (
       <dialog id="modal_update_waste_profile" className="modal modal-open">
         <div className="modal-box flex items-center justify-center p-8">
@@ -81,7 +83,7 @@ export default function ModalWasteProfileDetailsUpdate({
     );
   }
 
-  if (!containerTypeData || isContainerTypeError) {
+  if (!containerTypeData || isContainerTypeError || profiles.isError) {
     return (
       <dialog id="modal_update_waste_profile" className="modal modal-open">
         <div className="modal-box flex items-center justify-center p-8">
@@ -98,8 +100,8 @@ export default function ModalWasteProfileDetailsUpdate({
           <h3 className="text-lg font-bold">Edit Waste Profile Details</h3>
 
           <div className="modal-action flex flex-col">
+            {submitError && <p role="alert" className="text-error">{submitError}</p>}
             <form
-              method="dialog"
               className="flex flex-col items-start space-y-4 pb-4"
               onSubmit={handleSubmit(isFormSubmit)}
             >
@@ -291,14 +293,14 @@ export default function ModalWasteProfileDetailsUpdate({
                   <select
                     className="select  select-md px-2"
                     id="recommendations-for-transport"
-                    defaultValue={containerType.id}
+                    defaultValue={modalContainerTypeData.containerTypeId ?? containerType?.id}
                     {...register("recommendationsForTransport", {
                       required: "Transport recommendations are required",
                     })}
                   >
                     {containerTypeData.map((type) => (
-                      <option key={type.id} value={type.id}>
-                        {type.name}
+                      <option key={type.id} value={type.id} disabled={profiles.data?.some(profile => profile.containerTypeId === type.id && profile.id !== id)}>
+                        {type.name}{profiles.data?.some(profile => profile.containerTypeId === type.id && profile.id !== id) ? " (already assigned)" : ""}
                       </option>
                     ))}
                   </select>

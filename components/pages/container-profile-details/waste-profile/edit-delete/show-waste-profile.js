@@ -1,4 +1,5 @@
 import { useState } from "react";
+import ModalPortal from "../../../../shared/modal-portal";
 import { useRouter } from "next/navigation";
 
 import useDeleteWasteProfileMutation from "./../../../../../requests/request-container-profile/request-waste-profile/use-delete-waste-profile-mutation";
@@ -80,6 +81,7 @@ export default function ShowWasteProfile({ wasteData }) {
         </td>
       </tr>
 
+      <ModalPortal>
       {/* Show Details */}
       {openModalDetails ? (
         <ModalShowWasteProfileDetails
@@ -103,6 +105,7 @@ export default function ShowWasteProfile({ wasteData }) {
           confirmDelete={confirmDelete}
         />
       )}
+      </ModalPortal>
     </>
   );
 }
