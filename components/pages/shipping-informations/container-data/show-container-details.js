@@ -34,7 +34,7 @@ export default function ShowContainerDetails({ data, canEdit = false }) {
 
   //Confirm Delete
   const confirmDelete = async () => {
-    if (!canEdit) return;
+    if (!canEdit || data.correctionLocked) return;
     await deleteContainerProfileMutations(id);
     setShowDeleteConfirm(false);
   };
@@ -126,19 +126,20 @@ export default function ShowContainerDetails({ data, canEdit = false }) {
               </details>
             </div>
 
-            {canEdit &&
+            {data.correctionLocked && <p className="mt-3 text-sm text-base-content/70">Recorded receipt or transfer: profile values are locked here to preserve the stock history.</p>}
+            {canEdit && !data.correctionLocked &&
             (containerStatus === "pending" ||
               containerStatus === "rejected") ? (
               <div className="mt-4 flex justify-end space-x-2">
                 {/* Edit/Update button */}
                 <div className="tooltip" data-tip="Edit">
-                  <label
-                    htmlFor="update_modal_container_profile"
-                    className="btnUpdate"
+                  <button
+                    aria-label={`Edit Container Profile #${id}`}
+                    className="btnUpdate min-h-11"
                     onClick={() => handleModalUpdateContainerProfile()}
                   >
                     <CiEdit />
-                  </label>
+                  </button>
                 </div>
 
                 {/* Delete button */}
@@ -176,7 +177,7 @@ export default function ShowContainerDetails({ data, canEdit = false }) {
           />
         ) : null}
 
-        {canEdit && openModalUpdate ? (
+        {canEdit && !data.correctionLocked && openModalUpdate ? (
           <ModalContainerProfilUpdate
             closeModal={() => setOpenModalUpdate(false)}
             modalContainerProfilData={data}

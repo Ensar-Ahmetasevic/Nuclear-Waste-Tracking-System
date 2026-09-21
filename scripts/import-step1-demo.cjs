@@ -7,8 +7,8 @@ async function main() {
   const credentials = JSON.parse(await readFile(resolve('.local/demo-credentials.json'), 'utf8'));
   const port = Number(process.env.NWTS_DEV_DB_PORT || 55438);
   process.env.DATABASE_URL = `postgresql://nwts_dev:${encodeURIComponent(credentials.secret)}@127.0.0.1:${port}/nwts_dev`;
-  const { PrismaClient } = require('@prisma/client');
-  const db = new PrismaClient();
+  const { createPrismaClient } = require('../lib/server/database.cjs');
+  const db = createPrismaClient();
   try {
     const admin = await db.userProfile.findUniqueOrThrow({ where: { email: credentials.email } });
     if (!admin.organizationId || admin.role !== 'ADMINISTRATOR') throw new Error('Local demo administrator is required.');

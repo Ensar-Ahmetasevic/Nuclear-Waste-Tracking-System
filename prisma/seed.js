@@ -1,7 +1,9 @@
-const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 const { seedConcept } = require('./seed-concept.cjs');
-const prisma = new PrismaClient();
+const { createPrismaClient } = require('../lib/server/database.cjs');
+
+const prisma = createPrismaClient();
+
 async function demoAccounts(admin) {
   for (const account of JSON.parse(process.env.SEED_DEMO_ACCOUNTS || '[]')) {
     const existing = await prisma.userProfile.findUnique({ where: { email: account.email } });

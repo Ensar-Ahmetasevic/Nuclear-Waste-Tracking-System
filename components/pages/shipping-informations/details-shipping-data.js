@@ -35,7 +35,7 @@ export default function DetailsShippingData({
       rejectedContainers.map((container) => container.wasteProfile.name),
     ),
   ];
-  // rejectedTypes will be an array containing unique values ​​["M01"] or ["M02"] or ["M01", "M02"]
+  // rejectedTypes will be an array containing unique values ["M01"] or ["M02"] or ["M01", "M02"]
 
   let warningMessage = "";
 
@@ -103,6 +103,15 @@ export default function DetailsShippingData({
           {summaryBlock}
         </aside>
       </div>
+      {data.containerCorrections?.length > 0 && <section className="my-6 space-y-3 rounded-xl border border-base-content/20 p-4">
+        <h2 className="text-xl font-semibold">Container Profile corrections</h2>
+        <p className="text-sm">Latest 20 recorded corrections. Earlier changes are not reconstructed.</p>
+        {data.containerCorrections.map(item => <details key={item.id} className="rounded border border-base-content/20 p-3">
+          <summary className="min-h-11 cursor-pointer">Correction #{item.id} · Profile #{item.containerProfileId} · {new Date(item.createdAt).toLocaleString()}</summary>
+          <p className="my-2">Recorded by User #{item.actorId}</p><p className="break-words">Reason: {item.reason}</p>
+          {[["quantity", "Quantity"], ["locationOriginId", "Location origin ID"], ["wasteProfileId", "Waste profile ID"], ["containerStatus", "Review status"]].map(([key, label]) => <div key={key} className="mt-2"><p className="font-semibold">{label}</p><p>Before: {item.before[key]} · After: {item.after[key]}</p></div>)}
+        </details>)}
+      </section>}
       <ShipmentTimeline timeline={data.timeline} />
     </>
   );

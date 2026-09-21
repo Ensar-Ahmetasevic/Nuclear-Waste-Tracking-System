@@ -4,7 +4,7 @@ Aplikacija za evidenciju pošiljki, profila kontejnera i otpada, privremenih i z
 
 ## Tehnologije
 
-Node.js 24, Next.js 16 / React 19, PostgreSQL, Prisma 6.19, NextAuth 4, TanStack Query 5, React Hook Form, Tailwind CSS 4, daisyUI 5 i Recharts 3. Backend koristi Next.js Route Handlers. Većina aplikacije je još JS/JSX; TypeScript provjera nije potpuna provjera tog koda.
+Node.js 24, Next.js 16 / React 19, PostgreSQL, Prisma 7.10 (`@prisma/adapter-pg` + `pg`), NextAuth 4, TanStack Query 5, React Hook Form, Tailwind CSS 4, daisyUI 5 i Recharts 3. Backend koristi Next.js Route Handlers. Većina aplikacije je još JS/JSX; TypeScript provjera nije potpuna provjera tog koda. Konekcijski URL za Prisma CLI je u `prisma.config.ts` (`DATABASE_URL`); klijent se kreira s driver adapterom.
 
 ## Lokalni demo
 

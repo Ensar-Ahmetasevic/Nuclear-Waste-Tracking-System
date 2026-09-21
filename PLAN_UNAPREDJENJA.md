@@ -13,7 +13,7 @@ Potvrđena odluka: aplikaciju koristi više nezavisnih firmi. Svaka firma ima sv
 | 0 — okruženje | Node 24, Prisma/TS konfiguracija, izdvojene demo i testne baze, ponovljive skripte | Produkcijsko okruženje i obnova kopije stvarne baze |
 | 1 — zaštita | Sesija i trenutne ovlasti na svim poslovnim rutama, organizacijsko filtriranje i validacija referenci, zatvorena registracija privilegija, ograničavanje pokušaja | Matrica uloga, upravljanje članstvom kroz UI, pregled potpunih shema svakog endpointa, provjerena dodjela starih podataka firmama |
 | 2 — zavisnosti | Next 16.3.4, React 19.2.8, NextAuth 4.24.15 i osvježene prateće biblioteke; uklonjen react-query v3 | Praćenje budućih zakrpa i provjera ciljnog hostinga |
-| 3 — podaci | Prisma 6.19.3, zajednički client, aditivna organizacijska migracija, serijalizabilne transakcije poslovnih zahtjeva | Glavna Prisma migracija zasebno; sljedivost, statusni automat, bilans količina, zaštita historije i domena kapaciteta |
+| 3 — podaci | Prisma 7.10 + `@prisma/adapter-pg`, URL u `prisma.config.ts`, zajednički client, aditivna organizacijska migracija, serijalizabilne transakcije poslovnih zahtjeva | Glavna Prisma migracija zasebno; sljedivost, statusni automat, bilans količina, zaštita historije i domena kapaciteta |
 | 4 — kvalitet | Ispravljen dupli queryKey, cache odvojen po korisniku/firmi, generičke API greške, ograničen JSON, serverski lint i testovi | Postepeni TypeScript/strict, potpune ulazne sheme, pokrivenost poslovnih tokova |
 | 5 — sučelje | Tailwind 4 / daisyUI 5, zamijenjene stare CSS klase, povezane oznake i greške na auth formama, obrađen mrežni neuspjeh prijave; provjereni prijava, pregled i detalji pošiljke | Sistematska provjera svih modala, mobilnih prikaza i pristupačnosti |
 | 6 — isporuka | Tačan README i CI workflow za instalaciju/provjere/build/testove | CI na GitHubu još nije pokrenut; staging, backup/restore, observability i produkcijska objava |
@@ -56,7 +56,7 @@ Korisnik je rekao da misli da se svaki kontejner prati zasebno, ali nije siguran
 | Middleware štiti stranice; pregledane poslovne API rute nemaju provjeru sesije i dozvola | Direktni API zahtjevi mogu zaobići zaštitu sučelja | 1 |
 | Registracija preuzima `administrator` iz tijela zahtjeva | Korisnik može tražiti administratorsku privilegiju | 1 |
 | Next.js 14.0.4; React 18.3.1 | Potrebna migracija frameworka i sigurnosne zakrpe | 2 |
-| Prisma 6.0.1; datasource u `prisma/schema.prisma` nema `url` | Konfiguraciju treba uskladiti i potvrditi validacijom | 0, 3 |
+| Prisma 7 datasource `url` je u `prisma.config.ts`; shema drži samo `provider` | Potvrđeno validacijom na 7.10 | 0, 3 |
 | Više API datoteka kreira vlastiti `PrismaClient` | Nepotrebne instance i otežano upravljanje konekcijama | 1, 3 |
 | `PreStorageEntry` nema direktnu vezu s profilom kontejnera; transfer nema eksplicitnu izvornu skladišnu lokaciju | Nije jasno dokazana potpuna sljedivost kroz skladišta | 3 |
 | Statusi su stringovi, a transfer se ažurira bez provjere prethodnog statusa u pregledanom helperu | Neispravni ili ponovljeni prijelazi moraju biti spriječeni na serveru | 3 |
@@ -97,7 +97,7 @@ Prioritet: P0. Okvirno 1–2 radna dana.
 
 - Evidentirati postojeće lokalne izmjene i odrediti polazno stanje za implementaciju, bez njihovog prepisivanja. Korisnik je zatražio rad na `main`; taj zahtjev ima prednost nad prvobitnim prijedlogom zasebne grane.
 - Utvrditi Node/npm verzije, stanje lockfilea i dozvole lokalnih CLI datoteka. Prethodni pokušaj Prisma validacije nije izvršen zbog dozvole izvršavanja.
-- Provjeriti konfiguraciju Prisma 6 datasourcea i povezivanje preko `DATABASE_URL`; ukloniti neusklađene TypeScript opcije uz validaciju.
+- Prisma 7: CLI URL u `prisma.config.ts`, runtime klijent preko `@prisma/adapter-pg` + `DATABASE_URL`; validacija i generate su dio `check`.
 - Pripremiti zasebnu razvojnu/testnu PostgreSQL bazu. Dokumentovati Doppler i lokalni `.env` način pokretanja.
 - Potvrditi `npm ci`, generisanje Prisma klijenta, validaciju sheme, primjenu migracija na praznu testnu bazu i `build/start`.
 - Napraviti početnu provjeru: prijava, pregled pošiljke, kreiranje kontejnera, ulaz u skladište i transfer. Zapisati postojeće kvarove.

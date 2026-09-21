@@ -61,6 +61,7 @@ async function GETHandler(req, { params, user }) {
               })
             : [],
         permissions: {
+          canDelete: (user.role === "ADMINISTRATOR" || shippingData.truckStatus !== "OUT") && !linked.length && !transferred.length && !shippingData.containerProfiles.some(profile => profile.containerStatus === "accepted"),
           canCorrectStatus: user.role === "ADMINISTRATOR",
           canEditContainers:
             user.role === "ADMINISTRATOR" ||

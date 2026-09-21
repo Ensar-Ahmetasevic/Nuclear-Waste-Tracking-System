@@ -23,6 +23,7 @@ try {
     child.once('exit', code => code === 0 ? resolve() : reject(new Error(`${command} exited with ${code}`)));
   });
   await run(process.execPath, ['node_modules/prisma/build/index.js', 'generate']);
+  await run(process.execPath, ['scripts/generate-schema-field-meta.cjs']);
   await run(process.execPath, ['node_modules/prisma/build/index.js', 'migrate', 'deploy']);
   await run(process.execPath, ['--test', '--test-isolation=none', '--test-concurrency=1', 'tests/integration.test.cjs']);
 } catch (error) { console.error('Integration test setup failed:', error || 'PostgreSQL could not start'); process.exitCode = 1; } finally { await cleanup(); }

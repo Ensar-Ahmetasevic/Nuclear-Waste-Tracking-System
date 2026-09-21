@@ -68,7 +68,7 @@ export default function TruckData({
 
   //Confirm Delete
   const confirmDelete = async () => {
-    if (!canEdit) return;
+    if (!canEdit || !data.permissions?.canDelete) return;
     await deleteMutateAsync(data.shippingData.id);
     setShowDeleteConfirm(false);
 
@@ -124,7 +124,7 @@ export default function TruckData({
               </div>
 
               {/* Delete Truck Data */}
-              {containerStatus === "accepted" ? null : (
+              {!data.permissions?.canDelete ? null : (
                 <div className="tooltip" data-tip="Delete">
                   <button
                     className="btnDelete"
@@ -237,7 +237,7 @@ export default function TruckData({
       )}
 
       {/* Delete Confirmation Modal */}
-      {canEdit && showDeleteConfirm && (
+      {canEdit && data.permissions?.canDelete && showDeleteConfirm && (
         <ConfirmDelete
           setShowDeleteConfirm={setShowDeleteConfirm}
           confirmDelete={confirmDelete}

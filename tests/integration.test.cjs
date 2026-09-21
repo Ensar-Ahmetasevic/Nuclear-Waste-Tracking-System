@@ -132,7 +132,7 @@ integration('departed shipments expose current permissions and allow only admini
     ['/api/shipping-informations', 'PATCH', { shippingStatusData:{ id:shipment.id, truckStatus:'IN', exitDateTime:null } }],
     ['/api/shipping-informations', 'DELETE', { id:shipment.id }],
     ['/api/container-profile', 'POST', containerData],
-    ['/api/container-profile', 'PUT', { preparedData:{ id:container.id, quantity:2, locationOrigin:recordA.id, wasteProfile:waste.id } }],
+    ['/api/container-profile', 'PUT', { preparedData:{ id:container.id, quantity:2, locationOrigin:recordA.id, wasteProfile:waste.id, actionKey:require('node:crypto').randomUUID(), reason:'Correct profile quantity', expected:{quantity:container.quantity,locationOriginId:recordA.id,wasteProfileId:waste.id,containerStatus:'pending',truckStatus:'OUT'} } }],
     ['/api/container-profile', 'PATCH', { containerStatusUpdateData:{ containerProfileId:container.id, containerStatus:'accepted' } }],
     ['/api/container-profile', 'DELETE', { id:container.id }],
   ];
@@ -837,4 +837,71 @@ integration('multi-source transfers validate every source and move all quantitie
   assert.equal((await (await call('/api/stats')).json()).activeContainers,before);
   const timeline=(await (await call('/api/shipping-informations/'+original.shipmentId)).json()).timeline.events.filter(row=>row.detail.startsWith('Transfer #'+transferId+' ·'));
   assert.equal(timeline.length,8);assert.equal(new Set(timeline.map(row=>row.key)).size,8);
+});
+
+
+integration('profile corrections preserve reviewed state and never rewrite received stock', async () => {
+  const uuid=()=>require('node:crypto').randomUUID();
+  const waste=await db.wasteProfile.findFirstOrThrow({where:{organizationId:orgA.id}});
+  const shipment=await db.shippingInformation.create({data:{organizationId:orgA.id,companyName:'Profile corrections',driverName:'Driver',registrationPlates:'CORRECT',truckStatus:'OUT'}});
+  const profile=await db.containerProfile.create({data:{organizationId:orgA.id,shippingInformationId:shipment.id,quantity:4,locationOriginId:recordA.id,wasteProfileId:waste.id,containerStatus:'rejected'}});
+  const path='/api/container-profile';
+  const expected={quantity:4,locationOriginId:recordA.id,wasteProfileId:waste.id,containerStatus:'rejected',truckStatus:'OUT'};
+  const input={id:profile.id,quantity:5,locationOrigin:recordA.id,wasteProfile:waste.id,actionKey:uuid(),reason:'Correct counted quantity before receipt',expected};
+  const send=(data,session=cookie)=>call(path,'PUT',{preparedData:data},session);
+  const supervisor=await db.userProfile.findUniqueOrThrow({where:{username:'test.supervisor'}});
+  const supervisorSession='next-auth.session-token='+await encode({secret:process.env.NEXTAUTH_SECRET,token:{id:String(supervisor.id)}});
+  const employeeSession='next-auth.session-token='+await encode({secret:process.env.NEXTAUTH_SECRET,token:{id:String(member.id)}});
+  assert.equal((await send({...input,reason:undefined})).status,400);
+  assert.equal((await send(input,supervisorSession)).status,403);
+  assert.equal((await send(input,employeeSession)).status,403);
+  assert.equal((await send({...input,locationOrigin:recordB.id})).status,404);
+  assert.equal(await db.containerCorrection.count({where:{containerProfileId:profile.id}}),0);
+  assert.equal((await send({...input,quantity:4})).status,400);
+  assert.equal((await send({...input,expected:{...expected,quantity:3}})).status,409);
+  const attempts=[input,{...input,actionKey:uuid(),quantity:6}];
+  const outcomes=await Promise.all(attempts.map(body=>send(body)));
+  assert.deepEqual(outcomes.map(row=>row.status).sort(),[200,409]);
+  const winning=attempts[outcomes.findIndex(row=>row.status===200)];
+  const replay=await send(winning);assert.equal(replay.status,200);assert.equal((await replay.json()).replayed,true);
+  assert.equal((await send({...winning,reason:'Different reason'})).status,409);
+  const audit=await db.containerCorrection.findFirstOrThrow({where:{containerProfileId:profile.id}});
+  assert.deepEqual(audit.before,expected);
+  assert.equal(audit.after.quantity,winning.quantity);assert.equal(audit.after.containerStatus,'pending');assert.equal(audit.actorId,admin.id);
+  assert.equal(await db.containerCorrection.count({where:{containerProfileId:profile.id}}),1);
+  assert.equal((await db.shippingInformation.findUniqueOrThrow({where:{id:shipment.id}})).status,'pending');
+  const detailPath='/api/shipping-informations/'+shipment.id;
+  const detail=await (await call(detailPath)).json();
+  assert.equal(detail.containerCorrections[0].id,audit.id);
+  assert.ok(detail.timeline.events.some(row=>row.title==='Container Profile corrected'));
+  const employeeDetail=await (await call(detailPath,'GET',undefined,employeeSession)).json();
+  assert.deepEqual(employeeDetail.containerCorrections,[]);
+  assert.ok(!employeeDetail.timeline.events.some(row=>row.title==='Container Profile corrected'));
+
+  // Supervision may correct an unreceived IN profile; a reviewed OUT snapshot cannot be reused after reopening.
+  await db.shippingInformation.update({where:{id:shipment.id},data:{truckStatus:'IN'}});
+  const next={...input,quantity:7,actionKey:uuid(),expected:audit.after};
+  assert.equal((await send(next,supervisorSession)).status,409);
+  next.expected={...audit.after,truckStatus:'IN'};
+  assert.equal((await send(next,supervisorSession)).status,200);
+  assert.equal((await (await call(detailPath,'GET',undefined,supervisorSession)).json()).containerCorrections.length,2);
+  const received=await db.containerProfile.update({where:{id:profile.id},data:{containerStatus:'accepted'}});
+  const hall=await db.preStorageLocation.findFirstOrThrow({where:{organizationId:orgA.id}});
+  const responsible=await db.preStorageResponsibleEmployee.findFirstOrThrow({where:{organizationId:orgA.id}});
+  const receipt=await db.preStorageEntry.create({data:{organizationId:orgA.id,quantity:7,preStorageLocationId:hall.id,responsiblePreStorageEmployeeId:responsible.id}});
+  await db.receiptAllocation.create({data:{organizationId:orgA.id,receiptId:receipt.id,shipmentId:shipment.id,containerProfileId:profile.id,locationId:hall.id,quantity:7,actorId:admin.id,responsibleEmployeeId:responsible.id}});
+  const lockedChange={...input,quantity:8,actionKey:uuid(),expected:{...next.expected,quantity:received.quantity,containerStatus:'accepted'}};
+  assert.equal((await send(lockedChange)).status,409);
+  assert.equal((await call(path,'DELETE',{id:profile.id})).status,409);
+  assert.equal((await call(path,'PATCH',{containerStatusUpdateData:{containerProfileId:profile.id,containerStatus:'rejected'}})).status,409);
+  assert.equal((await call('/api/shipping-informations','DELETE',{id:shipment.id})).status,409);
+  assert.equal((await (await call(detailPath)).json()).shippingData.containerProfiles[0].correctionLocked,true);
+  assert.equal((await send(next,supervisorSession)).status,200);
+  assert.equal((await db.containerProfile.findUniqueOrThrow({where:{id:profile.id}})).containerStatus,'accepted');
+  assert.equal(await db.containerCorrection.count({where:{containerProfileId:profile.id}}),2);
+  // Receipt history remains authoritative even if a legacy profile flag is incorrect.
+  await db.containerProfile.update({where:{id:profile.id},data:{containerStatus:'pending'}});
+  assert.equal((await send({...lockedChange,expected:{...lockedChange.expected,containerStatus:'pending'}})).status,409);
+  assert.equal((await db.preStorageEntry.findUniqueOrThrow({where:{id:receipt.id}})).quantity,7);
+  assert.equal((await db.containerProfile.findUniqueOrThrow({where:{id:profile.id}})).quantity,7);
 });

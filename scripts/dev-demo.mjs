@@ -53,6 +53,7 @@ try {
   const env = { ...process.env, DATABASE_URL: `postgresql://nwts_dev:${credentials.secret}@127.0.0.1:${port}/nwts_dev`, NEXTAUTH_URL: appUrl, NEXTAUTH_SECRET: credentials.secret, SEED_ADMIN_EMAIL: credentials.email, SEED_ADMIN_PASSWORD: credentials.password, NWTS_ALLOW_DEMO_SEED: '1', SEED_DEMO_ACCOUNTS: JSON.stringify(credentials.accounts) };
   const run = args => new Promise((resolve,reject) => { child = spawn(process.execPath,args,{env,stdio:'inherit'}); child.once('error',reject); child.once('exit',code => code === 0 || stopping ? resolve() : reject(new Error(`Command failed (${code}): ${args[0]}`))); });
   await run(['node_modules/prisma/build/index.js','generate']);
+  await run(['scripts/generate-schema-field-meta.cjs']);
   await run(['node_modules/prisma/build/index.js','migrate','deploy']);
   await run(['prisma/seed.js']);
   const demoRows = [
