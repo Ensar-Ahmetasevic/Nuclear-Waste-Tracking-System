@@ -1,81 +1,63 @@
+"use client";
 import { useState } from "react";
-
+import { useT } from "../../../../shell/preferences";
+import IconTile from "../../../../ui/icon-tile";
 import ModalPreStorageCapacityForm from "./modal/modal-pre-storage-capacity-form";
+import ModalReturnDelivery from "./modal/modal-return-delivery";
+import { earlierReturns } from "./earlier-returns";
 
-import useUpdateContainerProfileStatusMutation from "./../../../../../requests/request-container-profile/use-update-container-profile-status-mutation";
-
+// One incoming shipment for this hall: accept opens the receipt form, return
+// sends its profiles back to Step 1 with an inspection report.
 export default function RequestFromEntry({ entryData, hallData }) {
+  const t = useT();
   const [isModalCapacityOpen, setIsModalCapacityOpen] = useState(false);
-
-  // Update Container status
-  const {
-    mutateAsync: updateContainerProfileStatusMutation,
-    isPending: updateContainerProfileStatusPending,
-    isSuccess: updateContainerProfileStatusSuccess,
-  } = useUpdateContainerProfileStatusMutation();
-
-  // Function to toggle the visibility of a modal
-  const toggleCapacityModal = () => setIsModalCapacityOpen((prev) => !prev);
-
-  const isRejected = async () => {
-    const containerStatusUpdateData = {
-      containerStatus: "rejected",
-      containerProfileId: entryData.containerProfileIds[0],
-    };
-
-    try {
-      await updateContainerProfileStatusMutation(containerStatusUpdateData);
-    } catch (error) {
-      console.error("Failed to update container status:", error);
-    }
-  };
-
+  const [isModalReturnOpen, setIsModalReturnOpen] = useState(false);
+  const earlier = earlierReturns(entryData.profiles);
   return (
-    <>
-      <div className="w-full overflow-x-auto">
-        <table className="menu table min-h-full w-full md:w-1/2 bg-base-200 p-4 text-base-content">
-          {/* head */}
-          <thead>
-            <tr>
-              <th></th>
-              <th>Company name:</th>
-              <th>Registration:</th>
-              <th>Quantity</th>
-              <th></th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {/* row 1 */}
-            <tr>
-              <th></th>
-              <td>{entryData.companyName}</td>
-              <td>{entryData.registrationPlates}</td>
-              <td>{entryData.totalQuantity}</td>
-              <td>
-                <button
-                  className="btnSave"
-                  onClick={() => toggleCapacityModal()}
-                >
-                  Accept
-                </button>
-              </td>
-              <td>
-                <button className="btnCancel" onClick={() => isRejected()}>
-                  Reject
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+    <li className="flex flex-wrap items-center gap-3 rounded-xl border border-warning/40 bg-base-200/60 p-3">
+      <IconTile icon="truck" tone="step-1" size="sm" />
+      <div className="min-w-0 flex-1">
+        <p className="font-semibold">
+          {t("ship.number", { id: entryData.id })} · {entryData.companyName}
+        </p>
+        <p className="text-sm text-base-content/75">
+          <span className="font-mono">{entryData.registrationPlates}</span> ·{" "}
+          {t("ship.containers", { count: entryData.totalQuantity })}
+        </p>
+        {earlier.length > 0 && (
+          <p className="text-sm font-medium text-warning">
+            {t("retHist.hint", { count: earlier.length })}
+          </p>
+        )}
       </div>
-      {/* Capacity modal component */}
+      <div className="flex gap-2">
+        <button
+          type="button"
+          className="btn min-h-11 btn-primary btn-sm"
+          onClick={() => setIsModalCapacityOpen(true)}
+        >
+          {t("rec.accept")}
+        </button>
+        <button
+          type="button"
+          className="btn min-h-11 btn-soft btn-error btn-sm"
+          onClick={() => setIsModalReturnOpen(true)}
+        >
+          {t("rec.reject")}
+        </button>
+      </div>
       <ModalPreStorageCapacityForm
         isOpen={isModalCapacityOpen}
-        closeModal={() => toggleCapacityModal()}
+        closeModal={() => setIsModalCapacityOpen(false)}
         hallData={hallData}
         entryData={entryData}
       />
-    </>
+      <ModalReturnDelivery
+        isOpen={isModalReturnOpen}
+        closeModal={() => setIsModalReturnOpen(false)}
+        hallData={hallData}
+        entryData={entryData}
+      />
+    </li>
   );
 }

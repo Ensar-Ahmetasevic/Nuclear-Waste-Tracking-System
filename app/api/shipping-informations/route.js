@@ -1,9 +1,12 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { shipmentRemovalSnapshot, shipmentRemovalVersion } from "@/lib/server/shipment-removal";
+import { assertUnreceivedProfile } from "@/lib/server/container-corrections";
 import { HttpError } from "@/lib/server/errors.cjs";
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/server/scoped-database.cjs";
 import { withApiAuth } from "@/lib/server/api-route";
+import { returnStates } from "@/lib/server/receipt-rejections";
 
 // Creating  data
 async function POSTHandler(req, { user }) {
@@ -56,29 +59,54 @@ async function GETHandler(req, res) {
       );
     }
 
-    return NextResponse.json({ shippingData }, { status: 200 });
+    // Containers of each shipment that arrived in final storage through linked transfers.
+    const completed = await prisma.transferSource.findMany({ where: { state: "completed" }, select: { shipmentId: true, quantity: true } });
+    const finalContainers = new Map();
+    for (const row of completed) finalContainers.set(row.shipmentId, (finalContainers.get(row.shipmentId) || 0) + row.quantity);
+    const receipts = new Set((await prisma.receiptAllocation.findMany({ select: { containerProfileId: true } })).map(row => row.containerProfileId));
+    const returns = await returnStates(shippingData);
+    return NextResponse.json({ shippingData: shippingData.map(row => ({
+      ...row,
+      returnState: returns.get(row.id),
+      finalContainers: finalContainers.get(row.id) || 0,
+      containerProfiles: row.containerProfiles.map(profile => ({ ...profile, receiptRecorded: receipts.has(profile.id) })),
+    })) }, { status: 200 });
   }
 }
 
 //  Delete data
 
-async function DELETEHandler(req) {
-  const { id } = await req.json();
-
-  {
-    const shipmentId = Number(id);
-    if (await prisma.receiptAllocation.count({ where: { shipmentId } }) ||
-        await prisma.transferSource.count({ where: { shipmentId } }) ||
-        await prisma.containerProfile.count({ where: { shippingInformationId: shipmentId, containerStatus: "accepted" } }))
-      throw new HttpError(409, "This shipment has received containers or a linked stock history and cannot be deleted here.");
-    await prisma.shippingInformation.delete({
-      where: { id: id },
-    });
-    return NextResponse.json(
-      { message: "Shipping Information deleted successfully." },
-      { status: 200 },
-    );
+async function DELETEHandler(req, { user }) {
+  const { id, expectedVersion, actionKey, reason } = await req.json();
+  if (!Number.isSafeInteger(id) || id <= 0 || typeof expectedVersion !== "string" || !/^[a-f0-9]{64}$/.test(expectedVersion) ||
+      typeof actionKey !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(actionKey) ||
+      typeof reason !== "string" || reason.trim().length < 3 || reason.trim().length > 1000)
+    throw new HttpError(400, "Review the shipment and provide a deletion reason (3–1000 characters).");
+  const fingerprint = createHash("sha256").update(JSON.stringify([id, expectedVersion, reason.trim(), user.id])).digest("hex");
+  const select = { id: true, shipmentId: true, actorId: true, reason: true, before: true, createdAt: true };
+  const previous = await prisma.shipmentRemoval.findFirst({ where: { actionKey } });
+  if (previous) {
+    if (previous.fingerprint !== fingerprint) throw new HttpError(409, "This confirmation belongs to another deletion.");
+    return NextResponse.json({ removal: Object.fromEntries(Object.keys(select).map(key => [key, previous[key]])), replayed: true });
   }
+  const shipment = await prisma.shippingInformation.findUniqueOrThrow({ where: { id }, include: { containerProfiles: { include: { locationOrigin: true, wasteProfile: true } } } });
+  if (shipment.truckStatus === "OUT" && user.role !== "ADMINISTRATOR") throw new HttpError(403, "Only administrators can correct a departed shipment");
+  if (user.role === "EMPLOYEE" && shipment.containerProfiles.length) throw new HttpError(403, "A shipment containing Container Profiles must be reviewed by Supervision or an Administrator.");
+  const before = shipmentRemovalSnapshot(shipment);
+  if (expectedVersion !== shipmentRemovalVersion(before)) throw new HttpError(409, "The shipment or its profiles changed. Reload and review the complete deletion again.");
+  if (await prisma.receiptAllocation.count({ where: { shipmentId: id } }) || await prisma.transferSource.count({ where: { shipmentId: id } }))
+    throw new HttpError(409, "This shipment has a linked stock history and cannot be deleted here.");
+  for (const profile of shipment.containerProfiles) await assertUnreceivedProfile(profile);
+  const removal = await prisma.shipmentRemoval.create({ data: { shipmentId: id, actorId: user.id, actionKey, fingerprint, reason: reason.trim(), before }, select });
+  for (const profile of shipment.containerProfiles) {
+    await prisma.containerRemoval.create({ data: {
+      shipmentId: id, containerProfileId: profile.id, actorId: user.id, actionKey: randomUUID(),
+      fingerprint: createHash("sha256").update(JSON.stringify([removal.id, profile.id])).digest("hex"),
+      reason: reason.trim(), before: { quantity: profile.quantity, locationOriginId: profile.locationOriginId, wasteProfileId: profile.wasteProfileId, containerStatus: profile.containerStatus, truckStatus: shipment.truckStatus, profileCreatedAt: profile.createdAt.toISOString(), shipmentRemovalId: removal.id },
+    } });
+  }
+  await prisma.shippingInformation.delete({ where: { id } });
+  return NextResponse.json({ removal });
 }
 
 // Update truck data profile
@@ -227,7 +255,8 @@ async function PATCHHandler(req, { user }) {
 
 export const POST = withApiAuth(POSTHandler, { access: "shipping" });
 export const GET = withApiAuth(GETHandler);
-export const DELETE = withApiAuth(DELETEHandler, { access: "shipping" });
+// Authorization for OUT/contained profiles is checked above, after replay lookup.
+export const DELETE = withApiAuth(DELETEHandler, { access: "member" });
 export const PUT = withApiAuth(PUTHandler, {
   access: "shipping",
   bodyObjects: ["updatedTruckData"],

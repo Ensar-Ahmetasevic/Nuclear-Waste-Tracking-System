@@ -1,43 +1,46 @@
 "use client";
+import Link from "next/link";
 import { useParams } from "next/navigation";
-
 import DetailsShippingData from "../../../components/pages/shipping-informations/details-shipping-data";
 import useShippingInformationByIdQuery from "./../../../requests/request-shipping-information/use-fetch-shipping-information-by-id-query";
-import LoadingSpinnerPage from "./../../../components/shared/loading-spiner-page";
-import AlertWarning from "./../../../components/shared/alert-warning";
+import { useT } from "../../../components/shell/preferences";
+import Skeleton from "../../../components/ui/skeleton";
+import { LoadingWatch } from "../../../components/loading/loaders";
 
 export default function ShippingDetails() {
-  const params = useParams();
-  const shippingID = params.shippingID;
-
-  // Fetching ShippingData
+  const t = useT();
+  const { shippingID } = useParams();
   const { data, isLoading, error } =
     useShippingInformationByIdQuery(shippingID);
-
-  if (isLoading) {
-    return <LoadingSpinnerPage />;
-  }
-
-  if (!data || error) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <AlertWarning text={"Error loading data"} />
-      </div>
-    );
-  }
-
   return (
-    <>
-      <div className="container mx-auto flex flex-col items-center pt-3 sm:pt-4">
-        <div className="w-full max-w-7xl px-2 sm:px-6 lg:px-20">
-          <DetailsShippingData
-            data={data}
-            isLoading={isLoading}
-            error={error}
-            shippingID={shippingID}
-          />
+    <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      {isLoading ? (
+        <div
+          className="space-y-6"
+          role="status"
+          aria-label={t("common.loading")}
+        >
+          <LoadingWatch />
+          <Skeleton className="h-20" />
+          <Skeleton className="h-44" />
+          <Skeleton className="h-72" />
         </div>
-      </div>
-    </>
+      ) : !data?.shippingData || error ? (
+        <div
+          role="alert"
+          className="space-y-3 rounded-box border border-error/40 bg-error/10 p-5"
+        >
+          <p>{t("ship.loadError")}</p>
+          <Link
+            href="/shipping-informations"
+            className="btn min-h-11 btn-ghost"
+          >
+            {t("ship.title")}
+          </Link>
+        </div>
+      ) : (
+        <DetailsShippingData data={data} />
+      )}
+    </main>
   );
 }

@@ -10,10 +10,12 @@ const FetchPreStorageEmployeeData = async () => {
   return data;
 };
 
-export default function usePreStorageEmployeeQuery() {
+export default function usePreStorageEmployeeQuery({ activeOnly = false } = {}) {
   const query = useQuery({
     queryKey: ["preStorageEmployeeQueryKey"],
     queryFn: FetchPreStorageEmployeeData,
+    // Deactivated people stay in the list for history but are not offered for new records.
+    select: activeOnly ? rows => rows.filter(row => !row.archivedAt) : undefined,
   });
 
   return query;

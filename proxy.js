@@ -14,5 +14,8 @@ export const config = {
     "/statistics/:path*",
     "/users/:path*",
     "/account/:path*",
+    "/transfers/:path*",
+    "/profiles/:path*",
+    "/scan",
   ],
 };

@@ -1,1 +1,5 @@
-export { default } from "../page";
+import Statistics from "../../components/pages/statistics/statistics";
+
+export default function Page() {
+  return <Statistics />;
+}

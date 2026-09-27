@@ -5,23 +5,25 @@ import useFinalStorageByIdQuery from "../../../requests/request-final-storage/re
 
 import FinalCapacityAndConditionsDetails from "./../../../components/pages/final-storage/setup/capacity-and-conditions/final-capacity-and-conditions-details";
 
-import LoadingSpinnerPage from "./../../../components/shared/loading-spiner-page";
+import { PageLoader } from "./../../../components/loading/loaders";
 import AlertWarning from "./../../../components/shared/alert-warning";
+import { useT } from "../../../components/shell/preferences";
 
 export default function DisplayFinalStorageData() {
+  const t = useT();
   const params = useParams();
   const finalStorageID = params.finalStorageID;
 
   const { data, isLoading, isError } = useFinalStorageByIdQuery(finalStorageID);
 
   if (isLoading) {
-    return <LoadingSpinnerPage />;
+    return <PageLoader />;
   }
 
   if (isError || !data || !data.finalStorageDataById) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <AlertWarning text={"Error loading data"} />
+      <div className="flex min-h-96 items-center justify-center">
+        <AlertWarning text={t("loc.loadError")} />
       </div>
     );
   }

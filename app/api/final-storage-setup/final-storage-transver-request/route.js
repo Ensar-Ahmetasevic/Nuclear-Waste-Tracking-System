@@ -1,9 +1,12 @@
-import { storageBalances } from "@/lib/server/storage-balances";
+import { preStorageAvailability, storageBalances } from "@/lib/server/storage-balances";
 import { createHash } from "node:crypto";
 import { HttpError } from "@/lib/server/errors.cjs";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/server/scoped-database.cjs";
 import { withApiAuth } from "@/lib/server/api-route";
+import { assertActiveResponsibleEmployee } from "@/lib/server/definition-changes";
+import recordCodes from "@/lib/record-codes.cjs";
+const { recordCode } = recordCodes;
 
 // Creating new request to pre-storage
 
@@ -60,6 +63,7 @@ async function POSTHandler(req, { user }) {
       replayed: true,
     });
   }
+  await assertActiveResponsibleEmployee(false, requestedByEmployeeId);
   const room = await prisma.finalStorageLocation.findUniqueOrThrow({
     where: { id: finalStorageLocationId },
   });
@@ -245,6 +249,7 @@ async function PUTHandler(req, { user }) {
       400,
       "A positive quantity and responsible employee are required",
     );
+  if (preAction && accept) await assertActiveResponsibleEmployee(true, data.approvedByEmployeeId);
   const sourceRows = [];
   if (preAction && accept) {
     // Keep old confirmations replayable; new clients send the explicit list.
@@ -258,8 +263,17 @@ async function PUTHandler(req, { user }) {
       await prisma.preStorageEntry.findUniqueOrThrow({ where: { id: source.receiptId } });
       const allocations = await prisma.transferSource.findMany({ where: { receiptAllocationId: source.id, state: { in: ["reserved", "completed"] } } });
       if (allocations.reduce((sum, row) => sum + row.quantity, 0) + selection.quantity > source.quantity)
-        throw new HttpError(409, `Receipt #${source.receiptId}, Profile #${source.containerProfileId} no longer has enough unallocated containers. Reload the source list.`);
+        throw new HttpError(409, `Receipt #${source.receiptId}, Profile ${recordCode("profile", source.containerProfileId)} no longer has enough unallocated containers. Reload the source list.`);
       sourceRows.push({ source, quantity: selection.quantity });
+    }
+    // A hall never releases more than its recorded stock after administrator corrections.
+    const selectedByHall = new Map();
+    for (const { source, quantity } of sourceRows) selectedByHall.set(source.locationId, (selectedByHall.get(source.locationId) || 0) + quantity);
+    const availability = await preStorageAvailability();
+    for (const [locationId, quantity] of selectedByHall) {
+      const hall = availability.find(row => row.id === locationId);
+      if (!hall || quantity > hall.available)
+        throw new HttpError(409, `Hall ${hall ? `"${hall.name}"` : `#${locationId}`} can release ${hall?.available ?? 0} containers to new approvals (recorded stock ${hall?.recorded ?? 0}${hall?.corrected ? `, including administrator corrections of ${hall.corrected > 0 ? "+" : ""}${hall.corrected}` : ""}, already reserved ${hall?.reserved ?? 0}). Reduce the quantity from this hall.`);
     }
     if (!current.finalStorageLocationId) throw new HttpError(409, "Transfer destination is missing");
     await prisma.finalStorageLocation.findUniqueOrThrow({ where: { id: current.finalStorageLocationId } });

@@ -48,3 +48,4 @@ next-env.d.ts
 # Isolated development database and generated credentials
 /.local/
 /.next-test/
+/.next-shared/

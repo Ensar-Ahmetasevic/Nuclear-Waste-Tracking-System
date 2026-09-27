@@ -3,80 +3,364 @@ import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import useWasteProfileQuery from "@/requests/request-container-profile/request-waste-profile/use-fetch-waste-profile-query";
 import useLocationOriginQuery from "@/requests/request-container-profile/request-location-origin/use-fetch-location-origin-query";
+import { useT } from "../../../../shell/preferences";
+import { useFormat } from "../../../../ui/format";
+import { InlineLoader } from "../../../../loading/loaders";
+import ReturnReport from "../../container-data/return-report";
 
-export default function ModalContainerProfilUpdate({ modalContainerProfilData: original, closeModal }) {
-  const origins = useLocationOriginQuery(), wastes = useWasteProfileQuery(), client = useQueryClient();
-  const [form, setForm] = useState({ quantity: String(original.quantity), locationOrigin: String(original.locationOriginId), wasteProfile: String(original.wasteProfileId), reason: "" });
-  const [phase, setPhase] = useState("edit"), [message, setMessage] = useState(""), [result, setResult] = useState(null);
-  const dialog = useRef(null), heading = useRef(null), first = useRef(null), payload = useRef(null), busy = useRef(false);
+export default function ModalContainerProfilUpdate({
+  modalContainerProfilData: original,
+  closeModal,
+}) {
+  const t = useT();
+  const format = useFormat();
+  const origins = useLocationOriginQuery(),
+    wastes = useWasteProfileQuery(),
+    client = useQueryClient();
+  const [form, setForm] = useState({
+    quantity: String(original.quantity),
+    locationOrigin: String(original.locationOriginId),
+    wasteProfile: String(original.wasteProfileId),
+    reason: "",
+  });
+  const [phase, setPhase] = useState("edit"),
+    [message, setMessage] = useState(""),
+    [result, setResult] = useState(null);
+  const dialog = useRef(null),
+    heading = useRef(null),
+    first = useRef(null),
+    payload = useRef(null),
+    busy = useRef(false);
   useEffect(() => {
-    const node = dialog.current, trigger = document.activeElement;
-    node.showModal(); heading.current?.focus();
-    return () => { node.close(); requestAnimationFrame(() => { if (trigger?.isConnected) trigger.focus(); }); };
+    const node = dialog.current,
+      trigger = document.activeElement;
+    node.showModal();
+    heading.current?.focus();
+    return () => {
+      node.close();
+      requestAnimationFrame(() => {
+        if (trigger?.isConnected) trigger.focus();
+      });
+    };
   }, []);
-  useEffect(() => { if (phase === "edit") first.current?.focus(); else heading.current?.focus(); }, [phase]);
-  const update = key => event => { const value = event.target.value; setForm(current => ({ ...current, [key]: value })); };
-  const changed = Number(form.quantity) !== original.quantity || Number(form.locationOrigin) !== original.locationOriginId || Number(form.wasteProfile) !== original.wasteProfileId;
-  const ready = origins.isSuccess && wastes.isSuccess && !origins.isError && !wastes.isError;
-  const origin = origins.data?.find(row => row.id === Number(form.locationOrigin));
-  const waste = wastes.data?.find(row => row.id === Number(form.wasteProfile));
+  useEffect(() => {
+    if (phase === "edit") first.current?.focus();
+    else heading.current?.focus();
+  }, [phase]);
+  const update = (key) => (event) => {
+    const value = event.target.value;
+    setForm((current) => ({ ...current, [key]: value }));
+  };
+  const changed =
+    Number(form.quantity) !== original.quantity ||
+    Number(form.locationOrigin) !== original.locationOriginId ||
+    Number(form.wasteProfile) !== original.wasteProfileId;
+  const ready =
+    origins.isSuccess &&
+    wastes.isSuccess &&
+    !origins.isError &&
+    !wastes.isError;
+  // The current definition may be archived and can be kept; other archived ones are not offered.
+  const originOptions =
+    origins.data?.filter(
+      (row) => !row.archivedAt || row.id === original.locationOriginId,
+    ) || [];
+  const wasteOptions =
+    wastes.data?.filter(
+      (row) => !row.archivedAt || row.id === original.wasteProfileId,
+    ) || [];
+  const origin = originOptions.find(
+    (row) => row.id === Number(form.locationOrigin),
+  );
+  const waste = wasteOptions.find(
+    (row) => row.id === Number(form.wasteProfile),
+  );
   function finish() {
     if (busy.current) return;
-    if (result || ["unknown", "conflict"].includes(phase)) client.invalidateQueries();
+    if (result || ["unknown", "conflict"].includes(phase))
+      client.invalidateQueries();
     closeModal();
   }
   async function save() {
     if (busy.current) return;
-    busy.current = true; setPhase("saving"); setMessage("");
-    payload.current ||= { preparedData: {
-      id: original.id, quantity: Number(form.quantity), locationOrigin: Number(form.locationOrigin), wasteProfile: Number(form.wasteProfile),
-      reason: form.reason.trim(), actionKey: crypto.randomUUID(),
-      expected: { quantity: original.quantity, locationOriginId: original.locationOriginId, wasteProfileId: original.wasteProfileId, containerStatus: original.containerStatus, truckStatus: original.truckStatus },
-    } };
+    busy.current = true;
+    setPhase("saving");
+    setMessage("");
+    payload.current ||= {
+      preparedData: {
+        id: original.id,
+        quantity: Number(form.quantity),
+        locationOrigin: Number(form.locationOrigin),
+        wasteProfile: Number(form.wasteProfile),
+        reason: form.reason.trim(),
+        actionKey: crypto.randomUUID(),
+        expected: {
+          quantity: original.quantity,
+          locationOriginId: original.locationOriginId,
+          wasteProfileId: original.wasteProfileId,
+          containerStatus: original.containerStatus,
+          truckStatus: original.truckStatus,
+        },
+      },
+    };
     try {
-      const response = await fetch("/api/container-profile", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload.current), signal: AbortSignal.timeout(20000) });
+      const response = await fetch("/api/container-profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload.current),
+        signal: AbortSignal.timeout(20000),
+      });
       const data = await response.json();
       if (!response.ok) {
         if (response.status >= 500) throw Error();
-        setPhase(response.status === 409 ? "conflict" : "error"); setMessage(data.message || "Correction could not be saved."); return;
+        setPhase(response.status === 409 ? "conflict" : "error");
+        setMessage(data.message || t("corr.failed"));
+        return;
       }
       if (!data.correction?.id) throw Error();
-      setResult(data.correction); setPhase("success");
-    } catch { setPhase("unknown"); setMessage("Save could not be confirmed. Check the same correction before making another change."); }
-    finally { busy.current = false; }
+      setResult(data.correction);
+      setPhase("success");
+    } catch {
+      setPhase("unknown");
+      setMessage(t("corr.unconfirmed"));
+    } finally {
+      busy.current = false;
+    }
   }
   const rows = [
-    ["Quantity", original.quantity, Number(form.quantity)],
-    ["Location origin", `${original.locationOrigin.name} (#${original.locationOriginId})`, `${origin?.name || "Unavailable"} (#${form.locationOrigin})`],
-    ["Waste profile", `${original.wasteProfile.name} (#${original.wasteProfileId})`, `${waste?.name || "Unavailable"} (#${form.wasteProfile})`],
-    ["Review status", original.containerStatus, "pending"],
+    [t("field.quantity"), original.quantity, Number(form.quantity)],
+    [
+      t("field.locationOrigin"),
+      `${original.locationOrigin.name} (#${original.locationOriginId})`,
+      `${origin?.name || t("ship.notRecorded")} (#${form.locationOrigin})`,
+    ],
+    [
+      t("field.wasteProfile"),
+      `${original.wasteProfile.name} (#${original.wasteProfileId})`,
+      `${waste?.name || t("ship.notRecorded")} (#${form.wasteProfile})`,
+    ],
+    [
+      t("field.containerStatus"),
+      t(`profile.${original.containerStatus}`),
+      t("profile.pending"),
+    ],
   ];
-  return <dialog ref={dialog} aria-labelledby="container-correction-title" aria-busy={phase === "saving"} className="receipt-dialog operational-panel rounded-xl border border-base-content/20 bg-base-100 p-5 text-base-content sm:p-6" onCancel={event => { event.preventDefault(); finish(); }}>
-    <h2 ref={heading} tabIndex={-1} id="container-correction-title" className="text-2xl font-bold">{result ? "Container Profile correction saved" : phase === "edit" ? "Edit Container Profile" : "Review Container Profile correction"}</h2>
-    <p className="my-3">Profile #{original.id} · Shipment #{original.shippingInformationId} · {original.truckStatus}</p>
-    {original.truckStatus === "OUT" && <p className="my-3 rounded border border-warning p-3">Administrative correction of a departed shipment. This does not record a new arrival or a storage receipt.</p>}
-    {phase === "edit" ? <form className="space-y-4" onSubmit={event => { event.preventDefault(); if (ready && origin && waste && changed && form.reason.trim().length >= 3) { payload.current = null; setMessage(""); setPhase("review"); } }}>
-      <label className="block">Quantity<input ref={first} required type="number" min="1" max="2147483647" step="1" className="input mt-1 w-full" value={form.quantity} onChange={update("quantity")} /></label>
-      <label className="block">Location origin<select required className="select mt-1 w-full" value={form.locationOrigin} onChange={update("locationOrigin")}><option value="">Choose an origin</option>{origins.data?.map(row => <option value={row.id} key={row.id}>{row.name}</option>)}</select></label>
-      <label className="block">Waste profile<select required className="select mt-1 w-full" value={form.wasteProfile} onChange={update("wasteProfile")}><option value="">Choose a waste profile</option>{wastes.data?.map(row => <option value={row.id} key={row.id}>{row.name}</option>)}</select></label>
-      {(origins.isPending || wastes.isPending) && <p role="status">Loading profile options…</p>}
-      {(origins.isError || wastes.isError) && <p role="alert">Unable to load profile options. <button type="button" className="btn" onClick={() => { origins.refetch(); wastes.refetch(); }}>Retry options</button></p>}
-      <label className="block">Reason for correction<textarea required minLength={3} maxLength={1000} className="textarea mt-1 w-full" value={form.reason} onChange={update("reason")} /></label>
-      <p className="text-sm">The corrected profile will await pre-storage review. Recorded receipts and transfers cannot be rewritten through this form.</p>
-      {!changed && <p className="text-sm">Change a value to review a correction.</p>}
-      <button className="btn btn-primary min-h-11" disabled={!ready || !origin || !waste || !changed || form.reason.trim().length < 3}>Review correction</button>
-    </form> : <>
-      <div className="space-y-3">{rows.map(([label, before, after]) => <div key={label} className="rounded-lg bg-base-200 p-3 break-words"><p className="font-semibold">{label}</p><p>Before: {before}</p><p>After: {after}</p></div>)}</div>
-      <p className="my-4 break-words">Reason: {form.reason.trim()}</p>
-      {phase === "review" && <button className="btn btn-primary min-h-11" onClick={save}>Confirm correction</button>}
-      {phase === "saving" && <p role="status">Saving correction…</p>}
-      {result && <p role="status" className="operational-confirm my-4 text-success">Correction #{result.id} · {new Date(result.createdAt).toLocaleString()} · User #{result.actorId}</p>}
-      {message && <p role="alert" className="my-4">{message}</p>}
-      {phase === "unknown" && <button className="btn btn-primary min-h-11" onClick={save}>Check save result</button>}
-    </>}
-    <div className="mt-5 flex flex-wrap justify-end gap-3">
-      {["review", "error"].includes(phase) && <button className="btn btn-outline min-h-11" onClick={() => setPhase("edit")}>Back to edit</button>}
-      <button className="btn btn-outline min-h-11" disabled={phase === "saving"} onClick={finish}>{result ? "Done" : phase === "conflict" ? "Close and reload profile" : phase === "unknown" ? "Close — save remains unconfirmed" : "Cancel"}</button>
-    </div>
-  </dialog>;
+  return (
+    <dialog
+      ref={dialog}
+      aria-labelledby="container-correction-title"
+      aria-busy={phase === "saving"}
+      className="receipt-dialog operational-panel rounded-box border border-base-content/20 bg-base-100 p-5 text-base-content sm:p-6"
+      onCancel={(event) => {
+        event.preventDefault();
+        finish();
+      }}
+    >
+      <h2
+        ref={heading}
+        tabIndex={-1}
+        id="container-correction-title"
+        className="text-2xl font-semibold"
+      >
+        {result
+          ? t("corr.done")
+          : phase === "edit"
+            ? t("corr.title")
+            : t("corr.review")}
+      </h2>
+      <p className="my-3">
+        {t("ship.profile", { id: original.id })} ·{" "}
+        {t("ship.number", { id: original.shippingInformationId })} ·{" "}
+        {original.truckStatus}
+      </p>
+      {original.truckStatus === "OUT" && (
+        <p className="my-3 rounded-xl border border-warning p-3">
+          {t("corr.outNote")}
+        </p>
+      )}
+      {/* The Pre-storage report explains what to check and correct. */}
+      {phase === "edit" && original.containerStatus === "rejected" && original.lastReturn && (
+        <div className="my-3">
+          <ReturnReport report={original.lastReturn} profileId={original.id} />
+        </div>
+      )}
+      {phase === "edit" ? (
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (
+              ready &&
+              origin &&
+              waste &&
+              changed &&
+              form.reason.trim().length >= 3
+            ) {
+              payload.current = null;
+              setMessage("");
+              setPhase("review");
+            }
+          }}
+        >
+          <label className="block text-sm">
+            {t("field.quantity")}
+            <input
+              ref={first}
+              required
+              type="number"
+              min="1"
+              max="2147483647"
+              step="1"
+              className="input mt-1 w-full"
+              value={form.quantity}
+              onChange={update("quantity")}
+            />
+          </label>
+          <label className="block text-sm">
+            {t("field.locationOrigin")}
+            <select
+              required
+              className="select mt-1 w-full"
+              value={form.locationOrigin}
+              onChange={update("locationOrigin")}
+            >
+              <option value="">{t("prep.chooseOrigin")}</option>
+              {originOptions.map((row) => (
+                <option value={row.id} key={row.id}>
+                  {row.name}
+                  {row.archivedAt ? ` (${t("def.archivedTag")})` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-sm">
+            {t("field.wasteProfile")}
+            <select
+              required
+              className="select mt-1 w-full"
+              value={form.wasteProfile}
+              onChange={update("wasteProfile")}
+            >
+              <option value="">{t("prep.chooseWaste")}</option>
+              {wasteOptions.map((row) => (
+                <option value={row.id} key={row.id}>
+                  {row.name}
+                  {row.archivedAt ? ` (${t("def.archivedTag")})` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          {(origins.isPending || wastes.isPending) && (
+            <InlineLoader />
+          )}
+          {(origins.isError || wastes.isError) && (
+            <p role="alert">
+              {t("prep.optionsError")}{" "}
+              <button
+                type="button"
+                className="btn min-h-11"
+                onClick={() => {
+                  origins.refetch();
+                  wastes.refetch();
+                }}
+              >
+                {t("alert.retry")}
+              </button>
+            </p>
+          )}
+          <label className="block text-sm">
+            {t("corr.reason")}
+            <textarea
+              required
+              minLength={3}
+              maxLength={1000}
+              className="textarea mt-1 w-full"
+              value={form.reason}
+              onChange={update("reason")}
+            />
+          </label>
+          <p className="text-sm text-base-content/70">{t("corr.note")}</p>
+          {!changed && <p className="text-sm">{t("def.error.unchanged")}</p>}
+          <button
+            className="btn min-h-11 btn-primary"
+            disabled={
+              !ready ||
+              !origin ||
+              !waste ||
+              !changed ||
+              form.reason.trim().length < 3
+            }
+          >
+            {t("recon.correct.reviewButton")}
+          </button>
+        </form>
+      ) : (
+        <>
+          <div className="space-y-3">
+            {rows.map(([label, before, after]) => (
+              <div
+                key={label}
+                className="rounded-xl bg-base-200/70 p-3 break-words"
+              >
+                <p className="font-semibold">{label}</p>
+                <p>{t("ship.before", { value: before })}</p>
+                <p>{t("ship.after", { value: after })}</p>
+              </div>
+            ))}
+          </div>
+          <p className="my-4 break-words">
+            {t("ship.reason", { reason: form.reason.trim() })}
+          </p>
+          {phase === "review" && (
+            <button className="btn min-h-11 btn-primary" onClick={save}>
+              {t("corr.confirm")}
+            </button>
+          )}
+          {phase === "saving" && <InlineLoader save />}
+          {result && (
+            <p role="status" className="operational-confirm my-4 text-success">
+              {t("corr.result", {
+                id: result.id,
+                time: format.dateTime(result.createdAt),
+                actor: result.actorId,
+              })}
+            </p>
+          )}
+          {message && (
+            <p role="alert" className="my-4">
+              {message}
+            </p>
+          )}
+          {phase === "unknown" && (
+            <button className="btn min-h-11 btn-primary" onClick={save}>
+              {t("users.change.check")}
+            </button>
+          )}
+        </>
+      )}
+      <div className="mt-5 flex flex-wrap justify-end gap-3">
+        {["review", "error"].includes(phase) && (
+          <button
+            className="btn min-h-11 btn-outline"
+            onClick={() => setPhase("edit")}
+          >
+            {t("users.review.back")}
+          </button>
+        )}
+        <button
+          className="btn min-h-11 btn-outline"
+          disabled={phase === "saving"}
+          onClick={finish}
+        >
+          {result
+            ? t("common.done")
+            : phase === "conflict"
+              ? t("prep.closeReload")
+              : phase === "unknown"
+                ? t("users.change.closeUnconfirmed")
+                : t("common.cancel")}
+        </button>
+      </div>
+    </dialog>
+  );
 }

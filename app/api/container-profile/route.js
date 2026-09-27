@@ -6,49 +6,40 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/server/scoped-database.cjs";
 import { withApiAuth } from "@/lib/server/api-route";
 
-// Creating  data
-async function POSTHandler(req, res) {
-  const formData = await req.json();
+const archivedChoice = "The selected Location Origin or Waste Profile has been archived. Reload the options and choose an active definition.";
 
-  const { quantity, locationOriginId, wasteProfileId, shippingInformationId } =
-    formData;
-
-  if (
-    !quantity ||
-    !locationOriginId ||
-    !wasteProfileId ||
-    !shippingInformationId
-  ) {
-    return NextResponse.json(
-      { message: "All fields are required" },
-      { status: 400 },
-    );
+// A preparation event records the reviewed quantity and source, not physical receipt.
+async function POSTHandler(req, { user }) {
+  const { quantity, locationOriginId, wasteProfileId, shippingInformationId, actionKey, expected, reason = "" } = await req.json();
+  const fields = { quantity, locationOriginId, wasteProfileId, shippingInformationId };
+  if (!Object.values(fields).every(value => Number.isSafeInteger(value) && value > 0 && value <= 2147483647) ||
+      typeof actionKey !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(actionKey) ||
+      !expected || !["IN", "OUT"].includes(expected.truckStatus) || typeof expected.status !== "string" ||
+      !Number.isSafeInteger(expected.containerTypeId) || expected.containerTypeId <= 0 ||
+      typeof reason !== "string" || reason.trim().length > 1000 || (expected.truckStatus === "OUT" && reason.trim().length < 3))
+    throw new HttpError(400, "Review the profile before confirming. A departed shipment also requires a reason (3–1000 characters).");
+  const reviewed = { truckStatus: expected.truckStatus, status: expected.status, containerTypeId: expected.containerTypeId };
+  const fingerprint = createHash("sha256").update(JSON.stringify([fields, reviewed, reason.trim(), user.id])).digest("hex");
+  const select = { id: true, shipmentId: true, containerProfileId: true, actorId: true, snapshot: true, reason: true, createdAt: true };
+  const previous = await prisma.containerPreparation.findFirst({ where: { actionKey } });
+  if (previous) {
+    if (previous.fingerprint !== fingerprint) throw new HttpError(409, "This confirmation belongs to a different profile preparation");
+    return NextResponse.json({ preparation: Object.fromEntries(Object.keys(select).map(key => [key, previous[key]])), replayed: true });
   }
-
-  // Parse data from string to integer
-  const parsedQuantity = parseInt(quantity);
-  const parsedLocationOriginId = parseInt(locationOriginId);
-  const parsedWasteProfileId = parseInt(wasteProfileId);
-  const parsedShippingInformationId = parseInt(shippingInformationId);
-
-  {
-    await prisma.containerProfile.create({
-      data: {
-        quantity: parsedQuantity,
-        containerStatus: "pending",
-        locationOriginId: parsedLocationOriginId,
-        wasteProfileId: parsedWasteProfileId,
-        shippingInformationId: parsedShippingInformationId,
-      },
-    });
-
-    return NextResponse.json(
-      {
-        message: "New Container Profile added successfully.",
-      },
-      { status: 200 },
-    );
-  }
+  const shipment = await prisma.shippingInformation.findUniqueOrThrow({ where: { id: shippingInformationId } });
+  const origin = await prisma.locationOrigin.findUniqueOrThrow({ where: { id: locationOriginId } });
+  const waste = await prisma.wasteProfile.findUniqueOrThrow({ where: { id: wasteProfileId } });
+  if (origin.archivedAt || waste.archivedAt) throw new HttpError(409, archivedChoice);
+  if (shipment.truckStatus !== reviewed.truckStatus || shipment.status !== reviewed.status || waste.containerTypeId !== reviewed.containerTypeId)
+    throw new HttpError(409, "The shipment or recommended container type changed. Reload and review before preparing this profile.");
+  const profile = await prisma.containerProfile.create({ data: { ...fields, containerStatus: "pending" } });
+  await prisma.shippingInformation.update({ where: { id: shipment.id }, data: { status: "pending" } });
+  const preparation = await prisma.containerPreparation.create({ data: {
+    shipmentId: shipment.id, containerProfileId: profile.id, actorId: user.id, actionKey, fingerprint,
+    snapshot: { quantity, locationOriginId, wasteProfileId, containerTypeId: waste.containerTypeId, truckStatus: shipment.truckStatus, containerStatus: "pending" },
+    reason: reason.trim() || null,
+  }, select });
+  return NextResponse.json({ preparation, message: "Container Profile prepared and awaiting pre-storage review." });
 }
 
 // Fetch data
@@ -72,22 +63,40 @@ async function GETHandler() {
   }
 }
 
-//  Delete data
-
-async function DELETEHandler(req) {
-  const { id } = await req.json();
-
-  {
-    const current = await prisma.containerProfile.findUniqueOrThrow({ where: { id: Number(id) } });
-    await assertUnreceivedProfile(current);
-    await prisma.containerProfile.delete({
-      where: { id: parseInt(id) },
-    });
-    return NextResponse.json(
-      { message: "Container Profile deleted successfully." },
-      { status: 200 },
-    );
+// Validate current permissions here so a confirmed deletion can be replayed after
+// its operational profile no longer exists. All calls still use fresh membership
+// and the organization-scoped serializable transaction from withApiAuth.
+async function DELETEHandler(req, { user }) {
+  const { id, expected, actionKey, reason } = await req.json();
+  if (!Number.isSafeInteger(id) || id <= 0 || typeof actionKey !== "string" ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(actionKey) ||
+      typeof reason !== "string" || reason.trim().length < 3 || reason.trim().length > 1000 ||
+      !expected || Array.isArray(expected))
+    throw new HttpError(400, "Review the profile and provide a deletion reason (3–1000 characters).");
+  const keys = ["quantity", "locationOriginId", "wasteProfileId", "containerStatus", "truckStatus"];
+  const reviewed = Object.fromEntries(keys.map(key => [key, expected[key]]));
+  const fingerprint = createHash("sha256").update(JSON.stringify([id, reviewed, reason.trim(), user.id])).digest("hex");
+  const select = { id: true, shipmentId: true, containerProfileId: true, actorId: true, reason: true, before: true, createdAt: true };
+  const previous = await prisma.containerRemoval.findFirst({ where: { actionKey } });
+  if (previous) {
+    if (previous.fingerprint !== fingerprint) throw new HttpError(409, "This confirmation belongs to a different deletion.");
+    return NextResponse.json({ removal: Object.fromEntries(Object.keys(select).map(key => [key, previous[key]])), replayed: true });
   }
+  const current = await prisma.containerProfile.findUniqueOrThrow({ where: { id } });
+  const shipment = await prisma.shippingInformation.findUniqueOrThrow({ where: { id: current.shippingInformationId } });
+  if (shipment.truckStatus === "OUT" && user.role !== "ADMINISTRATOR")
+    throw new HttpError(403, "Only administrators can correct a departed shipment");
+  const before = profileSnapshot(current, shipment);
+  if (keys.some(key => before[key] !== expected[key])) throw new HttpError(409, "The profile or shipment changed. Close and reload before reviewing deletion again.");
+  await assertUnreceivedProfile(current);
+  const removal = await prisma.containerRemoval.create({ data: {
+    shipmentId: shipment.id, containerProfileId: id, actorId: user.id, actionKey, fingerprint,
+    reason: reason.trim(), before: { ...before, profileCreatedAt: current.createdAt.toISOString() },
+  }, select });
+  await prisma.containerProfile.delete({ where: { id } });
+  const remaining = await prisma.containerProfile.findMany({ where: { shippingInformationId: shipment.id }, select: { containerStatus: true } });
+  await prisma.shippingInformation.update({ where: { id: shipment.id }, data: { status: remaining.length && remaining.every(row => row.containerStatus === "accepted") ? "accepted" : "pending" } });
+  return NextResponse.json({ removal, message: "Container Profile deleted. Recorded storage stock was not changed." });
 }
 
 // Update container profile on the Entry Form
@@ -114,6 +123,10 @@ async function PUTHandler(req, { user }) {
   if (keys.some(key => expected[key] !== before[key])) throw new HttpError(409, "The profile or shipment has changed. Close and reload before reviewing again.");
   await assertUnreceivedProfile(current);
   if (Object.keys(afterFields).every(key => afterFields[key] === current[key])) throw new HttpError(400, "No changes to save");
+  // Keeping an archived definition is allowed; choosing one anew is not.
+  if ((afterFields.locationOriginId !== current.locationOriginId && (await prisma.locationOrigin.findUniqueOrThrow({ where: { id: afterFields.locationOriginId } })).archivedAt) ||
+      (afterFields.wasteProfileId !== current.wasteProfileId && (await prisma.wasteProfile.findUniqueOrThrow({ where: { id: afterFields.wasteProfileId } })).archivedAt))
+    throw new HttpError(409, archivedChoice);
   const updatedProfile = await prisma.containerProfile.update({ where: { id: current.id }, data: { ...afterFields, containerStatus: "pending" } });
   // An amended rejected profile needs review again; keep the shipment queue in sync.
   await prisma.shippingInformation.update({ where: { id: shipment.id }, data: { status: "pending" } });
@@ -133,9 +146,10 @@ async function PATCHHandler(request, { user }) {
     const { containerProfileId, containerStatus } = containerStatusUpdateData;
 
     if (!['accepted','rejected'].includes(containerStatus)) throw new HttpError(400, 'Invalid container status');
-    if (user.role !== 'ADMINISTRATOR' && containerStatus === 'accepted') throw new HttpError(403, 'Use the receipt form to accept containers');
+    // Pre-storage accepts through the receipt form and returns a delivery with an
+    // inspection report (/api/pre-storage-setup/rejections); this is an administrator correction.
+    if (user.role !== 'ADMINISTRATOR') throw new HttpError(403, containerStatus === 'accepted' ? 'Use the receipt form to accept containers' : 'Return the delivery with an inspection report in the hall');
     const current = await prisma.containerProfile.findUniqueOrThrow({where:{id:containerProfileId}});
-    if (user.role !== 'ADMINISTRATOR' && current.containerStatus !== 'pending') throw new HttpError(409, 'This profile is no longer awaiting review');
     await assertUnreceivedProfile(current);
     // Step 1: Update container status for specific container in a hall
     // and we are using this when we are updating the container status in the hall
@@ -168,7 +182,7 @@ async function PATCHHandler(request, { user }) {
 
 export const POST = withApiAuth(POSTHandler, { access: "shipping" });
 export const GET = withApiAuth(GETHandler);
-export const DELETE = withApiAuth(DELETEHandler, { access: "shipping" });
+export const DELETE = withApiAuth(DELETEHandler, { access: "member", allowedRoles: ["ADMINISTRATOR", "SUPERVISION"] });
 export const PUT = withApiAuth(PUTHandler, { access: "shipping", bodyObjects: ["preparedData"] });
 export const PATCH = withApiAuth(PATCHHandler, { access: "shipping", bodyObjects: ["containerStatusUpdateData"] });
 

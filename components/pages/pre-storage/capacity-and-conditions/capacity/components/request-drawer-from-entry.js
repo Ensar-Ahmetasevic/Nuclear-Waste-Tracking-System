@@ -1,65 +1,33 @@
-import RequestFromEntry from "./../../../../final-storage/setup/capacity-and-conditions/capacity/request-from-entry";
+"use client";
+import { useT } from "../../../../../shell/preferences";
+import RequestFromEntry from "../request-from-entry";
 
+// Incoming shipments with Container Profiles for this hall. The receipt is
+// recorded in the pre-storage receipt form.
 export default function RequestDrawerFromEntry({
   hasPendingContainersInHall,
   filteredPendingShippingInformations,
   requestQuantity,
   hallData,
 }) {
+  const t = useT();
+  if (!hasPendingContainersInHall) return null;
   return (
-    <>
-      {hasPendingContainersInHall && (
-        <div className="alert alert-warning flex  flex-col items-center justify-center text-center">
-          <div className="flex flex-row space-x-2">
-            <p>You have</p>
-            <p className="font-semibold">
-              {filteredPendingShippingInformations.length}
-            </p>
-            <p> new request(s) from Entry!</p>
-          </div>
-          {/* Side drawer for the requests */}
-          <div className="drawer">
-            <input id="my-drawer" type="checkbox" className="drawer-toggle" />
-            <div className="drawer-content static">
-              {/* Page content here */}
-              <label
-                htmlFor="my-drawer"
-                className="btn btn-info drawer-button z-0 text-white"
-              >
-                Show Requests
-                <span className="relative -top-6 left-6 right-6 flex h-4 w-4">
-                  <span className="relative inline-flex h-4 w-4 rounded-full bg-sky-500"></span>
-                </span>
-              </label>
-            </div>
-            <div className="drawer-side z-10">
-              <label
-                htmlFor="my-drawer"
-                aria-label="close sidebar"
-                className="drawer-overlay"
-              ></label>
-              <div className="menu min-h-full w-full md:w-1/2 bg-base-200 p-4 text-base-content">
-                {/* Sidebar content here */}
-                {requestQuantity.map((request) => (
-                  <RequestFromEntry
-                    key={request.id}
-                    entryData={request}
-                    hallData={hallData}
-                  />
-                ))}
-                <div className="mt-10 flex justify-end">
-                  <label
-                    htmlFor="my-drawer"
-                    className="btnCancel drawer-button w-32"
-                  >
-                    Close
-                  </label>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+    <section aria-labelledby="incoming-receipts-title" className="space-y-3">
+      <h3 id="incoming-receipts-title" className="font-semibold">
+        {t("rec.incoming", {
+          count: filteredPendingShippingInformations.length,
+        })}
+      </h3>
+      <ul className="space-y-2">
+        {requestQuantity.map((request) => (
+          <RequestFromEntry
+            key={request.id}
+            entryData={request}
+            hallData={hallData}
+          />
+        ))}
+      </ul>
+    </section>
   );
 }

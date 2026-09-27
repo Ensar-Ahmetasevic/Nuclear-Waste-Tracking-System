@@ -1,6 +1,24 @@
-// Examples transcribed from "Nuclear Waste Tracking System - Concept doc.pdf".
-// Demo fixtures only: these descriptions are not validated operational guidance.
-async function seedConcept(prisma, organizationId) {
+// Seeds the examples from "Nuclear Waste Tracking System - Concept doc.pdf" (see concept-data.cjs).
+// Every function is idempotent: records are looked up by name and never overwritten.
+const { createHash, randomUUID } = require('node:crypto');
+const concept = require('./concept-data.cjs');
+
+// The PDF gives only the time of day; use its most recent occurrence in Berlin.
+function latestArrival(time, now = new Date()) {
+  const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit' });
+  const zone = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Berlin', timeZoneName: 'longOffset' });
+  for (const daysBack of [0, 1]) {
+    const date = day.format(new Date(now.getTime() - daysBack * 86400000));
+    const offset = zone.formatToParts(new Date(`${date}T${time}Z`)).find(part => part.type === 'timeZoneName').value.slice(3) || 'Z';
+    const at = new Date(`${date}T${time}${offset}`);
+    if (at <= now) return at;
+  }
+}
+
+const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+
+// With actors, a new shipment gets the arrival and preparation records the Step 1 forms write.
+async function seedConcept(prisma, organizationId, { arrivalActorId, preparationActorId } = {}) {
   return prisma.$transaction(async tx => {
     async function ensure(model, name, data) {
       const existing = await tx[model].findFirst({ where:{ organizationId, name } });
@@ -15,39 +33,77 @@ async function seedConcept(prisma, organizationId) {
       }
       return tx[model].create({ data:{ organizationId, name, ...data } });
     }
-    const steel = await ensure('containerType', 'Strengthened steel container (Demo)', {
-      material:'Strengthened steel', volume:15, carryingCapacity:7, footprint:2,
-      radioactivityLevel:'High risk (concept example)', physicalProperties:'Concept demo: extremely tough; protective coatings against corrosion.',
-      description:'DEMO — Concept document example for testing only. Steel container for radioactive materials from nuclear facilities. Volume: 15 m³; carrying capacity: 7 tons; footprint: 2 m².',
-    });
-    const concrete = await ensure('containerType', 'Concrete container (Demo)', {
-      material:'Concrete', volume:15, carryingCapacity:6, footprint:2,
-      radioactivityLevel:'High risk (concept example)', physicalProperties:'Concept demo: resistant to radiation; solid.',
-      description:'DEMO — Concept document example for testing only. Concrete container for medium and high radioactivity waste. Volume: 15 m³; carrying capacity: 6 tons; footprint: 2 m².',
-    });
-    const common = {
-      processingMethods:'Concept demo: geological disposal with radiation monitoring; not validated operational guidance.',
-      biologicalProperties:'Concept demo: no relevant biological properties.',
-      collectionProcedures:'Concept demo: special protected containers and robotic handling; not validated operational guidance.',
-    };
-    const m01 = await ensure('wasteProfile', 'M01 (Demo)', { ...common, containerTypeId:steel.id,
-      typeOfWaste:'Radioactive waste from nuclear facilities', wasteDescription:'DEMO: highly radioactive materials generated in nuclear energy processes.',
-      risksAndHazards:'Concept demo: extreme radiation risk.', physicalProperties:'Concept demo: liquid form; high radiation level.', chemicalProperties:'Concept demo: nuclear materials with high radioactivity.',
-    });
-    const m02 = await ensure('wasteProfile', 'M02 (Demo)', { ...common, containerTypeId:concrete.id,
-      typeOfWaste:'Radioactive waste from laboratory research', wasteDescription:'DEMO: radioactive isotopes used in laboratory experiments and analyses.',
-      risksAndHazards:'Concept demo: moderate to high radiation risk.', physicalProperties:'Concept demo: liquid form; medium to high radiation level.', chemicalProperties:'Concept demo: contains radioactive isotopes.',
-    });
-    const brokdorf = await ensure('locationOrigin', 'Zwischenlager Brokdorf (Demo)', { address:'Osterende, 25576 Brokdorf', origin:'Concept demo: radioactive waste from nuclear facilities Brokdorf.' });
-    const ahaus = await ensure('locationOrigin', 'Zwischenlager Ahaus (Demo)', { address:'Ammeln 59, 48683 Ahaus', origin:'Concept demo: nuclear waste from laboratory research and medical procedures.' });
-    let shipment = await tx.shippingInformation.findFirst({ where:{ organizationId, registrationPlates:'DEMO-CONCEPT-001' } });
-    if (!shipment) {
-      shipment = await tx.shippingInformation.create({ data:{ organizationId, companyName:'Transport GmbH (Concept Demo)', driverName:'Demo driver', registrationPlates:'DEMO-CONCEPT-001', truckStatus:'IN', containerProfiles:{ create:[
-        { organizationId, quantity:15, locationOriginId:brokdorf.id, wasteProfileId:m01.id },
-        { organizationId, quantity:12, locationOriginId:ahaus.id, wasteProfileId:m02.id },
-      ] } } });
+    const profiles = [];
+    for (const group of concept.groups) {
+      const { name: typeName, ...type } = group.container;
+      const container = await ensure('containerType', typeName, type);
+      const { name: wasteName, ...waste } = group.waste;
+      const wasteProfile = await ensure('wasteProfile', wasteName, { ...waste, containerTypeId: container.id });
+      const { name: originName, ...origin } = group.location;
+      const location = await ensure('locationOrigin', originName, origin);
+      profiles.push({ organizationId, quantity: group.quantity, locationOriginId: location.id, wasteProfileId: wasteProfile.id });
     }
-    return { shipmentId:shipment.id, wasteProfileIds:[m01.id,m02.id], locationOriginIds:[brokdorf.id,ahaus.id] };
+    const { arrivalTime, ...truck } = concept.shipment;
+    const { companyName, driverName, registrationPlates } = truck;
+    let shipment = await tx.shippingInformation.findFirst({ where:{ organizationId, companyName, driverName, registrationPlates } });
+    if (!shipment) {
+      shipment = await tx.shippingInformation.create({ data:{ organizationId, ...truck, entryDateTime: latestArrival(arrivalTime) } });
+      const snapshot = { companyName, driverName, registrationPlates };
+      if (arrivalActorId) await tx.shipmentArrival.create({ data:{
+        organizationId, shipmentId: shipment.id, actorId: arrivalActorId, actionKey: randomUUID(),
+        fingerprint: hash([snapshot, arrivalActorId]), snapshot, createdAt: shipment.entryDateTime,
+      } });
+      for (const data of profiles) {
+        const profile = await tx.containerProfile.create({ data:{ ...data, shippingInformationId: shipment.id } });
+        if (!preparationActorId) continue;
+        const { quantity, locationOriginId, wasteProfileId } = data;
+        const { containerTypeId } = await tx.wasteProfile.findUniqueOrThrow({ where:{ id: wasteProfileId } });
+        const reviewed = { truckStatus: shipment.truckStatus, status: shipment.status, containerTypeId };
+        await tx.containerPreparation.create({ data:{
+          organizationId, shipmentId: shipment.id, containerProfileId: profile.id, actorId: preparationActorId, actionKey: randomUUID(),
+          fingerprint: hash([{ quantity, locationOriginId, wasteProfileId, shippingInformationId: shipment.id }, reviewed, '', preparationActorId]),
+          snapshot: { quantity, locationOriginId, wasteProfileId, containerTypeId, truckStatus: shipment.truckStatus, containerStatus: 'pending' },
+          createdAt: profile.createdAt,
+        } });
+      }
+    }
+    return { shipmentId:shipment.id, wasteProfileIds:profiles.map(row => row.wasteProfileId), locationOriginIds:profiles.map(row => row.locationOriginId) };
   });
 }
-module.exports = { seedConcept };
+
+// Step 2 halls, Step 3 rooms and the responsible employees of both areas. With the
+// recording accounts, a hall or room without measurements and alerts gets its first measurement.
+async function seedStorage(prisma, organizationId, { preStorageActorId, finalStorageActorId } = {}) {
+  return prisma.$transaction(async tx => {
+    const ensure = async (model, where, data) =>
+      (await tx[model].findFirst({ where:{ organizationId, ...where } })) || tx[model].create({ data:{ organizationId, ...data } });
+    const areas = [
+      { area: 'PRE_STORAGE', prefix: 'preStorage', locations: concept.preStorageLocations, people: concept.preStorageEmployees, conditions: concept.preStorageConditions, actorId: preStorageActorId },
+      { area: 'FINAL_STORAGE', prefix: 'finalStorage', locations: concept.finalStorageLocations, people: concept.finalStorageEmployees, conditions: concept.finalStorageConditions, actorId: finalStorageActorId },
+    ];
+    for (const { area, prefix, locations, people, conditions, actorId } of areas) {
+      const location = {}, employee = {};
+      for (const data of locations) location[data.name] = await ensure(`${prefix}Location`, { name: data.name }, data);
+      for (const person of people) {
+        employee[`${person.name} ${person.surname}`] = await ensure(`${prefix}ResponsibleEmployee`, { name: person.name, surname: person.surname }, { ...person, dateOfBirth: new Date(`${person.dateOfBirth}T00:00:00Z`) });
+      }
+      if (!actorId) continue;
+      // Measurements are recorded through the app so alerts are evaluated; only a
+      // location without any history can take one here without an alert evaluation.
+      const measurements = area === 'PRE_STORAGE' ? tx.preStorageConditions : tx.finalStorageCondition;
+      for (const { location: name, employee: person, ...values } of conditions) {
+        const locationId = location[name].id;
+        if (await measurements.findFirst({ where:{ organizationId, [`${prefix}LocationId`]: locationId } })) continue;
+        if (await tx.conditionAlert.findFirst({ where:{ organizationId, area, locationId } })) continue;
+        await measurements.create({ data:{
+          organizationId, submissionKey: randomUUID(), recordedById: actorId,
+          [`${prefix}LocationId`]: locationId, [`${prefix}ResponsibleEmployeeId`]: employee[person].id,
+          [`${prefix}Temperature`]: values.temperature, [`${prefix}RadiationLevel`]: values.radiationLevel,
+          [`${prefix}Humidity`]: values.humidity, [`${prefix}Pressure`]: values.pressure,
+        } });
+      }
+    }
+  });
+}
+
+module.exports = { seedConcept, seedStorage };

@@ -1,14 +1,24 @@
 "use client";
+import { useT } from "../shell/preferences";
+import { useFormat } from "../ui/format";
+
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { InlineLoader } from "../loading/loaders";
+import { LuScanLine } from "react-icons/lu";
+import DeviceScan from "./device-reading";
+// [form field, parameter, unit, min, max]
 const fields = [
-  ["Temperature", "Temperature", "°C"],
-  ["RadiationLevel", "Radiation level", "µSv/h", 0],
-  ["Humidity", "Humidity", "%", 0, 100],
-  ["Pressure", "Pressure", "hPa", 0],
+  ["Temperature", "TEMPERATURE", "°C"],
+  ["RadiationLevel", "RADIATION", "µSv/h", 0],
+  ["Humidity", "HUMIDITY", "%", 0, 100],
+  ["Pressure", "PRESSURE", "hPa", 0],
 ];
+
 export default function MeasurementForm({ area, location, close }) {
+  const t = useT();
+  const format = useFormat();
   const pre = area === "pre-storage",
     prefix = pre ? "preStorage" : "finalStorage";
   const [phase, setPhase] = useState("edit"),
@@ -21,8 +31,25 @@ export default function MeasurementForm({ area, location, close }) {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm();
+  // Values read from a device per field ({ method, device }), which of them the
+  // person has confirmed, and the field whose scanner is open.
+  const [readings, setReadings] = useState({});
+  const [checked, setChecked] = useState([]);
+  const [scanFor, setScanFor] = useState(null);
+  function applyReading(key, { value, method, device }) {
+    setValue(prefix + key, value, { shouldValidate: true, shouldDirty: true });
+    setReadings((current) => ({ ...current, [key]: { method, device } }));
+    setChecked((current) => current.filter((item) => item !== key));
+    setScanFor(null);
+  }
+  // A typed value replaces the device value; it no longer needs confirming.
+  function forgetReading(key) {
+    setReadings(({ [key]: _removed, ...rest }) => rest);
+    setChecked((current) => current.filter((item) => item !== key));
+  }
   const client = useQueryClient();
   const employees = useQuery({
     queryKey: ["measurementEmployees", area],
@@ -31,7 +58,10 @@ export default function MeasurementForm({ area, location, close }) {
         signal: AbortSignal.timeout(20000),
       });
       if (!response.ok) throw Error("Unable to load");
-      return (await response.json())[prefix + "EmployeeData"];
+      // Deactivated people keep their history but cannot record new measurements.
+      return (await response.json())[prefix + "EmployeeData"].filter(
+        (row) => !row.archivedAt,
+      );
     },
   });
   useEffect(() => {
@@ -52,6 +82,13 @@ export default function MeasurementForm({ area, location, close }) {
   }
   async function save(values) {
     if (busy.current) return;
+    if (
+      !payload.current &&
+      Object.keys(readings).some((key) => !checked.includes(key))
+    ) {
+      setMessage(t("dev.confirmAll"));
+      return;
+    }
     if (phase === "error") payload.current = null;
     busy.current = true;
     setPhase("saving");
@@ -60,6 +97,15 @@ export default function MeasurementForm({ area, location, close }) {
       ...values,
       [prefix + "LocationId"]: location.id,
       submissionKey: crypto.randomUUID(),
+      ...(Object.keys(readings).length && {
+        readingSource: {
+          readings: Object.entries(readings).map(([field, row]) => ({
+            field,
+            ...row,
+          })),
+          confirmed: checked,
+        },
+      }),
     };
     try {
       const response = await fetch(`/api/${area}-setup/${area}-conditions`, {
@@ -72,18 +118,16 @@ export default function MeasurementForm({ area, location, close }) {
       if (!response.ok) {
         if (response.status >= 500) throw Error("Unconfirmed");
         setPhase(response.status === 409 ? "conflict" : "error");
-        setMessage(data.message || "Unable to save measurement.");
+        setMessage(data.message || t("meas.form.failed"));
         return;
       }
       if (!data.measurement?.id) throw Error("Missing result");
-      setResult(data.measurement);
+      setResult({ ...data.measurement, alerts: data.alerts || null });
       setPhase("success");
       heading.current?.focus();
     } catch {
       setPhase("unknown");
-      setMessage(
-        "Save could not be confirmed. Check this same attempt before entering another measurement.",
-      );
+      setMessage(t("meas.form.unconfirmed"));
     } finally {
       busy.current = false;
     }
@@ -96,22 +140,21 @@ export default function MeasurementForm({ area, location, close }) {
         event.preventDefault();
         finish();
       }}
-      className="receipt-dialog operational-panel rounded-xl border border-base-content/20 bg-base-100 p-6 text-base-content"
+      className="receipt-dialog operational-panel rounded-box border border-base-content/20 bg-base-100 p-6 text-base-content"
     >
       <h2
         ref={heading}
         id="measurement-title"
         tabIndex={-1}
-        className="text-2xl font-bold"
+        className="sr-only"
       >
-        {result ? "Measurement saved" : "Record measurement"}
+        {result ? t("meas.form.saved") : t("meas.form.title")}
       </h2>
-      <p className="my-3">
-        Step {pre ? 2 : 3} · {location.name} · Location #{location.id}
+      <p className="mb-3 font-medium">
+        {t(pre ? "area.PRE_STORAGE" : "area.FINAL_STORAGE")} · {location.name}
       </p>
       <p className="mb-4 text-sm text-base-content/70">
-        Enter the recorded values. Saving these values does not confirm that the
-        location is safe.
+        {t("meas.form.intro")}
       </p>
       <form
         noValidate
@@ -121,70 +164,135 @@ export default function MeasurementForm({ area, location, close }) {
         }
       >
         {Object.keys(errors).length > 0 && (
-          <p role="alert">Check the highlighted fields before saving.</p>
+          <p role="alert">{t("meas.form.checkFields")}</p>
         )}
-        {fields.map(([key, label, unit, min, max]) => (
-          <div key={key}>
-            <label htmlFor={"measurement-" + key} className="block text-sm">
-              {label} ({unit})
-            </label>
-            <input
-              id={"measurement-" + key}
-              className="input mt-1 w-full"
-              type="number"
-              step={pre && key === "Pressure" ? "1" : "any"}
-              aria-invalid={Boolean(errors[prefix + key])}
-              aria-describedby={
-                errors[prefix + key] ? "error-" + key : undefined
-              }
-              {...register(prefix + key, {
-                valueAsNumber: true,
-                required: `${label} is required`,
-                ...(min !== undefined
-                  ? {
-                      min: {
-                        value: min,
-                        message: `${label} cannot be negative`,
-                      },
-                    }
-                  : {}),
-                ...(max !== undefined
-                  ? {
-                      max: {
-                        value: max,
-                        message: `${label} cannot exceed ${max}`,
-                      },
-                    }
-                  : {}),
-                validate: (value) =>
-                  (Number.isFinite(value) &&
-                    (key !== "Pressure" || !pre || Number.isInteger(value))) ||
-                  "Enter a valid number" +
-                    (pre && key === "Pressure" ? " (whole hPa)" : ""),
-              })}
-            />
-            {errors[prefix + key] && (
-              <p id={"error-" + key} className="mt-1 text-sm text-error">
-                {errors[prefix + key].message}
-              </p>
-            )}
-          </div>
-        ))}
+        {fields.map(([key, parameter, unit, min, max]) => {
+          const label = t(`param.${parameter}`);
+          return (
+            <div key={key}>
+              <label
+                htmlFor={"measurement-" + key}
+                className="flex items-center gap-2 text-sm"
+              >
+                {label} ({unit})
+                {readings[key] && (
+                  <span className="rounded-full bg-primary/15 px-2 text-xs font-medium text-primary">
+                    {t("dev.fromDevice")}
+                  </span>
+                )}
+              </label>
+              <div className="mt-1 flex gap-2">
+                <input
+                  id={"measurement-" + key}
+                  className="input min-h-11 flex-1"
+                  type="number"
+                  step={pre && key === "Pressure" ? "1" : "any"}
+                  aria-invalid={Boolean(errors[prefix + key])}
+                  aria-describedby={
+                    errors[prefix + key] ? "error-" + key : undefined
+                  }
+                  {...register(prefix + key, {
+                    valueAsNumber: true,
+                    onChange: () => forgetReading(key),
+                    required: t("def.error.required", { field: label }),
+                    ...(min !== undefined
+                      ? {
+                          min: {
+                            value: min,
+                            message: t("meas.form.negative", { field: label }),
+                          },
+                        }
+                      : {}),
+                    ...(max !== undefined
+                      ? {
+                          max: {
+                            value: max,
+                            message: t("meas.form.max", { field: label, max }),
+                          },
+                        }
+                      : {}),
+                    validate: (value) =>
+                      (Number.isFinite(value) &&
+                        (key !== "Pressure" ||
+                          !pre ||
+                          Number.isInteger(value))) ||
+                      t(
+                        pre && key === "Pressure"
+                          ? "meas.form.wholeNumber"
+                          : "meas.form.number",
+                      ),
+                  })}
+                />
+                <button
+                  type="button"
+                  className={`btn btn-square min-h-11 ${scanFor === key ? "btn-primary" : "border-base-content/20 btn-outline"}`}
+                  aria-label={t("dev.scanField", { parameter: label })}
+                  aria-expanded={scanFor === key}
+                  title={t("dev.scanField", { parameter: label })}
+                  onClick={() =>
+                    setScanFor((current) => (current === key ? null : key))
+                  }
+                >
+                  <LuScanLine className="size-5" aria-hidden="true" />
+                </button>
+              </div>
+              {scanFor === key && (
+                <DeviceScan
+                  field={key}
+                  label={label}
+                  onRead={(reading) => applyReading(key, reading)}
+                  onClose={() => setScanFor(null)}
+                />
+              )}
+              {errors[prefix + key] && (
+                <p id={"error-" + key} className="mt-1 text-sm text-error">
+                  {errors[prefix + key].message}
+                </p>
+              )}
+              {readings[key] && (
+                <label
+                  className={`mt-2 flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 text-sm ${checked.includes(key) ? "border-success/40 bg-success/10" : "border-warning/50 bg-warning/10"}`}
+                >
+                  <input
+                    type="checkbox"
+                    className="checkbox checkbox-sm"
+                    checked={checked.includes(key)}
+                    onChange={(event) => {
+                      setMessage("");
+                      setChecked((current) =>
+                        event.target.checked
+                          ? [...current, key]
+                          : current.filter((item) => item !== key),
+                      );
+                    }}
+                  />
+                  {t("dev.checked", {
+                    device: readings[key].device || t("dev.unknownDevice"),
+                  })}
+                </label>
+              )}
+            </div>
+          );
+        })}
         <label className="block text-sm">
-          Responsible employee
+          {t("meas.responsible")}
           <select
             className="select mt-1 w-full"
             aria-invalid={Boolean(errors[prefix + "ResponsibleEmployeeId"])}
-            aria-describedby={errors[prefix + "ResponsibleEmployeeId"] ? "measurement-employee-error" : undefined}
+            aria-describedby={
+              errors[prefix + "ResponsibleEmployeeId"]
+                ? "measurement-employee-error"
+                : undefined
+            }
             {...register(prefix + "ResponsibleEmployeeId", {
               valueAsNumber: true,
-              required: "Select a responsible employee",
+              required: t("meas.form.selectEmployee"),
               validate: (value) =>
                 (Number.isInteger(value) && value > 0) ||
-                "Select a responsible employee",
+                t("meas.form.selectEmployee"),
             })}
           >
-            <option value="">Select an employee</option>
+            <option value="">{t("meas.form.chooseEmployee")}</option>
             {employees.data?.map((row) => (
               <option key={row.id} value={row.id}>
                 {row.name} {row.surname}
@@ -193,71 +301,98 @@ export default function MeasurementForm({ area, location, close }) {
           </select>
         </label>
         {errors[prefix + "ResponsibleEmployeeId"] && (
-          <p id="measurement-employee-error" className="text-sm text-error">Select a responsible employee.</p>
+          <p id="measurement-employee-error" className="text-sm text-error">
+            {t("meas.form.selectEmployee")}
+          </p>
         )}
-        {employees.isPending && <p role="status">Loading employees…</p>}
+        {employees.isPending && <InlineLoader />}
         {employees.isError && (
           <p role="alert">
-            Unable to load employees.{" "}
+            {t("meas.form.employeesError")}{" "}
             <button
               type="button"
-              className="btn"
+              className="btn min-h-11"
               onClick={() => employees.refetch()}
             >
-              Retry
+              {t("alert.retry")}
             </button>
           </p>
         )}
         {!employees.isPending &&
           !employees.isError &&
-          !employees.data?.length && (
-            <p>
-              No responsible employees configured. Contact your administrator.
-            </p>
-          )}
+          !employees.data?.length && <p>{t("meas.form.noEmployees")}</p>}
         <button
           type="submit"
           className="btn min-h-11 btn-primary"
           disabled={!employees.data?.length}
         >
-          Save measurement
+          {t("meas.form.save")}
         </button>
       </form>
       {!["edit", "error"].includes(phase) && (
         <div className="space-y-3">
-          <dl className="grid grid-cols-2 gap-3 rounded-lg bg-base-200 p-4">
-            {fields.map(([key, label, unit]) => (
+          <dl className="grid grid-cols-2 gap-3 rounded-xl bg-base-200/70 p-4">
+            {fields.map(([key, parameter, unit]) => (
               <div key={key}>
-                <dt>{label}</dt>
+                <dt className="text-sm text-base-content/70">
+                  {t(`param.${parameter}`)}
+                </dt>
                 <dd>
                   {(result || payload.current)?.[prefix + key]} {unit}
                 </dd>
               </div>
             ))}
             <div className="col-span-2">
-              <dt>Responsible employee</dt>
-              <dd>{(() => {
-                const id = (result || payload.current)?.[prefix + "ResponsibleEmployeeId"];
-                const employee = employees.data?.find(row => row.id === id);
-                return employee ? `${employee.name} ${employee.surname}` : `Employee #${id}`;
-              })()}</dd>
+              <dt className="text-sm text-base-content/70">
+                {t("meas.responsible")}
+              </dt>
+              <dd>
+                {(() => {
+                  const id = (result || payload.current)?.[
+                    prefix + "ResponsibleEmployeeId"
+                  ];
+                  const employee = employees.data?.find((row) => row.id === id);
+                  return employee
+                    ? `${employee.name} ${employee.surname}`
+                    : `#${id}`;
+                })()}
+              </dd>
             </div>
           </dl>
           {result ? (
             <div role="status" className="operational-confirm">
               <p className="font-semibold text-success">
-                Measurement #{result.id} saved
+                {t("meas.form.result", { id: result.id })}
               </p>
               <p>
-                Recorded at {new Date(result.createdAt).toLocaleString()} · User
-                #{result.recordedById}
+                {t("meas.form.recorded", {
+                  time: format.dateTime(result.createdAt),
+                  actor: result.recordedById,
+                })}
               </p>
+              {/* Alert outcomes of this measurement; a replayed save does not repeat them. */}
+              {result.alerts?.length > 0 && (
+                <ul className="mt-2 list-disc pl-5">
+                  {result.alerts.map((row) => (
+                    <li key={row.alertId}>
+                      {t(`param.${row.parameter}`)}:{" "}
+                      {t(`meas.outcome.${row.outcome}`)} ·{" "}
+                      {t(
+                        row.severity === "CRITICAL"
+                          ? "cell.critical"
+                          : "cell.warning",
+                      )}{" "}
+                      · {t("alert.number", { id: row.alertId })}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           ) : phase === "saving" ? (
-            <p role="status">Saving measurement…</p>
+            <InlineLoader save />
           ) : phase === "unknown" ? (
             <button className="btn min-h-11 btn-primary" onClick={() => save()}>
-              Check save result
+              {t("users.change.check")}
             </button>
           ) : null}
         </div>
@@ -272,12 +407,12 @@ export default function MeasurementForm({ area, location, close }) {
           onClick={finish}
         >
           {result
-            ? "Done — return to location"
+            ? t("meas.form.done")
             : phase === "unknown"
-              ? "Close — save remains unconfirmed"
-            : phase === "conflict"
-              ? "Close and review history"
-              : "Cancel"}
+              ? t("users.change.closeUnconfirmed")
+              : phase === "conflict"
+                ? t("meas.form.closeHistory")
+                : t("common.cancel")}
         </button>
       </div>
     </dialog>

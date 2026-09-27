@@ -3,7 +3,10 @@ import { useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { pageAllowed } from "../../lib/workspaces.cjs";
+import { useT } from "../shell/preferences";
+import { PageLoader } from "../loading/loaders";
 export default function WorkspaceGuard({ children }) {
+  const t = useT();
   const { data, status } = useSession();
   const path = usePathname();
   if (
@@ -12,24 +15,22 @@ export default function WorkspaceGuard({ children }) {
     path.startsWith("/api/")
   )
     return children;
-  if (status === "loading") return <p className="p-8">Loading workspace…</p>;
+  if (status === "loading") return <PageLoader />;
   if (!data?.user)
     return (
       <div className="p-8">
-        <p>Please sign in to continue.</p>
-        <Link className="btn mt-4" href="/login">
-          Sign in
+        <p>{t("guard.signIn")}</p>
+        <Link className="btn mt-4 min-h-11" href="/login">
+          {t("login.submit")}
         </Link>
       </div>
     );
   if (!pageAllowed(data.user, path))
     return (
-      <div className="mx-auto max-w-xl p-8">
-        <h1 className="text-2xl font-bold">
-          This page is outside your work area
-        </h1>
-        <Link className="btn mt-4 btn-primary" href="/">
-          My workspace
+      <div className="mx-auto max-w-xl space-y-4 p-8">
+        <h1 className="text-2xl font-semibold">{t("guard.outside")}</h1>
+        <Link className="btn min-h-11 btn-primary" href="/">
+          {t("nav.workspace")}
         </Link>
       </div>
     );

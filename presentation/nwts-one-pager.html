@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>NWTS One-Pager</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+  @page { size: A4; margin: 0; }
+  :root {
+    --navy: #0E1A2B; --navy-2: #15263D; --line: #D9E0E4;
+    --paper: #F3F5F2; --ink: #13233A; --soft: #4A5A6C;
+    --cyan: #2BB8F2; --cyan-ink: #0A6C94; --amber: #F6AE2D; --on-navy: #EEF2F5; --on-navy-soft: #A9BCCF;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--paper); }
+  body { width: 210mm; height: 297mm; font-family: 'IBM Plex Sans', Arial, sans-serif; color: var(--ink); font-size: 9.6pt; line-height: 1.45; -webkit-print-color-adjust: exact; print-color-adjust: exact; display: flex; flex-direction: column; overflow: hidden; }
+  h1, h2, h3 { font-family: 'Space Grotesk', Arial, sans-serif; font-weight: 700; text-wrap: balance; }
+  .eyebrow { font-size: 7.5pt; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 600; }
+
+  header { background: radial-gradient(circle at 88% 10%, #1C3A5E 0%, var(--navy) 60%); color: var(--on-navy); padding: 12mm 16mm 9mm; display: flex; flex-direction: column; gap: 3mm; }
+  header .eyebrow { color: var(--cyan); }
+  header h1 { font-size: 27pt; line-height: 1.05; }
+  header p.lead { font-size: 11.5pt; color: var(--on-navy-soft); max-width: 165mm; }
+  header .status { align-self: flex-start; border: 1px solid var(--cyan); color: var(--cyan); border-radius: 20px; padding: 1mm 3.5mm; font-size: 8pt; font-weight: 600; }
+
+  main { flex: 1; padding: 7mm 16mm 0; display: flex; flex-direction: column; gap: 5.5mm; }
+  section h2 { font-size: 12.5pt; margin-bottom: 2mm; }
+  section .eyebrow { color: var(--cyan-ink); margin-bottom: 1mm; }
+
+  .problem p { max-width: 170mm; color: var(--soft); }
+
+  .journey ol { list-style: none; display: grid; grid-template-columns: repeat(5, 1fr); gap: 2.5mm; }
+  .journey li { background: var(--navy); color: var(--on-navy); border-radius: 2.5mm; padding: 3.5mm 3mm; display: flex; flex-direction: column; gap: 1mm; position: relative; }
+  .journey li .n { color: var(--cyan); font-weight: 600; font-size: 8pt; }
+  .journey li h3 { font-size: 10.5pt; }
+  .journey li p { font-size: 8pt; color: var(--on-navy-soft); line-height: 1.35; }
+  .journey .note { margin-top: 2.5mm; color: var(--soft); font-size: 8.5pt; }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 8mm; }
+  ul.points { list-style: none; display: flex; flex-direction: column; gap: 2.2mm; }
+  ul.points li { padding-left: 4mm; position: relative; color: var(--soft); }
+  ul.points li::before { content: ""; position: absolute; left: 0; top: 1.9mm; width: 1.6mm; height: 1.6mm; border-radius: 50%; background: var(--cyan-ink); }
+  ul.points b { color: var(--ink); font-weight: 600; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 8pt; font-variant-numeric: tabular-nums; }
+  th, td { text-align: center; padding: 1.1mm 1.2mm; white-space: nowrap; border-bottom: 1px solid var(--line); }
+  th:first-child, td:first-child { text-align: left; }
+  th { font-weight: 600; color: var(--ink); border-bottom: 1.5px solid var(--ink); }
+  td { color: var(--soft); }
+  td.no { color: #8A97A5; }
+
+  .audience ul { list-style: none; display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm; }
+  .audience li { background: #FFFFFF; border: 1px solid var(--line); border-radius: 2.5mm; padding: 3mm; display: flex; flex-direction: column; gap: 1mm; }
+  .audience li b { font-family: 'Space Grotesk', Arial, sans-serif; font-size: 9.5pt; }
+  .audience li span { font-size: 8pt; color: var(--soft); line-height: 1.35; }
+
+  footer { margin-top: 6mm; background: var(--navy); color: var(--on-navy); padding: 6mm 16mm; display: grid; grid-template-columns: 1.3fr 1fr; gap: 8mm; align-items: start; }
+  footer h3 { font-size: 10.5pt; margin-bottom: 1.5mm; }
+  footer h3.today { color: var(--cyan); }
+  footer p { font-size: 8.5pt; color: var(--on-navy-soft); }
+  footer .contact { font-size: 9pt; color: var(--on-navy); margin-top: 2mm; }
+</style>
+</head>
+<body>
+  <header>
+    <p class="eyebrow">Nuclear Waste Tracking System</p>
+    <h1>Every container, accounted for.</h1>
+    <p class="lead">A web application that follows radioactive waste containers from truck arrival to final storage: one record, one responsible person and one clear status at every step.</p>
+    <p class="status">Working prototype · 2026</p>
+  </header>
+
+  <main>
+    <section class="problem">
+      <p class="eyebrow">The problem</p>
+      <h2>The trail breaks at every handover</h2>
+      <p>Shipment, container and storage data are spread across paper forms, spreadsheets and separate systems. When containers move between halls and rooms, it is hard to prove who received them and when, and missing or out-of-range measurements are noticed late.</p>
+    </section>
+
+    <section class="journey">
+      <p class="eyebrow">How it works</p>
+      <h2>The container journey</h2>
+      <ol>
+        <li><span class="n">1</span><h3>Arrival</h3><p>Truck, company, driver and plates logged on entry.</p></li>
+        <li><span class="n">2</span><h3>Content</h3><p>Quantity, waste profile, container type and origin.</p></li>
+        <li><span class="n">3</span><h3>Pre-storage</h3><p>Received into a hall by a named employee.</p></li>
+        <li><span class="n">4</span><h3>Transfer</h3><p>A request moves containers from hall to room.</p></li>
+        <li><span class="n">5</span><h3>Final storage</h3><p>Stored in a room, with stock and conditions tracked.</p></li>
+      </ol>
+      <p class="note">Three work areas cover the journey (Shipments, Pre-storage and Final storage), and each employee can be assigned to one of them.</p>
+    </section>
+
+    <div class="cols">
+      <section>
+        <p class="eyebrow">Oversight</p>
+        <h2>Conditions and stock, under watch</h2>
+        <ul class="points">
+          <li><b>Condition alerts</b> for temperature, radiation, humidity and pressure in every hall and room.</li>
+          <li><b>Escalation</b> to Supervision when an alert is not handled; it closes only after a control measurement.</li>
+          <li><b>Stock reconciliation</b> sets calculated stock beside physical counts; corrections need an administrator.</li>
+          <li><b>Traceable history</b> of deletions, alert handling and stock checks.</li>
+        </ul>
+      </section>
+      <section>
+        <p class="eyebrow">Access levels</p>
+        <h2>Three levels, clear boundaries</h2>
+        <table>
+          <tr><th>What a person can do</th><th>Employee</th><th>Supervision</th><th>Admin</th></tr>
+          <tr><td>See overview and statistics</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+          <tr><td>Record incoming shipments</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+          <tr><td>Change a departed shipment</td><td class="no">No</td><td class="no">No</td><td>Yes</td></tr>
+          <tr><td>Create user accounts</td><td class="no">No</td><td>Employees</td><td>All</td></tr>
+          <tr><td>Define waste and container types</td><td class="no">No</td><td class="no">No</td><td>Yes</td></tr>
+        </table>
+      </section>
+    </div>
+
+    <section class="audience">
+      <p class="eyebrow">Who it is for</p>
+      <ul>
+        <li><b>Storage operators</b><span>Interim and final storage sites.</span></li>
+        <li><b>Transport companies</b><span>What was delivered, when, to whom.</span></li>
+        <li><b>Waste producers</b><span>Nuclear facilities, hospitals, laboratories.</span></li>
+        <li><b>Supervision</b><span>Status, alerts and stock in one place.</span></li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    <div>
+      <h3 class="today">Today</h3>
+      <p>A working web application covering the full journey, with access levels, condition alerts and stock reconciliation. Each company's data is kept separate. Demo runs on synthetic data; NWTS is not certified for regulated operation.</p>
+    </div>
+    <div>
+      <h3>Next</h3>
+      <p>A pilot with one storage site, alignment with reporting requirements and sensor integration.</p>
+      <p class="contact">[Your name] · [email] · [phone]</p>
+    </div>
+  </footer>
+</body>
+</html>

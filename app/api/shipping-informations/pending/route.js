@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/server/scoped-database.cjs";
 import { withApiAuth } from "@/lib/server/api-route";
+import { reportsFor } from "@/lib/server/receipt-rejections";
 
 // GET request to fetch pending ShippingInformation filtered by hall ID (preStorageID)
 async function GETHandler() {
@@ -32,6 +33,11 @@ async function GETHandler() {
         },
       });
 
+    // Earlier returns of a profile that Step 1 or Supervision resent, for the new review.
+    const reports = await reportsFor(pendingShippingInformations);
+    for (const shipment of pendingShippingInformations)
+      for (const profile of shipment.containerProfiles)
+        profile.returnHistory = reports.filter((report) => report.profiles.some((row) => row.containerProfileId === profile.id));
     return NextResponse.json({ pendingShippingInformations }, { status: 200 });
   }
 }

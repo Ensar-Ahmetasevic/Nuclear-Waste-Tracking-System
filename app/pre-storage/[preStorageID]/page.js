@@ -5,23 +5,25 @@ import usePreStorageByIdQuery from "../../../requests/request-pre-storage/reques
 
 import CapacityAndConditionsDetails from "./../../../components/pages/pre-storage/capacity-and-conditions/capacity-and-conditions-details";
 
-import LoadingSpinnerPage from "./../../../components/shared/loading-spiner-page";
+import { PageLoader } from "./../../../components/loading/loaders";
 import AlertWarning from "./../../../components/shared/alert-warning";
+import { useT } from "../../../components/shell/preferences";
 
 export default function DisplayPreStorageData() {
+  const t = useT();
   const params = useParams();
   const preStorageID = params.preStorageID;
 
   const { data, isLoading, isError } = usePreStorageByIdQuery(preStorageID);
 
   if (isLoading) {
-    return <LoadingSpinnerPage />;
+    return <PageLoader />;
   }
 
   if (isError || !data || !data.preStorageDataById) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <AlertWarning text={"Error loading PreStorage details data"} />
+      <div className="flex min-h-96 items-center justify-center">
+        <AlertWarning text={t("loc.loadError")} />
       </div>
     );
   }

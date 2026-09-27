@@ -1,7 +1,11 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import PreStorageAvailability from "./pre-storage-availability";
 import useFinalStorageEmployeeQuery from "../../../../../../../requests/request-final-storage/request-final-storage-employee/use-fetch-final-storage-employee-query";
+import { useT } from "../../../../../../shell/preferences";
+import { useFormat } from "../../../../../../ui/format";
+import { InlineLoader, SavingButton } from "../../../../../../loading/loaders";
 export default function ModalSendRequestToPreStorageForm({
   isOpen,
   closeModal,
@@ -10,6 +14,8 @@ export default function ModalSendRequestToPreStorageForm({
   return isOpen ? <RequestReview close={closeModal} room={roomData} /> : null;
 }
 function RequestReview({ close, room }) {
+  const t = useT();
+  const format = useFormat();
   const [destination] = useState(() => ({ id: room.id, name: room.name }));
   const [quantity, setQuantity] = useState("");
   const [employee, setEmployee] = useState("");
@@ -17,7 +23,7 @@ function RequestReview({ close, room }) {
   const [phase, setPhase] = useState("edit");
   const [message, setMessage] = useState("");
   const [result, setResult] = useState(null);
-  const employees = useFinalStorageEmployeeQuery();
+  const employees = useFinalStorageEmployeeQuery({ activeOnly: true });
   const client = useQueryClient();
   const dialog = useRef(null),
     heading = useRef(null),
@@ -34,7 +40,8 @@ function RequestReview({ close, room }) {
     };
   }, []);
   useEffect(() => {
-    if (phase === "edit") (dialog.current?.querySelector("input") || heading.current)?.focus();
+    if (phase === "edit")
+      (dialog.current?.querySelector("input") || heading.current)?.focus();
     else heading.current?.focus();
   }, [phase]);
   async function finish() {
@@ -79,7 +86,7 @@ function RequestReview({ close, room }) {
       if (!response.ok) {
         if (response.status >= 500) throw Error("Unconfirmed");
         setPhase(response.status === 409 ? "conflict" : "error");
-        setMessage(data.message || "Unable to send request.");
+        setMessage(data.message || t("send.failed"));
         return;
       }
       if (!data.result?.id) throw Error("Missing result");
@@ -88,9 +95,7 @@ function RequestReview({ close, room }) {
       heading.current?.focus();
     } catch {
       setPhase("unknown");
-      setMessage(
-        "Sending could not be confirmed. Check the same request before creating another one.",
-      );
+      setMessage(t("send.unconfirmed"));
     } finally {
       busy.current = false;
     }
@@ -103,37 +108,47 @@ function RequestReview({ close, room }) {
         event.preventDefault();
         finish();
       }}
-      className="receipt-dialog operational-panel rounded-xl border border-base-content/20 bg-base-100 p-6 text-base-content"
+      className="receipt-dialog operational-panel rounded-box border border-base-content/20 bg-base-100 p-6 text-base-content"
     >
       <h2
         ref={heading}
         tabIndex={-1}
         id="new-transfer-title"
-        className="text-2xl font-bold"
+        className="text-2xl font-semibold"
       >
         {result
-          ? "Transfer request saved"
+          ? t("send.done")
           : phase === "edit"
-            ? "Prepare transfer request"
-            : "Review transfer request"}
+            ? t("send.title")
+            : t("send.review")}
       </h2>
       <p className="my-4">
-        Step 3 · Destination: {destination.name} · Room #{destination.id}
+        {t("area.FINAL_STORAGE")} ·{" "}
+        {t("rec.destination", { name: destination.name })} · #{destination.id}
       </p>
+      {!result && (
+        <PreStorageAvailability
+          containerType={room.containerType}
+          requested={quantity}
+        />
+      )}
       {phase === "edit" ? (
         employees.isLoading ? (
-          <p role="status">Loading responsible employees…</p>
+          <InlineLoader />
         ) : employees.isError ? (
           <div role="alert">
-            Unable to load employees.{" "}
-            <button className="btn" onClick={() => employees.refetch()}>
-              Retry
+            {t("meas.form.employeesError")}{" "}
+            <button
+              className="btn min-h-11"
+              onClick={() => employees.refetch()}
+            >
+              {t("alert.retry")}
             </button>
           </div>
         ) : (
           <form className="space-y-4" onSubmit={review}>
-            <label className="block">
-              Requested quantity
+            <label className="block text-sm">
+              {t("send.quantity")}
               <input
                 className="input mt-2 w-full"
                 required
@@ -145,15 +160,15 @@ function RequestReview({ close, room }) {
                 onChange={(event) => setQuantity(event.target.value)}
               />
             </label>
-            <label className="block">
-              Responsible employee
+            <label className="block text-sm">
+              {t("meas.responsible")}
               <select
                 className="select mt-2 w-full"
                 required
                 value={employee}
                 onChange={(event) => setEmployee(event.target.value)}
               >
-                <option value="">Select an employee</option>
+                <option value="">{t("meas.form.chooseEmployee")}</option>
                 {employees.data?.map((row) => (
                   <option key={row.id} value={row.id}>
                     {row.name} {row.surname}
@@ -161,70 +176,77 @@ function RequestReview({ close, room }) {
                 ))}
               </select>
             </label>
-            {!employees.data?.length && (
-              <p>
-                No responsible employees configured. Contact your administrator.
-              </p>
-            )}
+            {!employees.data?.length && <p>{t("meas.form.noEmployees")}</p>}
             <button
               className="btn min-h-11 btn-primary"
               disabled={!employees.data?.length}
               type="submit"
             >
-              Review request
+              {t("send.reviewButton")}
             </button>
           </form>
         )
       ) : (
         <div className="space-y-4">
-          <dl className="rounded-lg bg-base-200 p-4">
-            <dt>Requested quantity</dt>
-            <dd className="font-semibold">{quantity} containers</dd>
-            <dt className="mt-3">Responsible employee</dt>
-            <dd>{employeeName}</dd>
+          <dl className="grid gap-3 rounded-xl bg-base-200/70 p-4 sm:grid-cols-2">
+            <div>
+              <dt className="text-sm text-base-content/70">
+                {t("send.quantity")}
+              </dt>
+              <dd className="font-semibold">
+                {t("ship.containers", { count: Number(quantity) })}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-sm text-base-content/70">
+                {t("meas.responsible")}
+              </dt>
+              <dd>{employeeName}</dd>
+            </div>
           </dl>
           {result ? (
             <div className="operational-confirm" role="status">
               <p className="font-semibold text-success">
-                Transfer #{result.transferId} saved
+                {t("send.result", { id: result.transferId })}
               </p>
               <p>
-                {new Date(result.result.createdAt).toLocaleString()} · User #
-                {result.result.actorId}
+                {t("meas.form.recorded", {
+                  time: format.dateTime(result.result.createdAt),
+                  actor: result.result.actorId,
+                })}
               </p>
-              <p className="mt-2">
-                Waiting for pre-storage approval. Receipt has not been
-                confirmed.
-              </p>
+              <p className="mt-2">{t("send.waiting")}</p>
             </div>
           ) : (
             <>
-              <p>
-                This sends a request to pre-storage for review. It does not
-                confirm transport or receipt.
-              </p>
+              <p>{t("send.effect")}</p>
               {phase === "review" && (
                 <div className="flex flex-wrap gap-3">
                   <button className="btn min-h-11 btn-primary" onClick={send}>
-                    Send request for {quantity} containers
+                    {t("send.confirm", { count: Number(quantity) })}
                   </button>
                   <button
                     className="btn min-h-11 btn-outline"
                     onClick={() => setPhase("edit")}
                   >
-                    Back to edit
+                    {t("users.review.back")}
                   </button>
                 </div>
               )}
               {phase === "saving" && (
-                <button className="btn min-h-11" disabled>
-                  Sending…
+                <SavingButton />
+              )}
+              {phase === "error" && (
+                <button
+                  className="btn min-h-11 btn-outline"
+                  onClick={() => setPhase("edit")}
+                >
+                  {t("users.review.back")}
                 </button>
               )}
-              {phase === "error" && <button className="btn min-h-11 btn-outline" onClick={() => setPhase("edit")}>Back to edit</button>}
               {phase === "unknown" && (
                 <button className="btn min-h-11 btn-primary" onClick={send}>
-                  Check request result
+                  {t("send.check")}
                 </button>
               )}
             </>
@@ -241,10 +263,10 @@ function RequestReview({ close, room }) {
           onClick={finish}
         >
           {result
-            ? "Done — return to tasks"
+            ? t("rec.doneButton")
             : phase === "conflict"
-              ? "Close and reload destination"
-              : "Cancel"}
+              ? t("prep.closeReload")
+              : t("common.cancel")}
         </button>
       </div>
     </dialog>

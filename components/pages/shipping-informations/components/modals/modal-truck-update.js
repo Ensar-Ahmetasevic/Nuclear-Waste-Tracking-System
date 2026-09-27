@@ -1,20 +1,39 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useT } from "../../../../shell/preferences";
+import { useFormat } from "../../../../ui/format";
+import { SavingButton } from "../../../../loading/loaders";
+// Field → label key.
 const detailFields = {
-  companyName: "Company name",
-  driverName: "Driver name",
-  registrationPlates: "Registration plates",
+  companyName: "field.companyName",
+  driverName: "field.driverName",
+  registrationPlates: "ship.plates",
 };
 export default function ModalTruckUpdate({
   modalTruckFormData: original,
   closeModal,
   lifecycle = false,
 }) {
-  const fields = lifecycle ? { truckStatus: "Status", entryDateTime: "Arrival time", exitDateTime: "Departure time" } : detailFields;
-  const display = value => !value ? "Not recorded" : lifecycle && value.includes("T") && Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString() : value;
+  const t = useT();
+  const format = useFormat();
+  const fields = lifecycle
+    ? {
+        truckStatus: "field.truckStatus",
+        entryDateTime: "field.entryDateTime",
+        exitDateTime: "field.exitDateTime",
+      }
+    : detailFields;
+  const display = (value) =>
+    !value
+      ? t("ship.notRecorded")
+      : lifecycle && value.includes("T") && Number.isFinite(Date.parse(value))
+        ? format.dateTime(value)
+        : value;
   const [values, setValues] = useState(() =>
-    Object.fromEntries(Object.keys(fields).map((key) => [key, original[key] || ""])),
+    Object.fromEntries(
+      Object.keys(fields).map((key) => [key, original[key] || ""]),
+    ),
   );
   const [reason, setReason] = useState("");
   const [phase, setPhase] = useState("edit");
@@ -37,7 +56,10 @@ export default function ModalTruckUpdate({
     };
   }, []);
   useEffect(() => {
-    if (phase === "edit") (dialog.current?.querySelector("input, select") || heading.current)?.focus();
+    if (phase === "edit")
+      (
+        dialog.current?.querySelector("input, select") || heading.current
+      )?.focus();
     else heading.current?.focus();
   }, [phase]);
   async function finish() {
@@ -49,9 +71,11 @@ export default function ModalTruckUpdate({
   function review(event) {
     event.preventDefault();
     if (
-      Object.keys(fields).every((key) => values[key].trim() === (original[key] || ""))
+      Object.keys(fields).every(
+        (key) => values[key].trim() === (original[key] || ""),
+      )
     ) {
-      setMessage("Change at least one field before reviewing.");
+      setMessage(t("def.error.unchanged"));
       return;
     }
     payload.current = null;
@@ -68,7 +92,10 @@ export default function ModalTruckUpdate({
       [lifecycle ? "shippingStatusData" : "updatedTruckData"]: {
         id: original.id,
         ...Object.fromEntries(
-          Object.entries(values).map(([key, value]) => [key, lifecycle && key === "exitDateTime" && !value ? null : value.trim()]),
+          Object.entries(values).map(([key, value]) => [
+            key,
+            lifecycle && key === "exitDateTime" && !value ? null : value.trim(),
+          ]),
         ),
         expected: {
           ...Object.fromEntries(
@@ -92,7 +119,7 @@ export default function ModalTruckUpdate({
       if (!response.ok) {
         if (response.status >= 500) throw Error("Unconfirmed");
         setPhase(response.status === 409 ? "conflict" : "error");
-        setMessage(data.message || "Unable to save changes.");
+        setMessage(data.message || t("users.change.failed"));
         return;
       }
       setResult(data);
@@ -100,9 +127,7 @@ export default function ModalTruckUpdate({
       heading.current?.focus();
     } catch {
       setPhase("unknown");
-      setMessage(
-        "Save could not be confirmed. Check the result before starting another change.",
-      );
+      setMessage(t("truck.unconfirmed"));
     } finally {
       busy.current = false;
     }
@@ -111,7 +136,7 @@ export default function ModalTruckUpdate({
     <dialog
       ref={dialog}
       aria-labelledby="shipment-edit-title"
-      className="receipt-dialog operational-panel rounded-xl border border-base-content/20 bg-base-100 p-6 text-base-content"
+      className="receipt-dialog operational-panel rounded-box border border-base-content/20 bg-base-100 p-6 text-base-content"
       onCancel={(event) => {
         event.preventDefault();
         finish();
@@ -121,41 +146,90 @@ export default function ModalTruckUpdate({
         id="shipment-edit-title"
         ref={heading}
         tabIndex={-1}
-        className="text-2xl font-bold"
+        className="text-2xl font-semibold"
       >
         {result
-          ? "Changes saved"
+          ? t("truck.done")
           : phase === "edit"
-            ? "Edit shipment details"
-            : "Review shipment changes"}
+            ? t("truck.title")
+            : t("truck.review")}
       </h2>
       <p className="my-3 text-sm">
-        Shipment #{original.id} · {original.truckStatus}
-        {correction
-          ? " · Administrative correction"
-          : ""}
+        {t("ship.number", { id: original.id })} · {original.truckStatus}
+        {correction ? ` · ${t("truck.correction")}` : ""}
       </p>
       {phase === "edit" ? (
         <form onSubmit={review} className="space-y-4">
           {Object.entries(fields).map(([key, label]) => (
             <label key={key} className="block text-sm">
-              {label}
-              {lifecycle && key === "truckStatus" ? <select className="select mt-1 w-full" value={values[key]} onChange={event => setValues({ ...values, truckStatus: event.target.value, ...(event.target.value === "IN" ? { exitDateTime: "" } : {}) })}><option>IN</option><option>OUT</option></select> : <input
-                required={!lifecycle || key !== "exitDateTime" || values.truckStatus === "OUT"}
-                disabled={lifecycle && key === "exitDateTime" && values.truckStatus === "IN"}
-                type={lifecycle ? "datetime-local" : "text"}
-                step={lifecycle ? "0.001" : undefined}
-                maxLength={1000}
-                className="input mt-1 w-full"
-                value={lifecycle && values[key] ? new Date(new Date(values[key]).getTime() - new Date(values[key]).getTimezoneOffset() * 60000).toISOString().slice(0, -1) : values[key]}
-                onChange={event => setValues({ ...values, [key]: lifecycle ? (event.target.value ? new Date(event.target.value).toISOString() : "") : event.target.value })}
-              />}
-              {lifecycle && key !== "truckStatus" && <span className="text-xs">Local time ({Intl.DateTimeFormat().resolvedOptions().timeZone})</span>}
+              {t(label)}
+              {lifecycle && key === "truckStatus" ? (
+                <select
+                  className="select mt-1 w-full"
+                  value={values[key]}
+                  onChange={(event) =>
+                    setValues({
+                      ...values,
+                      truckStatus: event.target.value,
+                      ...(event.target.value === "IN"
+                        ? { exitDateTime: "" }
+                        : {}),
+                    })
+                  }
+                >
+                  <option>IN</option>
+                  <option>OUT</option>
+                </select>
+              ) : (
+                <input
+                  required={
+                    !lifecycle ||
+                    key !== "exitDateTime" ||
+                    values.truckStatus === "OUT"
+                  }
+                  disabled={
+                    lifecycle &&
+                    key === "exitDateTime" &&
+                    values.truckStatus === "IN"
+                  }
+                  type={lifecycle ? "datetime-local" : "text"}
+                  step={lifecycle ? "0.001" : undefined}
+                  maxLength={1000}
+                  className="input mt-1 w-full"
+                  value={
+                    lifecycle && values[key]
+                      ? new Date(
+                          new Date(values[key]).getTime() -
+                            new Date(values[key]).getTimezoneOffset() * 60000,
+                        )
+                          .toISOString()
+                          .slice(0, -1)
+                      : values[key]
+                  }
+                  onChange={(event) =>
+                    setValues({
+                      ...values,
+                      [key]: lifecycle
+                        ? event.target.value
+                          ? new Date(event.target.value).toISOString()
+                          : ""
+                        : event.target.value,
+                    })
+                  }
+                />
+              )}
+              {lifecycle && key !== "truckStatus" && (
+                <span className="text-xs">
+                  {t("truck.localTime", {
+                    zone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                  })}
+                </span>
+              )}
             </label>
           ))}
           {correction && (
             <label className="block text-sm">
-              Reason for correction
+              {t("corr.reason")}
               <textarea
                 required
                 minLength={3}
@@ -167,7 +241,7 @@ export default function ModalTruckUpdate({
             </label>
           )}
           <button className="btn min-h-11 btn-primary" type="submit">
-            Review changes
+            {t("users.reviewChanges")}
           </button>
         </form>
       ) : (
@@ -175,25 +249,38 @@ export default function ModalTruckUpdate({
           {Object.entries(fields)
             .filter(([key]) => (original[key] || "") !== values[key].trim())
             .map(([key, label]) => (
-              <div key={key} className="rounded-lg bg-base-200 p-3 break-words">
-                <p className="font-semibold">{label}</p>
-                <p>Before: {display(original[key])}</p>
-                <p>After: {display(values[key].trim())}</p>
+              <div
+                key={key}
+                className="rounded-xl bg-base-200/70 p-3 break-words"
+              >
+                <p className="font-semibold">{t(label)}</p>
+                <p>{t("ship.before", { value: display(original[key]) })}</p>
+                <p>{t("ship.after", { value: display(values[key].trim()) })}</p>
               </div>
             ))}
-          {correction && <p className="break-words">Reason: {reason}</p>}
-          {lifecycle && values.truckStatus === "IN" && original.truckStatus === "OUT" && <p className="rounded border border-warning p-3">Restoring IN re-enables permitted employee actions on this shipment. This is a correction of the record, not a new arrival.</p>}
+          {correction && (
+            <p className="break-words">{t("ship.reason", { reason })}</p>
+          )}
+          {lifecycle &&
+            values.truckStatus === "IN" &&
+            original.truckStatus === "OUT" && (
+              <p className="rounded-xl border border-warning p-3">
+                {t("truck.restoreIn")}
+              </p>
+            )}
           {result ? (
             <div role="status" className="operational-confirm">
               <p className="font-semibold text-success">
                 {result.correction
-                  ? `Correction #${result.correction.id} saved`
-                  : "Shipment details saved"}
+                  ? t("truck.correctionSaved", { id: result.correction.id })
+                  : t("truck.saved")}
               </p>
               {result.correction && (
                 <p>
-                  {new Date(result.correction.createdAt).toLocaleString()} ·
-                  User #{result.correction.actorId}
+                  {t("meas.form.recorded", {
+                    time: format.dateTime(result.correction.createdAt),
+                    actor: result.correction.actorId,
+                  })}
                 </p>
               )}
             </div>
@@ -202,25 +289,32 @@ export default function ModalTruckUpdate({
               {phase === "review" && (
                 <>
                   <button className="btn min-h-11 btn-primary" onClick={save}>
-                    {correction ? "Save correction" : "Save shipment changes"}
+                    {correction
+                      ? t("truck.saveCorrection")
+                      : t("truck.saveChanges")}
                   </button>
                   <button
                     className="btn min-h-11 btn-outline"
                     onClick={() => setPhase("edit")}
                   >
-                    Back to edit
+                    {t("users.review.back")}
                   </button>
                 </>
               )}
               {phase === "saving" && (
-                <button className="btn min-h-11" disabled>
-                  Saving…
+                <SavingButton />
+              )}
+              {phase === "error" && (
+                <button
+                  className="btn min-h-11"
+                  onClick={() => setPhase("edit")}
+                >
+                  {t("users.review.back")}
                 </button>
               )}
-              {phase === "error" && <button className="btn min-h-11" onClick={() => setPhase("edit")}>Back to edit</button>}
               {phase === "unknown" && (
                 <button className="btn min-h-11 btn-primary" onClick={save}>
-                  Check save result
+                  {t("users.change.check")}
                 </button>
               )}
             </div>
@@ -237,10 +331,10 @@ export default function ModalTruckUpdate({
           onClick={finish}
         >
           {result
-            ? "Done"
+            ? t("common.done")
             : phase === "conflict"
-              ? "Close and reload shipment"
-              : "Cancel"}
+              ? t("prep.closeReload")
+              : t("common.cancel")}
         </button>
       </div>
     </dialog>

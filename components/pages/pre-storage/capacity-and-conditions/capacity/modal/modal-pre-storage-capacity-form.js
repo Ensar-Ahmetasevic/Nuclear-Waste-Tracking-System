@@ -2,11 +2,19 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import usePreStorageEmployeeQuery from "../../../../../../requests/request-pre-storage/request-pre-storage-employee/use-fetch-pre-storage-employee-query";
+import { useT } from "../../../../../shell/preferences";
+import { useFormat } from "../../../../../ui/format";
+import { InlineLoader } from "../../../../../loading/loaders";
+import { ButtonSpinner } from "../../../../../loading/spinner";
+import EarlierReturns from "../earlier-returns";
+import IncomingDelivery from "../incoming-delivery";
 
 export default function ModalPreStorageCapacityForm({ isOpen, ...props }) {
   return isOpen ? <ReceiptReview {...props} /> : null;
 }
 function ReceiptReview({ closeModal, hallData, entryData }) {
+  const t = useT();
+  const format = useFormat();
   const dialog = useRef(null);
   const title = useRef(null);
   const frozenRequest = useRef(null);
@@ -21,7 +29,7 @@ function ReceiptReview({ closeModal, hallData, entryData }) {
     isLoading,
     isError,
     refetch,
-  } = usePreStorageEmployeeQuery();
+  } = usePreStorageEmployeeQuery({ activeOnly: true });
   useEffect(() => {
     const node = dialog.current;
     const trigger = document.activeElement;
@@ -68,7 +76,7 @@ function ReceiptReview({ closeModal, hallData, entryData }) {
       if (!response.ok) {
         if (response.status >= 500) throw new Error("Unconfirmed response");
         setPhase("error");
-        setMessage(data.message || "The receipt could not be recorded.");
+        setMessage(data.message || t("rec.failed"));
         return;
       }
       if (!data.receipt?.id) throw new Error("Missing receipt reference");
@@ -76,9 +84,7 @@ function ReceiptReview({ closeModal, hallData, entryData }) {
       setPhase("success");
     } catch {
       setPhase("unknown");
-      setMessage(
-        "Save could not be confirmed. Check the result using the same receipt reference before starting another receipt.",
-      );
+      setMessage(t("rec.unconfirmed"));
     } finally {
       inFlight.current = false;
     }
@@ -89,7 +95,7 @@ function ReceiptReview({ closeModal, hallData, entryData }) {
     <dialog
       ref={dialog}
       aria-labelledby="receipt-review-title"
-      className="receipt-dialog operational-panel rounded-xl border border-base-content/15 bg-base-100 p-5 text-base-content shadow-xl sm:p-7"
+      className="receipt-dialog operational-panel rounded-box border border-base-content/15 bg-base-100 p-5 text-base-content shadow-xl sm:p-7"
       onCancel={(event) => {
         event.preventDefault();
         if (!inFlight.current) finish();
@@ -99,85 +105,48 @@ function ReceiptReview({ closeModal, hallData, entryData }) {
         ref={title}
         tabIndex={-1}
         id="receipt-review-title"
-        className="text-2xl font-bold"
+        className="text-2xl font-semibold"
       >
-        {receipt ? "Receipt recorded" : "Review pre-storage receipt"}
+        {receipt ? t("rec.done") : t("rec.title")}
       </h2>
       <p className="mt-2 text-sm text-base-content/65">
-        Step 2 · Shipment #{entryData.id} → {hallData.name}
+        {t("area.PRE_STORAGE")} ·{" "}
+        {t("ship.number", { id: entryData.id })} → {hallData.name}
       </p>
       {receipt ? (
         <div className="operational-confirm mt-5 space-y-3" role="status">
-          <p className="text-lg font-semibold text-emerald-500">
-            {receipt.quantity} containers recorded
+          <p className="text-lg font-semibold text-success">
+            {t("rec.recorded", { count: receipt.quantity })}
           </p>
           <p>
-            Receipt #{receipt.id} ·{" "}
-            {new Date(receipt.createdAt).toLocaleString()}
+            {t("rec.receipt", {
+              id: receipt.id,
+              time: format.dateTime(receipt.createdAt),
+            })}
           </p>
-          <p>Destination: {hallData.name}</p>
+          <p>{t("rec.destination", { name: hallData.name })}</p>
           <p className="text-sm text-base-content/65">
-            The receipt and container statuses were saved together.
+            {t("rec.savedTogether")}
           </p>
         </div>
       ) : (
         <>
-          <dl className="my-5 grid gap-4 rounded-lg bg-base-200 p-4 sm:grid-cols-2">
-            <div>
-              <dt className="text-sm text-base-content/60">Transport</dt>
-              <dd>
-                {entryData.companyName} · {entryData.registrationPlates}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-sm text-base-content/60">Destination</dt>
-              <dd>{hallData.name}</dd>
-            </div>
-            <div>
-              <dt className="text-sm text-base-content/60">Quantity</dt>
-              <dd className="text-xl font-semibold">
-                {entryData.totalQuantity} containers
-              </dd>
-            </div>
-            <div>
-              <dt className="text-sm text-base-content/60">Profiles</dt>
-              <dd>
-                {entryData.containerProfileIds.map((id) => `#${id}`).join(", ")}
-              </dd>
-            </div>
-          </dl>
-          {entryData.profiles?.map((profile) => (
-            <div
-              key={profile.id}
-              className="mb-3 rounded-lg border border-base-content/15 p-3 text-sm"
-            >
-              <p className="font-semibold">
-                {profile.wasteProfile.name} · {profile.quantity} containers
-              </p>
-              <p>Origin: {profile.locationOrigin?.name || "Not recorded"}</p>
-              <p>
-                Container type:{" "}
-                {profile.wasteProfile.containerType?.name || "Not recorded"}
-              </p>
-            </div>
-          ))}
+          <IncomingDelivery entryData={entryData} />
+          <EarlierReturns profiles={entryData.profiles} />
           <p className="mb-4 text-sm text-base-content/65">
-            Confirm the full selected quantity. If the quantity differs, cancel
-            and return the profile for review.
+            {t("rec.fullQuantity")}
           </p>
           {isLoading ? (
-            <p role="status">Loading responsible employees…</p>
+            <InlineLoader />
           ) : isError ? (
             <p role="alert">
-              Unable to load employees.{" "}
-              <button className="btn btn-sm" onClick={() => refetch()}>
-                Retry
+              {t("meas.form.employeesError")}{" "}
+              <button className="btn min-h-11 btn-sm" onClick={() => refetch()}>
+                {t("alert.retry")}
               </button>
             </p>
           ) : !employees?.length ? (
-            <p>
-              No responsible employees configured. Contact your administrator.
-            </p>
+            <p>{t("meas.form.noEmployees")}</p>
           ) : phase === "edit" ? (
             <form
               onSubmit={(event) => {
@@ -190,7 +159,7 @@ function ReceiptReview({ closeModal, hallData, entryData }) {
                 className="block text-sm font-medium"
                 htmlFor="receipt-employee"
               >
-                Responsible employee
+                {t("meas.responsible")}
               </label>
               <select
                 autoFocus={false}
@@ -200,7 +169,7 @@ function ReceiptReview({ closeModal, hallData, entryData }) {
                 value={employee}
                 onChange={(event) => setEmployee(event.target.value)}
               >
-                <option value="">Select responsible employee</option>
+                <option value="">{t("meas.form.chooseEmployee")}</option>
                 {employees.map((row) => (
                   <option key={row.id} value={row.id}>
                     {row.name} {row.surname}
@@ -211,21 +180,20 @@ function ReceiptReview({ closeModal, hallData, entryData }) {
                 className="operational-control btn mt-4 min-h-11 btn-primary"
                 type="submit"
               >
-                Review confirmation →
+                {t("rec.reviewButton")}
               </button>
             </form>
           ) : (
             <p className="font-medium">
-              Responsible employee: {responsible?.name} {responsible?.surname}
+              {t("meas.responsible")}: {responsible?.name}{" "}
+              {responsible?.surname}
             </p>
           )}
           <div className="mt-4" aria-live="polite" aria-atomic="true">
-            {busy && <p>Saving receipt… Keep this window open.</p>}
+            {busy && <InlineLoader save label={t("rec.saving")} />}
             {message && (
               <p
-                className={
-                  phase === "unknown" ? "text-amber-400" : "text-error"
-                }
+                className={phase === "unknown" ? "text-warning" : "text-error"}
               >
                 {message}
               </p>
@@ -236,22 +204,23 @@ function ReceiptReview({ closeModal, hallData, entryData }) {
               className="operational-control btn mt-4 min-h-11 w-full btn-primary"
               onClick={save}
             >
-              Confirm receipt of {entryData.totalQuantity} containers
+              {t("rec.confirm", { count: entryData.totalQuantity })}
             </button>
           )}
           {phase === "unknown" && (
             <button className="btn mt-4 min-h-11 btn-primary" onClick={save}>
-              Check save result
+              {t("users.change.check")}
             </button>
           )}
           {phase === "error" && (
             <button className="btn mt-4 min-h-11 btn-outline" onClick={save}>
-              Check or retry this receipt
+              {t("rec.retry")}
             </button>
           )}
           {busy && (
             <button className="btn mt-4 min-h-11 w-full btn-primary" disabled>
-              Saving…
+              <ButtonSpinner />
+              {t("common.saving")}
             </button>
           )}
         </>
@@ -260,9 +229,13 @@ function ReceiptReview({ closeModal, hallData, entryData }) {
         {(phase === "review" || phase === "error") && (
           <button
             className="btn min-h-11 btn-ghost"
-            onClick={() => { frozenRequest.current = null; setPhase("edit"); setMessage(""); }}
+            onClick={() => {
+              frozenRequest.current = null;
+              setPhase("edit");
+              setMessage("");
+            }}
           >
-            Back to employee selection
+            {t("rec.backToEmployee")}
           </button>
         )}
         <button
@@ -271,10 +244,10 @@ function ReceiptReview({ closeModal, hallData, entryData }) {
           onClick={finish}
         >
           {receipt
-            ? "Done — return to tasks"
+            ? t("rec.doneButton")
             : phase === "unknown"
-              ? "Close and review history later"
-              : "Cancel"}
+              ? t("rec.closeLater")
+              : t("common.cancel")}
         </button>
       </div>
     </dialog>

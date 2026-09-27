@@ -4,6 +4,7 @@ import { HttpError } from "@/lib/server/errors.cjs";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/server/scoped-database.cjs";
 import { withApiAuth } from "@/lib/server/api-route";
+import { assertActiveResponsibleEmployee } from "@/lib/server/definition-changes";
 
 // Creating data
 
@@ -131,6 +132,7 @@ async function POSTHandler(req, { user }) {
     }
   }
 
+  await assertActiveResponsibleEmployee(true, responsiblePreStorageEmployeeId);
   {
     const saved = await prisma.preStorageEntry.create({
       data: {

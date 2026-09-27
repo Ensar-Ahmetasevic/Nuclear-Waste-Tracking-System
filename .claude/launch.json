@@ -3,9 +3,27 @@
   "configurations": [
     {
       "name": "dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "autoPort": true
+    },
+    {
+      "name": "dev:doppler-windows",
       "runtimeExecutable": "C:\\Users\\ensar\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Doppler.doppler_Microsoft.Winget.Source_8wekyb3d8bbwe\\doppler.exe",
       "runtimeArgs": ["run", "-p", "nuclear-waste-tracking-system", "-c", "dev", "--", "npx", "next", "dev", "--turbo"],
       "port": 3000
+    },
+    {
+      "name": "demo-3001",
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["NWTS_DEV_PORT=3001", "npm", "run", "dev"],
+      "port": 3001
+    },
+    {
+      "name": "demo",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "autoPort": true
     },
     {
       "name": "dev:local",

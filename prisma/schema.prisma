@@ -15,6 +15,18 @@ model Organization {
   accountChanges AccountChange[]
   accountCreations AccountCreation[]
   containerCorrections ContainerCorrection[]
+  containerPreparations ContainerPreparation[]
+  containerRemovals ContainerRemoval[]
+  shipmentRemovals ShipmentRemoval[]
+  receiptRejections ReceiptRejection[]
+  returnActions ReturnAction[]
+  definitionChanges DefinitionChange[]
+  stockVerifications StockVerification[]
+  legacyReceiptLinks LegacyReceiptLink[]
+  stockCorrections StockCorrection[]
+  monitoringRules MonitoringRule[]
+  conditionAlerts ConditionAlert[]
+  conditionAlertEvents ConditionAlertEvent[]
   receiptAllocations ReceiptAllocation[]
   transferSources TransferSource[]
   shippingCorrections ShippingCorrection[]
@@ -103,9 +115,9 @@ model ContainerProfile {
   shippingInformationId Int //  foreign key
   shippingInformation   ShippingInformation? @relation(fields: [shippingInformationId], references: [id], onDelete: Cascade)
   locationOriginId      Int
-  locationOrigin        LocationOrigin       @relation(fields: [locationOriginId], references: [id], onDelete: Cascade)
+  locationOrigin        LocationOrigin       @relation(fields: [locationOriginId], references: [id], onDelete: Restrict)
   wasteProfileId        Int
-  wasteProfile          WasteProfile         @relation(fields: [wasteProfileId], references: [id], onDelete: Cascade)
+  wasteProfile          WasteProfile         @relation(fields: [wasteProfileId], references: [id], onDelete: Restrict)
 }
 
 model LocationOrigin {
@@ -116,6 +128,7 @@ model LocationOrigin {
   name              String
   address           String
   origin            String
+  archivedAt        DateTime?
   containerProfiles ContainerProfile[]
 
   // If we have a "containerProfiles" field in the "LocationOrigin" model that is of type "ContainerProfile[]", 
@@ -136,9 +149,10 @@ model WasteProfile {
   chemicalProperties   String
   biologicalProperties String
   collectionProcedures String
+  archivedAt           DateTime?
   containerProfiles    ContainerProfile[]
   containerTypeId      Int                @unique
-  containerType        ContainerType      @relation(fields: [containerTypeId], references: [id], onDelete: Cascade)
+  containerType        ContainerType      @relation(fields: [containerTypeId], references: [id], onDelete: Restrict)
 }
 
 model ContainerType {
@@ -154,6 +168,7 @@ model ContainerType {
   physicalProperties String
   footprint          Float
   description        String
+  archivedAt         DateTime?
   wasteProfile       WasteProfile?
 }
 
@@ -184,9 +199,9 @@ model PreStorageEntry {
   createdAt                       DateTime                       @default(now())
   quantity                        Int
   preStorageLocationId            Int
-  preStorageLocation              PreStorageLocation             @relation(fields: [preStorageLocationId], references: [id], onDelete: Cascade)
+  preStorageLocation              PreStorageLocation             @relation(fields: [preStorageLocationId], references: [id], onDelete: Restrict)
   responsiblePreStorageEmployeeId Int?
-  responsiblePreStorageEmployee   PreStorageResponsibleEmployee? @relation(fields: [responsiblePreStorageEmployeeId], references: [id], onDelete: Cascade)
+  responsiblePreStorageEmployee   PreStorageResponsibleEmployee? @relation(fields: [responsiblePreStorageEmployeeId], references: [id], onDelete: Restrict)
 }
 
 model PreStorageResponsibleEmployee {
@@ -200,6 +215,8 @@ model PreStorageResponsibleEmployee {
   address              String
   qualifications       String
   safetyTraining       Boolean                  @default(false)
+  // Set when the person may no longer be chosen for new records; history stays linked.
+  archivedAt           DateTime?
   preStorageEntry      PreStorageEntry[]
   PreStorageConditions PreStorageConditions[]
   approvedTransfers    StorageTransferRequest[]
@@ -209,6 +226,9 @@ model PreStorageResponsibleEmployee {
 
 model PreStorageConditions {
   submissionKey String? @unique
+  // How the values reached the form when read from a device: method, device and
+  // the parameters the person confirmed against it. Null for manual entry.
+  readingSource Json?
   recordedById Int?
   organizationId Int?
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
@@ -221,8 +241,8 @@ model PreStorageConditions {
   preStoragePressure              Int
   preStorageLocationId            Int
   preStorageResponsibleEmployeeId Int
-  preStorageLocation              PreStorageLocation            @relation(fields: [preStorageLocationId], references: [id], onDelete: Cascade)
-  preStorageResponsibleEmployee   PreStorageResponsibleEmployee @relation(fields: [preStorageResponsibleEmployeeId], references: [id], onDelete: Cascade)
+  preStorageLocation              PreStorageLocation            @relation(fields: [preStorageLocationId], references: [id], onDelete: Restrict)
+  preStorageResponsibleEmployee   PreStorageResponsibleEmployee @relation(fields: [preStorageResponsibleEmployeeId], references: [id], onDelete: Restrict)
 }
 
 // Step 3 "Final Storage of waste"
@@ -260,12 +280,12 @@ model StorageTransferRequest {
   approvedByEmployeeId  Int?
   acceptedByEmployeeId  Int?
 
-  requestedByEmployee FinalStorageResponsibleEmployee  @relation("RequestedBy", fields: [requestedByEmployeeId], references: [id], onDelete: Cascade)
-  approvedByEmployee  PreStorageResponsibleEmployee?   @relation(fields: [approvedByEmployeeId], references: [id], onDelete: Cascade)
-  acceptedByEmployee  FinalStorageResponsibleEmployee? @relation("AcceptedBy", fields: [acceptedByEmployeeId], references: [id], onDelete: Cascade)
+  requestedByEmployee FinalStorageResponsibleEmployee  @relation("RequestedBy", fields: [requestedByEmployeeId], references: [id], onDelete: Restrict)
+  approvedByEmployee  PreStorageResponsibleEmployee?   @relation(fields: [approvedByEmployeeId], references: [id], onDelete: Restrict)
+  acceptedByEmployee  FinalStorageResponsibleEmployee? @relation("AcceptedBy", fields: [acceptedByEmployeeId], references: [id], onDelete: Restrict)
 
   finalStorageLocationId Int?
-  finalStorageLocation   FinalStorageLocation? @relation(fields: [finalStorageLocationId], references: [id], onDelete: Cascade)
+  finalStorageLocation   FinalStorageLocation? @relation(fields: [finalStorageLocationId], references: [id], onDelete: Restrict)
 }
 
 model FinalStorageResponsibleEmployee {
@@ -279,6 +299,8 @@ model FinalStorageResponsibleEmployee {
   qualifications         String
   address                String
   safetyTraining         Boolean
+  // Set when the person may no longer be chosen for new records; history stays linked.
+  archivedAt             DateTime?
   requestedTransfers     StorageTransferRequest[] @relation("RequestedBy")
   acceptedTransfers      StorageTransferRequest[] @relation("AcceptedBy")
   finalStorageConditions FinalStorageCondition[]
@@ -288,6 +310,7 @@ model FinalStorageResponsibleEmployee {
 
 model FinalStorageCondition {
   submissionKey String? @unique
+  readingSource Json?
   recordedById Int?
   organizationId Int?
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
@@ -299,9 +322,9 @@ model FinalStorageCondition {
   finalStorageHumidity              Float
   finalStoragePressure              Float
   finalStorageLocationId            Int
-  finalStorageLocation              FinalStorageLocation             @relation(fields: [finalStorageLocationId], references: [id], onDelete: Cascade)
+  finalStorageLocation              FinalStorageLocation             @relation(fields: [finalStorageLocationId], references: [id], onDelete: Restrict)
   finalStorageResponsibleEmployeeId Int?
-  finalStorageResponsibleEmployee   FinalStorageResponsibleEmployee? @relation(fields: [finalStorageResponsibleEmployeeId], references: [id], onDelete: SetNull)
+  finalStorageResponsibleEmployee   FinalStorageResponsibleEmployee? @relation(fields: [finalStorageResponsibleEmployeeId], references: [id], onDelete: Restrict)
 }
 
 model AuthRateLimit {
@@ -394,7 +417,10 @@ model ReceiptAllocation {
   locationId Int
   quantity Int
   actorId Int
-  responsibleEmployeeId Int
+  // Null only when a legacy receipt linked later did not record a responsible person.
+  responsibleEmployeeId Int?
+  // Set when an administrator linked an earlier receipt afterwards; createdAt is then the link time.
+  legacyLinkId Int?
   createdAt DateTime @default(now())
   @@index([organizationId, shipmentId])
   @@unique([receiptId, containerProfileId])
@@ -449,4 +475,297 @@ model ContainerCorrection {
   after Json
   createdAt DateTime @default(now())
   @@index([organizationId, shipmentId])
+}
+
+model ContainerPreparation {
+  id Int @id @default(autoincrement())
+  organizationId Int
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  shipmentId Int
+  containerProfileId Int @unique
+  actorId Int
+  actionKey String @unique
+  fingerprint String
+  snapshot Json
+  reason String?
+  createdAt DateTime @default(now())
+  @@index([organizationId, shipmentId])
+}
+
+
+model ContainerRemoval {
+  id Int @id @default(autoincrement())
+  organizationId Int
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  shipmentId Int
+  containerProfileId Int @unique
+  actorId Int
+  actionKey String @unique
+  fingerprint String
+  reason String
+  before Json
+  createdAt DateTime @default(now())
+  @@index([organizationId, shipmentId])
+}
+
+model ShipmentRemoval {
+  id Int @id @default(autoincrement())
+  organizationId Int
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  shipmentId Int @unique
+  actorId Int
+  actionKey String @unique
+  fingerprint String
+  reason String
+  before Json
+  createdAt DateTime @default(now())
+  @@index([organizationId, id])
+}
+
+// Pre-storage inspection that returned incoming Container Profiles to Step 1. The
+// profiles carry the expected and, for a quantity mismatch, the counted quantity.
+// Rows are never edited; a Step 1 correction or removal follows as its own record.
+model ReceiptRejection {
+  id Int @id @default(autoincrement())
+  organizationId Int
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  shipmentId Int
+  locationId Int
+  responsibleEmployeeId Int
+  profiles Json
+  reasons Json
+  note String?
+  actorId Int
+  actionKey String @unique
+  fingerprint String
+  createdAt DateTime @default(now())
+  @@index([organizationId, shipmentId])
+}
+
+// What Step 1 or Supervision did with a Pre-storage return: ESCALATED hands it to
+// Supervision (the truck waits), RESENT sends the corrected profiles back to Step 2.
+// changes holds the quantity before and after per profile; rows are never edited.
+model ReturnAction {
+  id Int @id @default(autoincrement())
+  organizationId Int
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  shipmentId Int
+  rejectionId Int
+  action String
+  note String
+  changes Json
+  actorId Int
+  actorRole UserRole
+  actionKey String @unique
+  fingerprint String
+  createdAt DateTime @default(now())
+  @@index([organizationId, shipmentId])
+}
+
+enum DefinitionKind {
+  LOCATION_ORIGIN
+  WASTE_PROFILE
+  CONTAINER_TYPE
+  PRE_STORAGE_LOCATION
+  FINAL_STORAGE_LOCATION
+  PRE_STORAGE_EMPLOYEE
+  FINAL_STORAGE_EMPLOYEE
+}
+
+enum DefinitionAction {
+  CREATE
+  UPDATE
+  ARCHIVE
+  RESTORE
+  DELETE
+}
+
+// Administrative change of a Container Profile definition or storage configuration
+// (halls and responsible persons). Snapshots keep the values that applied before
+// and after the change, without personal details; rows are never edited.
+model DefinitionChange {
+  id Int @id @default(autoincrement())
+  organizationId Int
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  definitionType DefinitionKind
+  definitionId Int
+  action DefinitionAction
+  actorId Int
+  actionKey String @unique
+  fingerprint String
+  reason String?
+  before Json?
+  after Json?
+  createdAt DateTime @default(now())
+  @@index([organizationId, definitionType, definitionId])
+  @@index([organizationId, createdAt])
+}
+
+enum StorageArea {
+  PRE_STORAGE
+  FINAL_STORAGE
+}
+
+// Result of a physical count or documentary check of one hall. It is evidence
+// next to the recorded stock and never changes that stock; rows are never edited.
+model StockVerification {
+  id Int @id @default(autoincrement())
+  organizationId Int
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  area StorageArea
+  locationId Int
+  countedQuantity Int
+  recordedQuantity Int
+  recorded Json
+  actorId Int
+  actionKey String @unique
+  fingerprint String
+  reason String
+  createdAt DateTime @default(now())
+  @@index([organizationId, area, locationId])
+}
+
+// Administrator's documented link between a receipt recorded before receipt links
+// existed and the accepted Container Profiles it contained. No movement is recorded.
+model LegacyReceiptLink {
+  id Int @id @default(autoincrement())
+  organizationId Int
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  receiptId Int @unique
+  locationId Int
+  receiptQuantity Int
+  receiptCreatedAt DateTime
+  profiles Json
+  actorId Int
+  actionKey String @unique
+  fingerprint String
+  reason String
+  createdAt DateTime @default(now())
+  @@index([organizationId, locationId])
+}
+
+// Administrator-approved adjustment of recorded stock to a recorded verification.
+model StockCorrection {
+  id Int @id @default(autoincrement())
+  organizationId Int
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  area StorageArea
+  locationId Int
+  verificationId Int @unique
+  countedQuantity Int
+  delta Int
+  before Json
+  actorId Int
+  actionKey String @unique
+  fingerprint String
+  reason String
+  // Administrator's report: what was found, why it happened, actions and references.
+  report Json?
+  createdAt DateTime @default(now())
+  @@index([organizationId, area, locationId])
+}
+
+enum MonitoringParameter {
+  TEMPERATURE
+  RADIATION
+  HUMIDITY
+  PRESSURE
+}
+
+enum AlertKind {
+  OUT_OF_RANGE
+  MISSING
+}
+
+enum AlertSeverity {
+  WARNING
+  CRITICAL
+}
+
+enum AlertEventType {
+  OPENED
+  CONTINUED
+  SEVERITY_RAISED
+  CONDITION_CLEARED
+  ACKNOWLEDGED
+  NOTE
+  ESCALATED
+  CLOSED
+}
+
+// Append-only versions of the range and expected interval for one parameter of a
+// hall. The newest version applies; alerts keep a snapshot of the version they used.
+model MonitoringRule {
+  id Int @id @default(autoincrement())
+  organizationId Int
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  area StorageArea
+  locationId Int
+  parameter MonitoringParameter
+  lowerDanger Float?
+  lowerWarning Float?
+  upperWarning Float?
+  upperDanger Float?
+  intervalHours Int
+  approvalReference String
+  reason String
+  actorId Int
+  actionKey String @unique
+  fingerprint String
+  createdAt DateTime @default(now())
+  @@index([organizationId, area, locationId, parameter, createdAt])
+}
+
+// One deviation or overdue measurement of a parameter at a hall. At most one alert
+// per hall, parameter and kind is open (partial unique index in the migration).
+model ConditionAlert {
+  id Int @id @default(autoincrement())
+  organizationId Int
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  area StorageArea
+  locationId Int
+  parameter MonitoringParameter
+  kind AlertKind
+  severity AlertSeverity
+  version Int @default(0)
+  openedAt DateTime
+  rule Json
+  firstMeasurementId Int?
+  lastMeasurementId Int?
+  lastValue Float?
+  lastMeasuredAt DateTime?
+  measurementCount Int @default(0)
+  clearedAt DateTime?
+  clearedByMeasurementId Int?
+  acknowledgedAt DateTime?
+  acknowledgedById Int?
+  escalatedAt DateTime?
+  escalationReason String?
+  closedAt DateTime?
+  closedById Int?
+  closeNote String?
+  createdAt DateTime @default(now())
+  events ConditionAlertEvent[]
+  @@index([organizationId, area, closedAt])
+  @@index([organizationId, area, locationId, parameter, kind])
+}
+
+// Immutable history of an alert. effectiveAt is when the condition applied
+// (e.g. when an escalation deadline passed); createdAt is when it was recorded.
+model ConditionAlertEvent {
+  id Int @id @default(autoincrement())
+  organizationId Int
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  alertId Int
+  alert ConditionAlert @relation(fields: [alertId], references: [id], onDelete: Restrict)
+  type AlertEventType
+  actorId Int?
+  measurementId Int?
+  value Float?
+  note String?
+  effectiveAt DateTime
+  actionKey String? @unique
+  fingerprint String?
+  createdAt DateTime @default(now())
+  @@index([organizationId, alertId])
 }

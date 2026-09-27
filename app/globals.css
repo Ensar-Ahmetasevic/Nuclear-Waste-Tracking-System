@@ -1,7 +1,99 @@
-@import "tailwindcss";
+/* Scan only source folders; automatic detection also picked up binary build caches. */
+@import "tailwindcss" source(none);
+@source "../app";
+@source "../components";
+@source "../lib";
 @plugin "@tailwindcss/typography";
 @plugin "daisyui" {
-  themes: light --default, dark --prefersdark;
+  themes: false;
+}
+/* Dark is the default theme; light is chosen in the interface and stored in the nwts-theme cookie. */
+@plugin "daisyui/theme" {
+  name: "nwts-dark";
+  default: true;
+  color-scheme: dark;
+  --color-base-100: #12223a;
+  --color-base-200: #0d1a2b;
+  --color-base-300: #0a1422;
+  --color-base-content: #e6eef8;
+  --color-primary: #2bb8f2;
+  --color-primary-content: #04121f;
+  --color-secondary: #9d84ff;
+  --color-secondary-content: #0e0730;
+  --color-accent: #2ed3a0;
+  --color-accent-content: #03170f;
+  --color-neutral: #172b47;
+  --color-neutral-content: #e6eef8;
+  --color-info: #5b8cff;
+  --color-info-content: #050e2b;
+  --color-success: #2ed3a0;
+  --color-success-content: #03170f;
+  --color-warning: #f6ae2d;
+  --color-warning-content: #2a1a00;
+  --color-error: #ff6b86;
+  --color-error-content: #2a0610;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.75rem;
+  --radius-box: 1.25rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+@plugin "daisyui/theme" {
+  name: "nwts-light";
+  color-scheme: light;
+  --color-base-100: #ffffff;
+  --color-base-200: #f2f5f9;
+  --color-base-300: #e9eef5;
+  --color-base-content: #0e1b2c;
+  --color-primary: #0a78b5;
+  --color-primary-content: #ffffff;
+  --color-secondary: #5b3fd6;
+  --color-secondary-content: #ffffff;
+  --color-accent: #0b7f5e;
+  --color-accent-content: #ffffff;
+  --color-neutral: #1f3350;
+  --color-neutral-content: #ffffff;
+  --color-info: #2f55d4;
+  --color-info-content: #ffffff;
+  --color-success: #0b7f5e;
+  --color-success-content: #ffffff;
+  --color-warning: #a35f00;
+  --color-warning-content: #ffffff;
+  --color-error: #c2264a;
+  --color-error-content: #ffffff;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.75rem;
+  --radius-box: 1.25rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+/* Step colours: Step 1 shipping, Step 2 pre-storage, Step 3 final storage. */
+:root,
+[data-theme="nwts-dark"] {
+  --nwts-step-1: #2bb8f2;
+  --nwts-step-2: #2ed3a0;
+  --nwts-step-3: #9d84ff;
+  --nwts-tone-orange: #ff9f43;
+  --nwts-tone-blue: #5b8cff;
+  --nwts-tone-teal: #46c8d8;
+  --nwts-tone-magenta: #e26bff;
+  --nwts-tone-slate: #8fa3bf;
+}
+[data-theme="nwts-light"] {
+  --nwts-step-1: #0a78b5;
+  --nwts-step-2: #0b7f5e;
+  --nwts-step-3: #5b3fd6;
+  --nwts-tone-orange: #c25a0a;
+  --nwts-tone-blue: #2f55d4;
+  --nwts-tone-teal: #127a8a;
+  --nwts-tone-magenta: #9a30d6;
+  --nwts-tone-slate: #51647f;
 }
 @theme {
   --breakpoint-sm: 30rem;
@@ -15,6 +107,15 @@
 }
 @theme inline {
   --font-rubik: var(--font-rubik-face), sans-serif;
+  --font-mono: var(--font-mono-face), ui-monospace, monospace;
+  --color-step-1: var(--nwts-step-1);
+  --color-step-2: var(--nwts-step-2);
+  --color-step-3: var(--nwts-step-3);
+  --color-tone-orange: var(--nwts-tone-orange);
+  --color-tone-blue: var(--nwts-tone-blue);
+  --color-tone-teal: var(--nwts-tone-teal);
+  --color-tone-magenta: var(--nwts-tone-magenta);
+  --color-tone-slate: var(--nwts-tone-slate);
 }
 /* Preserve the existing form layout while migrating to daisyUI 5 labels. */
 @layer components {
@@ -26,10 +127,16 @@
 }
 
 /* ===== Mobile-safe global defaults ===== */
+/* clip, not hidden: hidden would make body a scroll container and break the
+   sticky sidebar and top bar. */
 html,
 body {
   max-width: 100vw;
-  overflow-x: hidden;
+  overflow-x: clip;
+}
+body {
+  background-color: var(--color-base-300);
+  color: var(--color-base-content);
 }
 
 /* Prevent iOS zoom-on-focus by ensuring form inputs are at least 16px on small screens */
@@ -54,42 +161,28 @@ span {
   overflow-wrap: anywhere;
 }
 
-.btnSave {
-  @apply btn btn-sm border-2 border-blue-400 bg-transparent text-blue-400 hover:border-blue-300 hover:bg-blue-700 hover:text-white;
+/* Legacy button classes mapped onto the theme's button variants. */
+.btnSave,
+.btnAdd,
+.btnSearch {
+  @apply btn btn-sm btn-primary;
 }
 .btnCreate {
-  @apply btn btn-sm border-2 border-green-500 bg-transparent text-green-500 hover:border-green-400 hover:bg-green-700 hover:text-white;
+  @apply btn btn-sm btn-success;
 }
-
-.btnNeutral {
-  @apply btn btn-sm border-2 border-gray-500 bg-transparent text-gray-500 hover:border-gray-400 hover:bg-gray-700 hover:text-white;
-}
-
-.btnAdd {
-  @apply btn btn-sm border-2  border-blue-500 bg-transparent text-blue-500 hover:border-blue-400 hover:bg-blue-700 hover:text-white;
+.btnNeutral,
+.btnCancel,
+.btnExtend {
+  @apply btn btn-sm btn-ghost border-base-content/20;
 }
 .btnUpdate {
-  @apply btn btn-sm border-2 border-yellow-500 bg-transparent text-yellow-500 hover:border-yellow-400 hover:bg-yellow-600 hover:text-white;
+  @apply btn btn-sm btn-soft btn-warning;
 }
-
-.btnCancel {
-  @apply btn btn-sm border-2 border-gray-500 bg-transparent text-gray-500 hover:border-gray-400 hover:bg-gray-700 hover:text-white;
-}
-
 .btnDelete {
-  @apply btn btn-sm border-2 border-red-500 bg-transparent text-red-500 hover:border-red-400 hover:bg-red-700 hover:text-white;
+  @apply btn btn-sm btn-soft btn-error;
 }
-
 .btnInfo {
-  @apply btn btn-sm border-2 border-sky-500 bg-transparent text-sky-500 hover:border-sky-400 hover:bg-sky-700 hover:text-white;
-}
-
-.btnExtend {
-  @apply btn btn-sm border border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-400;
-}
-
-.btnSearch {
-  @apply btn btn-sm border-2 border-blue-500 bg-transparent text-blue-500 hover:border-blue-400 hover:bg-blue-700 hover:text-white;
+  @apply btn btn-sm btn-soft btn-info;
 }
 
 /* Operational motion: short, one-time feedback; state never depends on animation. */
@@ -101,8 +194,64 @@ span {
 .operational-control { transition: background-color var(--motion-fast), border-color var(--motion-fast); }
 .receipt-dialog { max-height: 90dvh; width: min(42rem, calc(100vw - 2rem)); margin: auto; overflow: auto; }
 .receipt-dialog::backdrop { background: rgb(0 0 0 / 60%); }
+/* Loading marks (components/loading). The ring and trefoil turn around the
+   centre of their SVG; arcs use pathLength="100" so dash values are percent. */
+@keyframes nwts-spin { to { transform: rotate(360deg); } }
+@keyframes nwts-spin-back { to { transform: rotate(-360deg); } }
+@keyframes nwts-arc-sweep { from { stroke-dashoffset: 24; } to { stroke-dashoffset: -100; } }
+@keyframes nwts-arc-fill { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+@keyframes nwts-arc-drain { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -100; } }
+@keyframes nwts-seal { from { stroke-dashoffset: 100; opacity: 0.4; } to { stroke-dashoffset: 0; opacity: 1; } }
+@keyframes nwts-settle { from { transform: rotate(-40deg) scale(0.92); } to { transform: rotate(0) scale(1); } }
+@keyframes nwts-glow { 0%, 100% { opacity: 0.35; transform: scale(0.94); } 50% { opacity: 0.7; transform: scale(1.04); } }
+@keyframes nwts-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes nwts-overlay-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes nwts-headline { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes nwts-shimmer { from { background-position: 150% 0; } to { background-position: -50% 0; } }
+.nwts-rotor { transform-box: view-box; transform-origin: 50% 50%; }
+.nwts-ring { animation: nwts-spin 1.4s linear infinite; }
+.nwts-core { animation: nwts-spin-back 3.2s linear infinite; }
+.nwts-spinner[data-state="slow"] .nwts-ring { animation-duration: 2.6s; }
+.nwts-spinner[data-state="slow"] .nwts-core { animation-duration: 6s; }
+.nwts-scan { animation: nwts-spin 24s linear infinite; }
+.nwts-core-slow { animation: nwts-spin 9s linear infinite; }
+.nwts-settle { animation: nwts-settle 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.nwts-arc-sweep { stroke-dasharray: 24 100; animation: nwts-arc-sweep 1.3s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+.nwts-arc-sweep.nwts-reverse { animation-direction: reverse; }
+.nwts-arc-fill { stroke-dasharray: 100 100; animation: nwts-arc-fill 520ms ease-out both; }
+.nwts-arc-drain { stroke-dasharray: 100 100; animation: nwts-arc-drain 520ms ease-in both; }
+.nwts-seal { stroke-dasharray: 100 100; animation: nwts-seal 700ms ease-out both; }
+.nwts-glow { background: radial-gradient(circle, color-mix(in oklab, var(--color-primary) 38%, transparent), transparent 70%); filter: blur(18px); animation: nwts-glow 3.2s ease-in-out infinite; }
+.nwts-overlay-in { animation: nwts-overlay-in 320ms ease-out both; }
+.nwts-overlay-out { animation: nwts-overlay-out 450ms ease-in both; }
+.nwts-headline { animation: nwts-headline 360ms ease-out both; }
+/* Faint facility-plan grid behind full-screen loaders. */
+.nwts-blueprint {
+  background-image:
+    radial-gradient(ellipse at 50% 38%, color-mix(in oklab, var(--color-primary) 12%, transparent), transparent 60%),
+    linear-gradient(color-mix(in oklab, var(--color-base-content) 5%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, var(--color-base-content) 5%, transparent) 1px, transparent 1px);
+  background-size: 100% 100%, 32px 32px, 32px 32px;
+  background-position: center, center, center;
+}
+/* Skeleton: a slow scan line passes over the placeholder. */
+.nwts-skeleton {
+  background-color: color-mix(in oklab, var(--color-base-content) 7%, transparent);
+  background-image: linear-gradient(100deg, transparent 30%, color-mix(in oklab, var(--color-primary) 10%, transparent) 50%, transparent 70%);
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: nwts-shimmer 1.8s ease-in-out infinite;
+}
 html[data-reduce-motion="true"] *, html[data-reduce-motion="true"] *::before, html[data-reduce-motion="true"] *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
 html[data-reduce-motion="true"] { scroll-behavior: auto !important; }
+/* Record labels: only the copy of the open label is printed (record-label.js). */
+.print-sheet { display: none; }
+@media print {
+  body:has(> .print-sheet) > :not(.print-sheet), body:has(> .print-sheet) dialog { display: none !important; }
+  html:has(> body > .print-sheet), body:has(> .print-sheet) { background: #fff !important; }
+  .print-sheet { display: block; }
+  .print-sheet > * { break-inside: avoid; }
+}

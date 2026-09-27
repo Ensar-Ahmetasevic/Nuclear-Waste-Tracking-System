@@ -10,6 +10,7 @@
     "start": "next start",
     "lint": "eslint app/api lib scripts tests",
     "seed": "node prisma/seed.js",
+    "db:reset-local": "node scripts/reset-local-data.mjs",
     "dev:doppler": "doppler run -p nuclear-waste-tracking-system -c dev -- next dev",
     "db:validate": "prisma validate",
     "db:generate": "prisma generate && node scripts/generate-schema-field-meta.cjs",
@@ -37,7 +38,8 @@
     "react-icons": "5.7.0",
     "react-toastify": "11.1.0",
     "react-tooltip": "5.30.1",
-    "recharts": "3.10.1"
+    "recharts": "3.10.1",
+    "uqr": "0.1.3"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

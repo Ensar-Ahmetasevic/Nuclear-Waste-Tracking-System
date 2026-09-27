@@ -2,7 +2,7 @@ export default function AlertWarning({ text }) {
   return (
     <div
       role="alert"
-      className="alert alert-warning flex w-full max-w-md justify-center text-sm sm:text-base md:w-1/2"
+      className="alert flex w-full max-w-md justify-center text-sm alert-warning sm:text-base md:w-1/2"
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"

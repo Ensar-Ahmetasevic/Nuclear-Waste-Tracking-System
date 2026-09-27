@@ -1,6 +1,10 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useT } from "../../../../../../shell/preferences";
+import { useFormat } from "../../../../../../ui/format";
+import { InlineLoader } from "../../../../../../loading/loaders";
+import { ButtonSpinner } from "../../../../../../loading/spinner";
 export default function TransferConfirmation({
   request,
   accept,
@@ -10,6 +14,16 @@ export default function TransferConfirmation({
   approval = null,
   back = null,
 }) {
+  const t = useT();
+  const format = useFormat();
+  // approve / reject (pre-storage decision) or receive / return (final storage).
+  const mode = preStorage
+    ? accept
+      ? "approve"
+      : "reject"
+    : accept
+      ? "receive"
+      : "return";
   const dialog = useRef(null),
     heading = useRef(null),
     payload = useRef(null),
@@ -29,7 +43,9 @@ export default function TransferConfirmation({
       if (trigger?.isConnected) trigger.focus();
     };
   }, []);
-  useEffect(() => { if (phase !== "review") heading.current?.focus(); }, [phase]);
+  useEffect(() => {
+    if (phase !== "review") heading.current?.focus();
+  }, [phase]);
   async function finish() {
     if (inFlight.current) return;
     close();
@@ -46,7 +62,7 @@ export default function TransferConfirmation({
     event?.preventDefault();
     if (inFlight.current) return;
     if (!accept && reason.trim().length < 3) {
-      setMessage("Enter a reason with at least 3 characters.");
+      setMessage(t("conf.reasonShort"));
       return;
     }
     inFlight.current = true;
@@ -61,10 +77,21 @@ export default function TransferConfirmation({
           ? "FINAL_STORAGE_ACCEPT_RESPONSE"
           : "FINAL_STORAGE_REJECT_RESPONSE",
       data: {
-        ...(approval ? { requestedQuantity: approval.requestedQuantity, approvedByEmployeeId: approval.approvedByEmployeeId,
-          sources: approval.sources?.map(({ receiptAllocationId, quantity }) => ({ receiptAllocationId, quantity })),
-          ...(!approval.sources ? { receiptAllocationId: approval.receiptAllocationId } : {}),
-        } : {}),
+        ...(approval
+          ? {
+              requestedQuantity: approval.requestedQuantity,
+              approvedByEmployeeId: approval.approvedByEmployeeId,
+              sources: approval.sources?.map(
+                ({ receiptAllocationId, quantity }) => ({
+                  receiptAllocationId,
+                  quantity,
+                }),
+              ),
+              ...(!approval.sources
+                ? { receiptAllocationId: approval.receiptAllocationId }
+                : {}),
+            }
+          : {}),
         id: request.id,
         expectedVersion: request.version,
         actionKey: crypto.randomUUID(),
@@ -85,7 +112,7 @@ export default function TransferConfirmation({
       if (!response.ok) {
         if (response.status >= 500) throw Error("Unconfirmed");
         setPhase(response.status === 409 ? "conflict" : "error");
-        setMessage(data.message || "Unable to save.");
+        setMessage(data.message || t("conf.failed"));
         return;
       }
       if (!data.result?.id) throw Error("Missing confirmation");
@@ -93,18 +120,18 @@ export default function TransferConfirmation({
       setPhase("success");
     } catch {
       setPhase("unknown");
-      setMessage(
-        "Save could not be confirmed. Check the same action before starting another confirmation.",
-      );
+      setMessage(t("conf.unconfirmed"));
     } finally {
       inFlight.current = false;
     }
   }
-  const linkedSources = preStorage ? approval?.sources || [] : request.sources || (request.source ? [request.source] : []);
+  const linkedSources = preStorage
+    ? approval?.sources || []
+    : request.sources || (request.source ? [request.source] : []);
   return (
     <dialog
       ref={dialog}
-      className="receipt-dialog operational-panel rounded-xl border border-base-content/15 bg-base-100 p-5 text-base-content shadow-xl sm:p-7"
+      className="receipt-dialog operational-panel rounded-box border border-base-content/15 bg-base-100 p-5 text-base-content shadow-xl sm:p-7"
       aria-labelledby="transfer-confirmation-title"
       aria-busy={phase === "saving"}
       onCancel={(event) => {
@@ -116,99 +143,108 @@ export default function TransferConfirmation({
         ref={heading}
         tabIndex={-1}
         id="transfer-confirmation-title"
-        className="text-2xl font-bold"
+        className="text-2xl font-semibold"
       >
-        {result
-          ? accept
-            ? preStorage
-              ? "Request approved"
-              : "Receipt confirmed"
-            : preStorage
-              ? "Request rejected"
-              : "Returned for revision"
-          : accept
-            ? preStorage
-              ? "Review transfer approval"
-              : "Review final storage receipt"
-            : preStorage
-              ? "Review request rejection"
-              : "Review return for revision"}
+        {result ? t(`conf.${mode}.done`) : t(`conf.${mode}.title`)}
       </h2>
       <p className="mt-2 text-sm text-base-content/65">
-        Step {preStorage ? 2 : 3} · Transfer #{request.id}
+        {t(preStorage ? "area.PRE_STORAGE" : "area.FINAL_STORAGE")} ·{" "}
+        {t("records.transfer", { id: request.id })}
       </p>
-      {(accept || !preStorage) && <section className="mt-4 space-y-2" aria-label="Transfer sources">
-        <h3 className="font-semibold">Source receipts</h3>
-        {linkedSources.length ? <ul className="space-y-2">{linkedSources.map(source => <li key={source.receiptAllocationId} className="rounded border border-base-content/20 p-3 break-words">
-          <p>{source.sourceLabel || `Source #${source.receiptAllocationId} · Shipment #${source.shipmentId} · Profile #${source.containerProfileId} · Hall #${source.locationId}`}</p>
-          <p className="mt-1 font-semibold">{source.quantity} containers</p>
-        </li>)}</ul> : <p>Source receipt not linked for this older transfer. Profile traceability is unavailable.</p>}
-      </section>}
-      <dl className="my-5 grid gap-4 rounded-lg bg-base-200 p-4 sm:grid-cols-2">
+      {(accept || !preStorage) && (
+        <section className="mt-4 space-y-2" aria-label={t("conf.sources")}>
+          <h3 className="font-semibold">{t("conf.sources")}</h3>
+          {linkedSources.length ? (
+            <ul className="space-y-2">
+              {linkedSources.map((source) => (
+                <li
+                  key={source.receiptAllocationId}
+                  className="rounded-xl border border-base-content/15 p-3 break-words"
+                >
+                  <p>
+                    {source.sourceLabel ||
+                      t("conf.source", {
+                        id: source.receiptAllocationId,
+                        shipment: source.shipmentId,
+                        profile: source.containerProfileId,
+                        hall: source.locationId,
+                      })}
+                  </p>
+                  <p className="mt-1 font-semibold">
+                    {t("ship.containers", { count: source.quantity })}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>{t("conf.noSource")}</p>
+          )}
+        </section>
+      )}
+      <dl className="my-5 grid gap-4 rounded-xl bg-base-200/70 p-4 sm:grid-cols-2">
         <div>
-          <dt className="text-sm text-base-content/60">Destination</dt>
+          <dt className="text-sm text-base-content/60">
+            {t("rec.destinationLabel")}
+          </dt>
           <dd>{room.name}</dd>
         </div>
         <div>
-          <dt className="text-sm text-base-content/60">Quantity</dt>
+          <dt className="text-sm text-base-content/60">
+            {t("field.quantity")}
+          </dt>
           <dd className="font-semibold">
-            {approval?.requestedQuantity ?? request.requestedQuantity}{" "}
-            containers
+            {t("ship.containers", {
+              count: approval?.requestedQuantity ?? request.requestedQuantity,
+            })}
           </dd>
         </div>
         <div>
-          <dt className="text-sm text-base-content/60">Room configuration</dt>
-          <dd>{room.containerType || "Not specified in this request"}</dd>
+          <dt className="text-sm text-base-content/60">
+            {t("conf.roomConfig")}
+          </dt>
+          <dd>{room.containerType || t("conf.notSpecified")}</dd>
         </div>
         <div>
-          <dt className="text-sm text-base-content/60">Requested by</dt>
+          <dt className="text-sm text-base-content/60">
+            {t("conf.requestedBy")}
+          </dt>
           <dd>
             {request.requestedByEmployee
               ? `${request.requestedByEmployee.name} ${request.requestedByEmployee.surname}`
-              : "Not recorded"}
+              : t("ship.notRecorded")}
           </dd>
         </div>
       </dl>
       {approval && (
         <p className="mb-4 text-sm">
-          Requested: {request.requestedQuantity} containers · Responsible
-          employee: {approval.employeeLabel}
+          {t("conf.approvalSummary", {
+            containers: t("ship.containers", {
+              count: request.requestedQuantity,
+            }),
+            employee: approval.employeeLabel,
+          })}
         </p>
       )}
       {result ? (
         <div className="operational-confirm space-y-2" role="status">
-          <p className="font-semibold text-emerald-500">
-            Confirmation #{result.id} saved
+          <p className="font-semibold text-success">
+            {t("conf.result", { id: result.id })}
           </p>
           <p>
-            {result.quantity} containers ·{" "}
-            {new Date(result.createdAt).toLocaleString()}
+            {t("ship.containers", { count: result.quantity })} ·{" "}
+            {format.dateTime(result.createdAt)}
           </p>
-          {result.reason && <p>Reason: {result.reason}</p>}
-          <p className="text-sm">
-            {accept
-              ? preStorage
-                ? "Request approved. Transport is pending; receipt has not been confirmed."
-                : "Transfer marked received."
-              : preStorage
-                ? "The request has been rejected by pre-storage."
-                : "The transfer is back in the pre-storage review queue."}
-          </p>
+          {result.reason && (
+            <p>{t("ship.reason", { reason: result.reason })}</p>
+          )}
+          <p className="text-sm">{t(`conf.${mode}.after`)}</p>
         </div>
       ) : (
         <form onSubmit={save}>
-          <p className="mb-4 text-sm">
-            {accept
-              ? preStorage
-                ? "Review the approved quantity, responsible employee and destination before saving."
-                : "Confirm only after reviewing the transfer and destination."
-              : preStorage
-                ? "Explain why this transfer request is being rejected."
-                : "This returns the request to pre-storage for review; it does not confirm receipt."}
-          </p>
+          <p className="mb-4 text-sm">{t(`conf.${mode}.intro`)}</p>
           {!accept && (
             <label className="block text-sm font-medium">
-              Reason for {preStorage ? "rejection" : "revision"}
+              {t(preStorage ? "conf.reasonReject" : "conf.reasonReturn")}
               <textarea
                 required
                 minLength={3}
@@ -221,12 +257,10 @@ export default function TransferConfirmation({
             </label>
           )}
           <div className="my-4 text-sm" aria-live="polite" aria-atomic="true">
-            {phase === "saving" && <p>Saving confirmation…</p>}
+            {phase === "saving" && <InlineLoader save />}
             {message && (
               <p
-                className={
-                  phase === "unknown" ? "text-amber-400" : "text-error"
-                }
+                className={phase === "unknown" ? "text-warning" : "text-error"}
               >
                 {message}
               </p>
@@ -237,18 +271,19 @@ export default function TransferConfirmation({
               className="operational-control btn min-h-11 w-full btn-primary"
               type="submit"
             >
-              {accept
-                ? preStorage
-                  ? `Approve ${approval.requestedQuantity} containers`
-                  : `Confirm receipt of ${request.requestedQuantity} containers`
-                : preStorage
-                  ? "Confirm rejection"
-                  : "Confirm return for revision"}
+              {t(`conf.${mode}.confirm`, {
+                count: accept
+                  ? preStorage
+                    ? approval.requestedQuantity
+                    : request.requestedQuantity
+                  : undefined,
+              })}
             </button>
           )}
           {phase === "saving" && (
             <button disabled className="btn min-h-11 w-full btn-primary">
-              Saving…
+              <ButtonSpinner />
+              {t("common.saving")}
             </button>
           )}
           {phase === "unknown" && (
@@ -257,7 +292,7 @@ export default function TransferConfirmation({
               className="btn min-h-11 btn-primary"
               onClick={() => save()}
             >
-              Check save result
+              {t("users.change.check")}
             </button>
           )}
           {phase === "error" && (
@@ -266,25 +301,33 @@ export default function TransferConfirmation({
               className="btn min-h-11 btn-outline"
               onClick={() => save()}
             >
-              Retry this confirmation
+              {t("conf.retry")}
             </button>
           )}
         </form>
       )}
       <div className="mt-6 flex flex-wrap justify-end gap-3 border-t border-base-content/10 pt-4">
-        {back && phase === "review" && <button type="button" className="btn min-h-11 btn-outline" onClick={back}>Back to sources</button>}
+        {back && phase === "review" && (
+          <button
+            type="button"
+            className="btn min-h-11 btn-outline"
+            onClick={back}
+          >
+            {t("conf.backToSources")}
+          </button>
+        )}
         <button
           className="btn min-h-11 btn-outline"
           disabled={phase === "saving"}
           onClick={finish}
         >
           {result
-            ? "Done — return to tasks"
+            ? t("rec.doneButton")
             : phase === "conflict"
-              ? "Close and reload transfer"
+              ? t("prep.closeReload")
               : phase === "unknown"
-                ? "Close and review transfer later"
-                : "Cancel"}
+                ? t("rec.closeLater")
+                : t("common.cancel")}
         </button>
       </div>
     </dialog>
