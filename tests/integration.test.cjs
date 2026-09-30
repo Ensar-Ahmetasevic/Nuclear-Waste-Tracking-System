@@ -1155,9 +1155,9 @@ integration('profile deletion preserves its audit and cannot delete a changed or
   const detailPath='/api/shipping-informations/'+shipment.id;
   const managerDetail=await (await call(detailPath)).json();
   const removalEvent=managerDetail.timeline.events.find(row=>row.title==='Container Profile deleted');
-  assert.equal(removalEvent.actorId,supervisor.id);assert.match(removalEvent.detail,/Reason:/);
+  assert.equal(removalEvent.actorId,supervisor.id);assert.equal(removalEvent.note,'Remove a profile recorded in error');
   const employeeDetail=await (await call(detailPath,'GET',undefined,employeeSession)).json();
-  assert.doesNotMatch(employeeDetail.timeline.events.find(row=>row.title==='Container Profile deleted').detail,/Reason:/);
+  assert.equal(employeeDetail.timeline.events.find(row=>row.title==='Container Profile deleted').note,null);
   assert.equal((await db.shippingInformation.findUniqueOrThrow({where:{id:shipment.id}})).status,'pending');
   // A replay remains a read of the original event even after departure.
   await db.shippingInformation.update({where:{id:shipment.id},data:{truckStatus:'OUT'}});
