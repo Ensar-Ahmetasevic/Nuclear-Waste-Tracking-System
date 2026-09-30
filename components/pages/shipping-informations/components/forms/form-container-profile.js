@@ -7,6 +7,8 @@ import useWasteProfileQuery from "@/requests/request-container-profile/request-w
 import { useT } from "../../../../shell/preferences";
 import { useFormat } from "../../../../ui/format";
 import { InlineLoader } from "../../../../loading/loaders";
+import { ButtonSpinner } from "../../../../loading/spinner";
+import { ProofreadPrompt, useProofread } from "../../../../ui/proofread";
 
 export default function FormContainerProfile({
   shipment,
@@ -28,6 +30,7 @@ export default function FormContainerProfile({
     [message, setMessage] = useState(""),
     [result, setResult] = useState(null),
     [review, setReview] = useState(null);
+  const proofread = useProofread();
   const dialog = useRef(null),
     heading = useRef(null),
     first = useRef(null),
@@ -79,17 +82,19 @@ export default function FormContainerProfile({
     if (result || phase === "conflict") client.invalidateQueries();
     closeModal();
   }
-  function prepare(event) {
+  async function prepare(event) {
     event.preventDefault();
-    if (!ready || !origin || !waste?.containerType) return;
+    if (!ready || !origin || !waste?.containerType || proofread.waiting) return;
     if (original.truckStatus === "OUT" && form.reason.trim().length < 3) return;
+    const reason = (await proofread.confirm(form.reason.trim())).trim();
+    setForm((current) => ({ ...current, reason }));
     payload.current = {
       quantity: Number(form.quantity),
       locationOriginId: origin.id,
       wasteProfileId: waste.id,
       shippingInformationId: original.id,
       actionKey: crypto.randomUUID(),
-      reason: form.reason.trim(),
+      reason,
       expected: {
         truckStatus: original.truckStatus,
         status: original.status,
@@ -101,7 +106,7 @@ export default function FormContainerProfile({
       origin: `${origin.name} (#${origin.id})`,
       waste: `${waste.name} (#${waste.id})`,
       type: `${waste.containerType.name} (#${waste.containerTypeId})`,
-      reason: form.reason.trim(),
+      reason,
     });
     setMessage("");
     setPhase("review");
@@ -260,16 +265,19 @@ export default function FormContainerProfile({
               />
             </label>
           )}
+          <ProofreadPrompt proofread={proofread} />
           <p className="text-sm text-base-content/70">{t("prep.note")}</p>
           <button
             className="btn min-h-11 btn-primary"
             disabled={
+              proofread.waiting ||
               !ready ||
               !origin ||
               !waste?.containerType ||
               (original.truckStatus === "OUT" && form.reason.trim().length < 3)
             }
           >
+            {proofread.checking && <ButtonSpinner />}
             {t("prep.reviewButton")}
           </button>
         </form>

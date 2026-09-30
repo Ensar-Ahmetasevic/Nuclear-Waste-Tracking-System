@@ -4,6 +4,8 @@ import { areas } from "@/lib/workspaces.cjs";
 import { useT } from "../../shell/preferences";
 import { useFormat } from "../../ui/format";
 import { InlineLoader } from "../../loading/loaders";
+import { ButtonSpinner } from "../../loading/spinner";
+import { ProofreadPrompt, useProofread } from "../../ui/proofread";
 
 const KEYS = ["displayName", "username", "email", "role", "workArea", "active"];
 
@@ -19,6 +21,7 @@ export default function AccountChangeReview({
     [phase, setPhase] = useState("review"),
     [message, setMessage] = useState(""),
     [result, setResult] = useState(null);
+  const proofread = useProofread();
   const dialog = useRef(null),
     heading = useRef(null),
     payload = useRef(null),
@@ -64,6 +67,13 @@ export default function AccountChangeReview({
   async function save(event) {
     event?.preventDefault();
     if (busy.current) return;
+    // A retry resends the saved request unchanged; only the first send is checked.
+    let written = reason.trim();
+    if (!payload.current) {
+      if (proofread.waiting) return;
+      written = (await proofread.confirm(written)).trim();
+      setReason(written);
+    }
     busy.current = true;
     setPhase("saving");
     setMessage("");
@@ -73,7 +83,7 @@ export default function AccountChangeReview({
       expected: Object.fromEntries(
         KEYS.map((key) => [key === "active" ? "enabled" : key, original[key]]),
       ),
-      reason: reason.trim(),
+      reason: written,
       actionKey: crypto.randomUUID(),
     };
     try {
@@ -156,10 +166,12 @@ export default function AccountChangeReview({
           <p className="text-sm text-base-content/70">
             {t("users.change.reasonHint")}
           </p>
+          <ProofreadPrompt proofread={proofread} />
           <button
             className="btn min-h-11 btn-primary"
-            disabled={!keys.length || reason.trim().length < 3}
+            disabled={!keys.length || reason.trim().length < 3 || proofread.waiting}
           >
+            {proofread.checking && <ButtonSpinner />}
             {t("users.change.confirm")}
           </button>
         </form>

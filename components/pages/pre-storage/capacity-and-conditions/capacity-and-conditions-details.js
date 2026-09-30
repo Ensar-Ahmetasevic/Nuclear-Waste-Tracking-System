@@ -20,13 +20,6 @@ export default function CapacityAndConditionsDetails({ preStorageData }) {
         area="PRE_STORAGE"
         location={preStorageData}
         containers={totalContainers}
-        detail={[
-          preStorageData.wasteProfile,
-          preStorageData.containerType,
-          preStorageData.preStorageFor,
-        ]
-          .filter(Boolean)
-          .join(" · ")}
         operations={<CapacityDetails hallData={preStorageData} />}
         conditions={
           <ConditionsDetails

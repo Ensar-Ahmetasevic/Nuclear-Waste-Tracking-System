@@ -14,7 +14,7 @@ import LoadingProblem from "../../components/loading/loading-problem";
 import { createProblem } from "../../components/loading/problems";
 import { useSessionTransition } from "../../components/loading/session-transition";
 import { useLoadingWatchdog } from "../../components/loading/use-loading-watchdog";
-import { usePreferences, useT } from "../../components/shell/preferences";
+import { LanguageOptions, usePreferences, useT } from "../../components/shell/preferences";
 import { RadiationMark } from "../../components/shell/nav-parts";
 import FlowScene, { FLOW_STAGES } from "../../components/ui/flow-scene";
 import { SceneImage } from "../../components/ui/scene";
@@ -144,8 +144,7 @@ function LoginForm() {
               onChange={(event) => setLocale(event.target.value)}
               className="select h-11 w-auto border-base-content/20 bg-base-300/80 text-sm backdrop-blur"
             >
-              <option value="en">EN</option>
-              <option value="de">DE</option>
+              <LanguageOptions short />
             </select>
             <button
               type="button"

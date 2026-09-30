@@ -5,6 +5,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useT } from "../../shell/preferences";
 import { useFormat } from "../../ui/format";
 import { InlineLoader } from "../../loading/loaders";
+import { ButtonSpinner } from "../../loading/spinner";
+import { ProofreadPrompt, useProofread } from "../../ui/proofread";
 
 export const differenceText = (t, counted, recorded) =>
   counted === recorded
@@ -20,6 +22,7 @@ export default function VerificationDialog({ area, hall, onClose }) {
   const [original] = useState(hall);
   const [counted, setCounted] = useState("");
   const [reason, setReason] = useState("");
+  const proofread = useProofread();
   const [errors, setErrors] = useState({});
   const [phase, setPhase] = useState("edit");
   const [message, setMessage] = useState("");
@@ -50,8 +53,9 @@ export default function VerificationDialog({ area, hall, onClose }) {
   const count = Number(counted),
     recorded = original.figures.recordedQuantity;
 
-  function review(event) {
+  async function review(event) {
     event.preventDefault();
+    if (proofread.waiting) return;
     const found = {};
     if (counted.trim() === "" || !Number.isSafeInteger(count) || count < 0)
       found.count = t("recon.error.count");
@@ -66,6 +70,7 @@ export default function VerificationDialog({ area, hall, onClose }) {
       basis.current?.focus();
       return;
     }
+    setReason(await proofread.confirm(reason.trim()));
     payload.current = null;
     setMessage("");
     setPhase("review");
@@ -228,7 +233,9 @@ export default function VerificationDialog({ area, hall, onClose }) {
               </p>
             )}
           </div>
-          <button type="submit" className="btn min-h-11 btn-primary">
+          <ProofreadPrompt proofread={proofread} />
+          <button type="submit" className="btn min-h-11 btn-primary" disabled={proofread.waiting}>
+            {proofread.checking && <ButtonSpinner />}
             {t("recon.verify.reviewButton")}
           </button>
         </form>

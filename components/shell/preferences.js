@@ -3,49 +3,70 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
+  LANGUAGE_NAMES,
+  LOCALES,
   LOCALE_COOKIE,
   THEME_COOKIE,
+  formatMessage,
   pickLocale,
   pickTheme,
-  translate,
 } from "../../lib/i18n";
+import { loadMessages } from "../../lib/locales/load";
 
-// The server reads both cookies for the first render, so the page paints in the
-// chosen language and theme without a flash.
+// The server reads both cookies for the first render and sends that language's
+// text, so the page paints in the chosen language and theme without a flash.
+// Another language is loaded only when someone switches to it.
 const PreferencesContext = createContext(null);
 
 function remember(name, value) {
   document.cookie = `${name}=${value}; path=/; max-age=31536000; samesite=lax`;
 }
 
-export function PreferencesProvider({ initialLocale, initialTheme, children }) {
-  const [locale, setLocaleState] = useState(() => pickLocale(initialLocale));
+export function PreferencesProvider({ initialLocale, initialMessages, initialTheme, children }) {
+  const [language, setLanguage] = useState(() => ({
+    locale: pickLocale(initialLocale),
+    messages: initialMessages || {},
+  }));
   const [theme, setThemeState] = useState(() => pickTheme(initialTheme));
-  const setLocale = useCallback((value) => {
+  const wanted = useRef(language.locale);
+  const setLocale = useCallback(async (value) => {
     const next = pickLocale(value);
-    setLocaleState(next);
-    document.documentElement.lang = next;
+    wanted.current = next;
     remember(LOCALE_COOKIE, next);
+    const messages = await loadMessages(next);
+    // A quicker second switch wins over a slower first one.
+    if (wanted.current !== next) return;
+    document.documentElement.lang = next;
+    setLanguage({ locale: next, messages });
   }, []);
+  // Without text from the server (the error page), load it here.
+  const missing = !initialMessages;
+  useEffect(() => {
+    if (missing) setLocale(initialLocale);
+  }, [missing, initialLocale, setLocale]);
   const setTheme = useCallback((value) => {
     const next = pickTheme(value);
     setThemeState(next);
     document.documentElement.dataset.theme = next;
     remember(THEME_COOKIE, next);
   }, []);
+  const { locale, messages } = language;
   const value = useMemo(
     () => ({
       locale,
+      messages,
       theme,
       setLocale,
       setTheme,
-      t: (key, values) => translate(locale, key, values),
+      t: (key, values) => formatMessage(messages, locale, key, values),
     }),
-    [locale, theme, setLocale, setTheme],
+    [locale, messages, theme, setLocale, setTheme],
   );
   return (
     <PreferencesContext.Provider value={value}>
@@ -66,7 +87,7 @@ export function useT() {
 export function PeopleNames({ people, children }) {
   const parent = useContext(PreferencesContext);
   const value = useMemo(
-    () => ({ ...parent, t: (key, values) => translate(parent.locale, key, values, { people }) }),
+    () => ({ ...parent, t: (key, values) => formatMessage(parent.messages, parent.locale, key, values, { people }) }),
     [parent, people],
   );
   return (
@@ -74,6 +95,18 @@ export function PeopleNames({ people, children }) {
       {children}
     </PreferencesContext.Provider>
   );
+}
+
+// Short language codes (EN, DE, …); Ukrainian shows UA so it is not read as "United Kingdom".
+export const languageShort = (code) => (code === "uk" ? "UA" : String(code).toUpperCase());
+
+// `short` shows codes for the compact menus in the top bar and on sign-in.
+export function LanguageOptions({ short = false }) {
+  return LOCALES.map((code) => (
+    <option key={code} value={code} title={LANGUAGE_NAMES[code]}>
+      {short ? languageShort(code) : LANGUAGE_NAMES[code]}
+    </option>
+  ));
 }
 
 export function DisplayPreferenceControl() {
@@ -88,8 +121,7 @@ export function DisplayPreferenceControl() {
           value={locale}
           onChange={(event) => setLocale(event.target.value)}
         >
-          <option value="en">English</option>
-          <option value="de">Deutsch</option>
+          <LanguageOptions />
         </select>
       </label>
       <fieldset className="space-y-2">
@@ -113,7 +145,6 @@ export function DisplayPreferenceControl() {
           ))}
         </div>
       </fieldset>
-      <p className="text-sm text-base-content/65">{t("prefs.note")}</p>
     </section>
   );
 }

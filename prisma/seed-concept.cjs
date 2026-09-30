@@ -94,7 +94,7 @@ async function seedStorage(prisma, organizationId, { preStorageActorId, finalSto
       for (const { location: name, employee: person, ...values } of conditions) {
         const locationId = location[name].id;
         if (await measurements.findFirst({ where:{ organizationId, [`${prefix}LocationId`]: locationId } })) continue;
-        if (await tx.conditionAlert.findFirst({ where:{ organizationId, area, locationId } })) continue;
+        if (await tx.hallAlert.findFirst({ where:{ organizationId, area, locationId } })) continue;
         await measurements.create({ data:{
           organizationId, submissionKey: randomUUID(), recordedById: actorId,
           [`${prefix}LocationId`]: locationId, [`${prefix}ResponsibleEmployeeId`]: employee[person].id,

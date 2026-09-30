@@ -33,7 +33,7 @@ export default function RequestFromEntry({ entryData, hallData }) {
       <div className="flex gap-2">
         <button
           type="button"
-          className="btn min-h-11 btn-primary btn-sm"
+          className="btn min-h-11 btn-sm btn-success"
           onClick={() => setIsModalCapacityOpen(true)}
         >
           {t("rec.accept")}

@@ -63,6 +63,6 @@ async function POSTHandler(req, { user }) {
   return NextResponse.json({ rejection, message: "Delivery returned to Shipments with the inspection report." });
 }
 
-export const POST = withApiAuth(POSTHandler, { access: "member" });
+export const POST = withApiAuth(POSTHandler, { access: "member", texts: (body) => [body.note] });
 
 export const dynamic = "force-dynamic";

@@ -17,5 +17,6 @@ export const config = {
     "/transfers/:path*",
     "/profiles/:path*",
     "/scan",
+    "/alerts/:path*",
   ],
 };

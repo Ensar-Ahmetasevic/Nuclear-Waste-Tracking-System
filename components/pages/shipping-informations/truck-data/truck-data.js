@@ -34,6 +34,9 @@ export default function TruckData({ data, canEdit = false }) {
     truckStatus,
   } = shipment;
   const out = truckStatus === "OUT";
+  // Amber when the truck is due to leave (all content received), so the gate
+  // sees its turn; before that departure is a quiet, secondary action.
+  const departureDue = data.journey?.current === "departure";
   const permissions = data.permissions || {};
   const secondary = "btn min-h-11 border-base-content/20 btn-ghost";
 
@@ -56,7 +59,9 @@ export default function TruckData({ data, canEdit = false }) {
                 {t(`ship.status.${truckStatus}`)}
               </StatusChip>
               {data.returnState && (
-                <StatusChip tone={data.returnState === "escalated" ? "warning" : "error"}>
+                <StatusChip
+                  tone={data.returnState === "escalated" ? "warning" : "error"}
+                >
                   {t(`ship.returnState.${data.returnState}`)}
                 </StatusChip>
               )}
@@ -117,7 +122,7 @@ export default function TruckData({ data, canEdit = false }) {
               {!out && (
                 <button
                   type="button"
-                  className="btn min-h-11 btn-primary"
+                  className={`btn min-h-11 ${departureDue ? "btn-warning" : secondary}`}
                   disabled={unconfirmedDeletion}
                   onClick={() => setDepartureOpen(true)}
                 >
@@ -172,7 +177,11 @@ export default function TruckData({ data, canEdit = false }) {
               {t("ship.lastDeparture", {
                 id: data.departure.id,
                 time: format.dateTime(data.departure.createdAt),
-                actor: personLabel(t, data.people?.[data.departure.actorId], data.departure.actorId),
+                actor: personLabel(
+                  t,
+                  data.people?.[data.departure.actorId],
+                  data.departure.actorId,
+                ),
               })}
             </p>
           )}
@@ -214,71 +223,5 @@ export default function TruckData({ data, canEdit = false }) {
         />
       )}
     </>
-  );
-}
-
-// Administrative corrections to the shipment record (administrators only).
-export function ShipmentCorrections({ corrections, people = {} }) {
-  const t = useT();
-  const format = useFormat();
-  if (!corrections?.length) return null;
-  const fields = [
-    "companyName",
-    "driverName",
-    "registrationPlates",
-    "truckStatus",
-    "entryDateTime",
-    "exitDateTime",
-  ];
-  return (
-    <section
-      aria-labelledby="shipment-corrections-title"
-      className="space-y-3 rounded-box border border-base-content/10 bg-base-100 p-5"
-    >
-      <div className="space-y-1">
-        <h2 id="shipment-corrections-title" className="text-lg font-semibold">
-          {t("ship.corrections.title")}
-        </h2>
-        <p className="text-sm text-base-content/70">
-          {t("ship.corrections.desc")}
-        </p>
-      </div>
-      {corrections.map((record) => (
-        <details
-          key={record.id}
-          className="rounded-xl border border-base-content/15 px-3"
-        >
-          <summary className="min-h-11 cursor-pointer py-3 text-sm">
-            {t("ship.correction", {
-              id: record.id,
-              time: format.dateTime(record.createdAt),
-              actor: personLabel(t, people?.[record.actorId], record.actorId),
-            })}
-          </summary>
-          <div className="space-y-2 pb-3 text-sm">
-            <p className="break-words">
-              {t("ship.reason", { reason: record.reason })}
-            </p>
-            {fields
-              .filter((key) => record.before[key] !== record.after[key])
-              .map((key) => (
-                <div key={key} className="break-words">
-                  <p className="font-semibold">{t(`field.${key}`)}</p>
-                  <p>
-                    {t("ship.before", {
-                      value: record.before[key] ?? t("ship.notRecorded"),
-                    })}
-                  </p>
-                  <p>
-                    {t("ship.after", {
-                      value: record.after[key] ?? t("ship.notRecorded"),
-                    })}
-                  </p>
-                </div>
-              ))}
-          </div>
-        </details>
-      ))}
-    </section>
   );
 }

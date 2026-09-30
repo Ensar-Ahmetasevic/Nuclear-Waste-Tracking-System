@@ -8,12 +8,14 @@ import DataFreshness, {
 } from "../../shared/data-freshness";
 import { Card, CardHeader } from "../../ui/card";
 import { useFormat } from "../../ui/format";
+import { TextIn } from "../../ui/message-text";
 import LabelButton from "../../shared/record-label";
 import { recordCode } from "../../../lib/record-codes.cjs";
 import { SceneImage } from "../../ui/scene";
 import Skeleton from "../../ui/skeleton";
 import StatusChip from "../../ui/status-chip";
 import { LoadingWatch } from "../../loading/loaders";
+import Breadcrumb from "../../ui/breadcrumb";
 
 const STAGE_SCENES = {
   arrival: "gate",
@@ -118,34 +120,21 @@ export default function ProfileCustody({ profileId }) {
     <main className="mx-auto w-full max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
       {/* One toolbar: where this record sits, data freshness and the label. */}
       <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <nav
-          aria-label={t("ship.breadcrumb")}
-          className="flex flex-wrap items-center gap-2 text-sm text-base-content/65"
-        >
-          {permissions.canOpenShipment ? (
-            <>
-              <Link
-                href="/shipping-informations"
-                className="hover:text-base-content hover:underline"
-              >
-                {t("ship.title")}
-              </Link>
-              <span aria-hidden="true">›</span>
-              <Link
-                href={`/shipping-informations/${shipment.id}`}
-                className="hover:text-base-content hover:underline"
-              >
-                {t("ship.number", { id: shipment.id })}
-              </Link>
-            </>
-          ) : (
-            <span>{t("ship.number", { id: shipment.id })}</span>
-          )}
-          <span aria-hidden="true">›</span>
-          <span aria-current="page" className="text-base-content/85">
-            {t("ship.profile", { id: profile.id })}
-          </span>
-        </nav>
+        <Breadcrumb
+          items={[
+            permissions.canOpenShipment && {
+              href: "/shipping-informations",
+              label: t("ship.title"),
+            },
+            {
+              href: permissions.canOpenShipment
+                ? `/shipping-informations/${shipment.id}`
+                : undefined,
+              label: t("ship.number", { id: shipment.id }),
+            },
+            { label: t("ship.profile", { id: profile.id }) },
+          ]}
+        />
         <div className="flex items-center gap-2">
           <h1 className="sr-only">
             {t("custody.title", {
@@ -168,7 +157,7 @@ export default function ProfileCustody({ profileId }) {
               }),
             ]}
           />
-          <DataFreshness query={query} compact />
+          <DataFreshness query={query} />
         </div>
       </header>
 
@@ -290,7 +279,7 @@ export default function ProfileCustody({ profileId }) {
                       </span>
                       {row.reason && (
                         <span className="block max-w-56 text-xs break-words text-base-content/70">
-                          {t("ship.reason", { reason: row.reason })}
+                          <TextIn messageKey="ship.reason" text={row.reason} />
                         </span>
                       )}
                     </td>

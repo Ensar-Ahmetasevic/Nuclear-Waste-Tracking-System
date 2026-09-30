@@ -34,6 +34,6 @@ function SessionQueries({ children }) {
   if (status === 'loading') return <BootLoader />;
   return <QueryScope key={`${data?.user?.id || 'anonymous'}:${data?.user?.organizationId || 'none'}:${data?.user?.role || ''}:${data?.user?.workArea || ''}`}><People signedIn={Boolean(data?.user)}><AppShell><WorkspaceGuard>{children}</WorkspaceGuard></AppShell></People></QueryScope>;
 }
-export default function Providers({ children, locale, theme }) {
-  return <PreferencesProvider initialLocale={locale} initialTheme={theme}><MotionPreferences><SessionProvider refetchInterval={30} refetchOnWindowFocus><SessionTransitionProvider><SessionQueries>{children}</SessionQueries></SessionTransitionProvider></SessionProvider></MotionPreferences></PreferencesProvider>;
+export default function Providers({ children, locale, messages, theme }) {
+  return <PreferencesProvider initialLocale={locale} initialMessages={messages} initialTheme={theme}><MotionPreferences><SessionProvider refetchInterval={30} refetchOnWindowFocus><SessionTransitionProvider><SessionQueries>{children}</SessionQueries></SessionTransitionProvider></SessionProvider></MotionPreferences></PreferencesProvider>;
 }

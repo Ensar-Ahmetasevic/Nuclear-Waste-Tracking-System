@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import bcrypt from "bcryptjs";
-import { withApiAuth } from "@/lib/server/api-route";
+import { reasonText, withApiAuth } from "@/lib/server/api-route";
 import { HttpError } from "@/lib/server/errors.cjs";
 import {
   publicUser,
@@ -135,4 +135,4 @@ async function PUTHandler(req, { user, tx }) {
 }
 export const GET = withApiAuth(GETHandler, { access: "member" });
 export const POST = withApiAuth(POSTHandler, { access: "member" });
-export const PUT = withApiAuth(PUTHandler, { access: "member" });
+export const PUT = withApiAuth(PUTHandler, { access: "member", texts: reasonText });

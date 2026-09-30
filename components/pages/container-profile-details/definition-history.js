@@ -8,6 +8,7 @@ import DataFreshness, {
   manualRefreshOptions,
 } from "@/components/shared/data-freshness";
 import EmptyState from "../../ui/empty-state";
+import { TextIn } from "../../ui/message-text";
 import { useDefinitionText } from "./definition-text";
 import { InlineLoader } from "../../loading/loaders";
 
@@ -47,7 +48,6 @@ export default function DefinitionHistory({
           ? t("setup.history")
           : t("def.historyOf", { kind: text.kind(kind) })}
       </Heading>
-      <p className="text-sm text-base-content/70">{t("def.history.desc")}</p>
       {!compact && <DataFreshness query={query} />}
       {query.isPending ? (
         <InlineLoader />
@@ -99,12 +99,10 @@ export default function DefinitionHistory({
                 </p>
                 {change.reason && (
                   <p className="mt-1">
-                    {t(
-                      change.action === "CREATE" ? "def.note" : "ship.reason",
-                      {
-                        reason: change.reason,
-                      },
-                    )}
+                    <TextIn
+                      messageKey={change.action === "CREATE" ? "def.note" : "ship.reason"}
+                      text={change.reason}
+                    />
                   </p>
                 )}
                 {["CREATE", "UPDATE", "DELETE"].includes(change.action) && (

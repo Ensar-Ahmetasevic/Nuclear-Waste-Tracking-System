@@ -367,7 +367,7 @@ function ApprovalFields({ request, close, review, initial }) {
           </select>
         </label>
         <button
-          className="btn min-h-11 btn-primary"
+          className="btn min-h-11 btn-success"
           type="submit"
           disabled={!ready || !employeeId}
         >

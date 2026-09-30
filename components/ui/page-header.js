@@ -12,6 +12,7 @@ export default function PageHeader({
   actions,
   children,
   footer,
+  top = false,
 }) {
   if (scene)
     return (
@@ -24,6 +25,7 @@ export default function PageHeader({
         description={description}
         actions={actions}
         footer={footer}
+        top={top}
       >
         {children}
       </SceneHeader>
@@ -36,6 +38,7 @@ export default function PageHeader({
           {title}
         </h1>
         {description && <p className="text-base-content/75">{description}</p>}
+        {footer}
       </div>
       {actions}
       {children}

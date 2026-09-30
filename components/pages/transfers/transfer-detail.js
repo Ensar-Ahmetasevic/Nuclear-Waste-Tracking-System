@@ -12,6 +12,7 @@ import DataFreshness, {
 import { Card, CardHeader } from "../../ui/card";
 import EmptyState from "../../ui/empty-state";
 import { useFormat } from "../../ui/format";
+import { TextIn } from "../../ui/message-text";
 import PageHeader from "../../ui/page-header";
 import { SceneStat, SceneStats } from "../../ui/scene";
 import Skeleton from "../../ui/skeleton";
@@ -19,6 +20,7 @@ import StatusChip from "../../ui/status-chip";
 import ModalAcceptRequestFromFinalStorageForm from "../pre-storage/capacity-and-conditions/capacity/modal/modal-accept-request-from-final-storage-form";
 import TransferConfirmation from "../final-storage/setup/capacity-and-conditions/capacity/components/transfer-confirmation";
 import { LoadingWatch } from "../../loading/loaders";
+import Breadcrumb from "../../ui/breadcrumb";
 
 const NODE = {
   done: "bg-step-3 text-white",
@@ -56,13 +58,17 @@ function stepDetail(t, format, step, data) {
       return by || t("xfer.step.noRecord");
     case "approval":
       if (step.state === "blocked")
-        return t("xfer.step.approval.rejected", {
-          reason: step.reason || t("ship.notRecorded"),
-        });
+        return step.reason ? (
+          <TextIn messageKey="xfer.step.approval.rejected" text={step.reason} />
+        ) : (
+          t("xfer.step.approval.rejected", { reason: t("ship.notRecorded") })
+        );
       if (step.state === "done") return by || t("xfer.step.noRecord");
-      return step.returnedReason
-        ? t("xfer.step.approval.returned", { reason: step.returnedReason })
-        : t("xfer.step.approval.waiting");
+      return step.returnedReason ? (
+        <TextIn messageKey="xfer.step.approval.returned" text={step.returnedReason} />
+      ) : (
+        t("xfer.step.approval.waiting")
+      );
     case "transport":
       return t(`xfer.step.transport.${step.state}`);
     default:
@@ -102,25 +108,21 @@ export default function TransferDetail({ transferId }) {
   const finalUser = canAccess(user, "FINAL_STORAGE");
   const base = finalUser ? "/final-storage" : "/pre-storage";
   const breadcrumb = (
-    <nav
-      aria-label={t("ship.breadcrumb")}
-      className="flex flex-wrap items-center gap-2 text-sm text-base-content/65"
-    >
-      <Link href={base} className="hover:text-base-content hover:underline">
-        {t(`storage.title.${finalUser ? "FINAL_STORAGE" : "PRE_STORAGE"}`)}
-      </Link>
-      <span aria-hidden="true">›</span>
-      <Link
-        href={`${base}/history?view=transfers`}
-        className="hover:text-base-content hover:underline"
-      >
-        {t("records.view.transfers")}
-      </Link>
-      <span aria-hidden="true">›</span>
-      <span aria-current="page" className="text-base-content/85">
-        {t("xfer.request", { id: transferId })}
-      </span>
-    </nav>
+    <Breadcrumb
+      items={[
+        {
+          href: base,
+          label: t(
+            `storage.title.${finalUser ? "FINAL_STORAGE" : "PRE_STORAGE"}`,
+          ),
+        },
+        {
+          href: `${base}/history?view=transfers`,
+          label: t("records.view.transfers"),
+        },
+        { label: t("xfer.request", { id: transferId }) },
+      ]}
+    />
   );
   if (!data)
     return (
@@ -515,7 +517,7 @@ export default function TransferDetail({ transferId }) {
                       </span>
                       {event.reason && (
                         <span className="text-xs break-words text-base-content/80">
-                          {t("ship.reason", { reason: event.reason })}
+                          <TextIn messageKey="ship.reason" text={event.reason} />
                         </span>
                       )}
                     </span>

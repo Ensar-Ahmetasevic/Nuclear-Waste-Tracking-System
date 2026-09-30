@@ -62,10 +62,10 @@ test('shipment journey follows the recorded data', async () => {
   // A new arrival waits for its content.
   let journey = shipmentJourney({ truckStatus: 'IN', entryDateTime });
   assert.equal(journey.current, 'content');
-  assert.equal(states(journey), 'done,current,upcoming,upcoming,upcoming');
+  assert.equal(states(journey), 'done,current,upcoming,upcoming');
   // Receipt is in progress until every profile is accepted.
   journey = shipmentJourney({ truckStatus: 'IN', entryDateTime, containerProfiles: [profile('accepted', 15), profile('pending', 12)] });
-  assert.equal(states(journey), 'done,done,current,upcoming,upcoming');
+  assert.equal(states(journey), 'done,done,current,upcoming');
   assert.deepEqual(journey.steps[2].progress, { done: 15, total: 27 });
   // A rejected profile blocks the receipt step.
   journey = shipmentJourney({ truckStatus: 'IN', entryDateTime, containerProfiles: [profile('rejected')] });
@@ -74,15 +74,13 @@ test('shipment journey follows the recorded data', async () => {
   assert.equal(shipmentJourney({ truckStatus: 'IN', entryDateTime, containerProfiles: [{ ...profile('pending'), receiptRecorded: true }] }).steps[2].state, 'done');
   // A departure is shown as done even when a receipt is still open.
   journey = shipmentJourney({ truckStatus: 'OUT', entryDateTime, exitDateTime: '2026-09-24T10:00:00Z', containerProfiles: [profile('pending')] });
-  assert.equal(states(journey), 'done,done,current,done,upcoming');
-  // Final storage is complete only when linked transfers carried every received container.
-  const received = [profile('accepted', 15)];
-  assert.equal(shipmentJourney({ truckStatus: 'OUT', entryDateTime, containerProfiles: received, finalContainers: 10 }).steps[4].state, 'current');
-  journey = shipmentJourney({ truckStatus: 'OUT', entryDateTime, containerProfiles: received, finalContainers: 15 });
+  assert.equal(states(journey), 'done,done,current,done');
+  // The truck's journey ends when it leaves with every profile received; final
+  // storage is followed per Container Profile, not per truck.
+  journey = shipmentJourney({ truckStatus: 'OUT', entryDateTime, containerProfiles: [profile('accepted', 15)] });
   assert.equal(journey.current, null);
-  assert.equal(states(journey), 'done,done,done,done,done');
-  // Without linked transfers final storage is not claimed.
-  assert.equal(shipmentJourney({ truckStatus: 'OUT', entryDateTime, containerProfiles: received, finalContainers: 0 }).steps[4].tracked, false);
+  assert.equal(states(journey), 'done,done,done,done');
+  assert.ok(!journey.steps.some(step => step.key === 'final'));
 });
 
 const { GROUPS, permissionMatrix } = require('../lib/permission-matrix.cjs');

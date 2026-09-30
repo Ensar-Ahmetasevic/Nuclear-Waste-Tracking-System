@@ -1,7 +1,6 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -9,9 +8,11 @@ import { LuRefreshCw } from "react-icons/lu";
 import ShipmentTimeline from "@/components/pages/shipping-informations/shipment-timeline";
 import { useT } from "@/components/shell/preferences";
 import { useFormat } from "@/components/ui/format";
+import { TextIn } from "@/components/ui/message-text";
 import EmptyState from "@/components/ui/empty-state";
 import PageHeader from "@/components/ui/page-header";
 import { InlineLoader, PageLoader } from "../../../components/loading/loaders";
+import Breadcrumb from "@/components/ui/breadcrumb";
 
 async function read(path) {
   const response = await fetch(path);
@@ -43,21 +44,12 @@ function DeletionList() {
   });
   return (
     <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-      <nav
-        aria-label={t("ship.breadcrumb")}
-        className="flex items-center gap-2 text-sm text-base-content/65"
-      >
-        <Link
-          href="/shipping-informations"
-          className="hover:text-base-content hover:underline"
-        >
-          {t("ship.title")}
-        </Link>
-        <span aria-hidden="true">›</span>
-        <span aria-current="page" className="text-base-content/85">
-          {t("ship.deletions")}
-        </span>
-      </nav>
+      <Breadcrumb
+        items={[
+          { href: "/shipping-informations", label: t("ship.title") },
+          { label: t("ship.deletions") },
+        ]}
+      />
       <PageHeader
         title={t("ship.deletions")}
         description={t("delhist.desc")}
@@ -177,7 +169,7 @@ function RemovalRecord({ record }) {
       <div className="space-y-3 pb-4">
         <p>
           {t("ship.recordedBy", { actor: record.actorId })} ·{" "}
-          {t("ship.reason", { reason: record.reason })}
+          <TextIn messageKey="ship.reason" text={record.reason} />
         </p>
         <h2 className="font-semibold">{t("delhist.before")}</h2>
         <dl className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">

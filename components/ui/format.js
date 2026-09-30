@@ -1,7 +1,15 @@
 "use client";
 import { usePreferences } from "../shell/preferences";
 
-const TAGS = { en: "en-GB", de: "de-DE" };
+const TAGS = {
+  en: "en-GB",
+  de: "de-DE",
+  tr: "tr-TR",
+  ru: "ru-RU",
+  pl: "pl-PL",
+  uk: "uk-UA",
+  bs: "bs-BA",
+};
 
 // Numbers, dates and waiting times in the interface language.
 export function useFormat() {

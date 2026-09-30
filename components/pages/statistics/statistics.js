@@ -33,7 +33,7 @@ function Legend({ series }) {
 }
 
 // Organization-wide trends: arrivals and container flow, waiting time until
-// receipt, condition alerts per week and current occupancy.
+// receipt, hall alerts per week and current occupancy.
 export default function Statistics() {
   const t = useT();
   const format = useFormat();
@@ -102,8 +102,10 @@ export default function Statistics() {
             }))}
           />
         }
+        footer={
+          <DataFreshness query={query} autoRefreshMs={WORKSPACE_REFRESH_MS} />
+        }
       />
-      <DataFreshness query={query} autoRefreshMs={WORKSPACE_REFRESH_MS} />
       {query.isError && !data && (
         <p
           role="alert"
@@ -165,7 +167,6 @@ export default function Statistics() {
             <CardHeader
               id="daily-title"
               title={t("stats.daily.title")}
-              description={t("stats.daily.desc")}
               action={<Legend series={daily} />}
             />
             {data.totals.arrivals ||
@@ -254,7 +255,6 @@ export default function Statistics() {
               <CardHeader
                 id="alerts-week-title"
                 title={t("stats.alerts.title")}
-                description={t("stats.alerts.desc")}
                 action={<Legend series={alertSeries} />}
               />
               {data.totals.alerts ? (
@@ -307,7 +307,6 @@ export default function Statistics() {
             <CardHeader
               id="occupancy-title"
               title={t("stats.capacity.title")}
-              description={t("stats.capacity.desc")}
             />
             {data.capacity.length ? (
               <ul className="grid gap-x-8 gap-y-4 md:grid-cols-2">

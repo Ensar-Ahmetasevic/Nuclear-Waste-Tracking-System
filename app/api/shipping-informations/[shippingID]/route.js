@@ -43,13 +43,12 @@ async function GETHandler(req, { params, user }) {
       correctionLocked: profile.containerStatus === "accepted" || locked.has(profile.id),
       receiptRecorded: receiptRecorded.has(profile.id),
     }));
-    // Steps for the stepper; final storage counts only linked, completed transfers.
+    // Steps of the truck for the stepper.
     const journey = shipmentJourney({
       ...shippingData,
       arrival: await prisma.shipmentArrival.findFirst({ where: { shipmentId: shippingData.id }, orderBy: { id: "asc" }, select: { actorId: true, createdAt: true } }),
       lastReceiptAt: (await prisma.receiptAllocation.findFirst({ where: { shipmentId: shippingData.id }, orderBy: { createdAt: "desc" }, select: { createdAt: true } }))?.createdAt ?? null,
       departure,
-      finalContainers: transferred.filter(row => row.state === "completed").reduce((total, row) => total + row.quantity, 0),
     });
     const canReviewCorrections = ["ADMINISTRATOR", "SUPERVISION"].includes(user.role);
     const containerCorrections = canReviewCorrections ? await prisma.containerCorrection.findMany({

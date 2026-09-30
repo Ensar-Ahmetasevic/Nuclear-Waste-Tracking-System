@@ -81,6 +81,10 @@ async function POSTHandler(req, { user }) {
   return NextResponse.json({ returnAction });
 }
 
-export const POST = withApiAuth(POSTHandler, { access: "member" });
+export const POST = withApiAuth(POSTHandler, {
+  access: "member",
+  // A resend also records the note as the correction reason of each profile.
+  texts: (body) => [body.note, body.action === "RESEND" && typeof body.note === "string" && `Return #${body.rejectionId}: ${body.note.trim()}`],
+});
 
 export const dynamic = "force-dynamic";

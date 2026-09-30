@@ -7,6 +7,7 @@ import { useT } from "../../../../../shell/preferences";
 import { useFormat } from "../../../../../ui/format";
 import { InlineLoader } from "../../../../../loading/loaders";
 import { ButtonSpinner } from "../../../../../loading/spinner";
+import { ProofreadPrompt, useProofread } from "../../../../../ui/proofread";
 import EarlierReturns from "../earlier-returns";
 import IncomingDelivery from "../incoming-delivery";
 
@@ -29,6 +30,7 @@ function ReturnReview({ closeModal, hallData, entryData }) {
   const [reasons, setReasons] = useState([]);
   const [counted, setCounted] = useState({});
   const [note, setNote] = useState("");
+  const proofread = useProofread();
   const [phase, setPhase] = useState("edit");
   const [message, setMessage] = useState("");
   const [rejection, setRejection] = useState(null);
@@ -147,11 +149,14 @@ function ReturnReview({ closeModal, hallData, entryData }) {
           ) : phase === "edit" ? (
             <form
               className="space-y-5"
-              onSubmit={(event) => {
+              onSubmit={async (event) => {
                 event.preventDefault();
+                if (proofread.waiting) return;
                 const problem = rejectionProblem(report());
                 setMessage(problem ? t(`ret.problem.${problem}`) : "");
-                if (!problem) setPhase("review");
+                if (problem) return;
+                setNote(await proofread.confirm(note));
+                setPhase("review");
               }}
             >
               <div>
@@ -196,7 +201,11 @@ function ReturnReview({ closeModal, hallData, entryData }) {
                 <textarea id="return-note" rows={3} maxLength={1000} className="textarea mt-2 w-full" value={note} onChange={(event) => setNote(event.target.value)} />
                 <p className="mt-1 text-sm text-base-content/65">{t("ret.noteHint")}</p>
               </div>
-              <button className="operational-control btn min-h-11 btn-primary" type="submit">{t("ret.review")}</button>
+              <ProofreadPrompt proofread={proofread} />
+              <button className="operational-control btn min-h-11 btn-primary" type="submit" disabled={proofread.waiting}>
+                {proofread.checking && <ButtonSpinner />}
+                {t("ret.review")}
+              </button>
             </form>
           ) : (
             <div className="space-y-2 rounded-xl border border-error/40 bg-error/5 p-4 text-sm">

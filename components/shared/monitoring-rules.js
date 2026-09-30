@@ -9,6 +9,7 @@ import {
 } from "@/lib/monitoring";
 import { useT } from "../shell/preferences";
 import { useFormat } from "../ui/format";
+import { TextIn } from "../ui/message-text";
 import EmptyState from "../ui/empty-state";
 import IconTile from "../ui/icon-tile";
 import StatusChip from "../ui/status-chip";
@@ -16,6 +17,8 @@ import DataFreshness, { manualRefreshOptions } from "./data-freshness";
 import { ruleSentence } from "./rule-sentence";
 import useReviewDialog, { sendAttempt } from "./use-review-dialog";
 import { InlineLoader } from "../loading/loaders";
+import { ButtonSpinner } from "../loading/spinner";
+import { ProofreadPrompt, useProofread } from "../ui/proofread";
 
 // Labels: rules.bound.<key>.
 const BOUNDS = [
@@ -64,6 +67,7 @@ function RuleDialog({ area, hall, parameter, current, onClose }) {
     ]),
   );
   const [error, setError] = useState(null);
+  const proofread = useProofread();
   const [phase, setPhase] = useState("edit");
   const [message, setMessage] = useState("");
   const [result, setResult] = useState(null);
@@ -107,8 +111,9 @@ function RuleDialog({ area, hall, parameter, current, onClose }) {
     setForm((existing) => ({ ...existing, [key]: value }));
   };
 
-  function review(event) {
+  async function review(event) {
     event.preventDefault();
+    if (proofread.waiting) return;
     const ruleError = ruleProblem(values);
     const problem = ruleError
       ? {
@@ -136,6 +141,11 @@ function RuleDialog({ area, hall, parameter, current, onClose }) {
       )?.focus();
       return;
     }
+    const checked = await proofread.confirm({
+      approvalReference: form.approvalReference.trim(),
+      reason: form.reason.trim(),
+    });
+    setForm((current) => ({ ...current, ...checked }));
     payload.current = null;
     setMessage("");
     setPhase("review");
@@ -216,7 +226,7 @@ function RuleDialog({ area, hall, parameter, current, onClose }) {
                 <input
                   {...field(key)}
                   type="number"
-                  step="any"
+                  step="0.1"
                   className="input mt-1 w-full"
                   value={form[key]}
                   onChange={update(key)}
@@ -260,7 +270,12 @@ function RuleDialog({ area, hall, parameter, current, onClose }) {
               onChange={update("reason")}
             />
           </label>
-          <button type="submit" className="btn min-h-11 btn-primary">
+          <ProofreadPrompt
+            proofread={proofread}
+            labels={{ approvalReference: t("rules.reference"), reason: t("def.reason") }}
+          />
+          <button type="submit" className="btn min-h-11 btn-primary" disabled={proofread.waiting}>
+            {proofread.checking && <ButtonSpinner />}
             {t("rules.review")}
           </button>
         </form>
@@ -493,11 +508,11 @@ export default function MonitoringRules({ area }) {
                       {ruleSentence(t, row, parameterInfo(row.parameter).unit)}
                     </p>
                     <p>
-                      {t("rules.confirmedBy", {
-                        reference: row.approvalReference,
-                      })}
+                      <TextIn messageKey="rules.confirmedBy" name="reference" text={row.approvalReference} />
                     </p>
-                    <p>{t("ship.reason", { reason: row.reason })}</p>
+                    <p>
+                      <TextIn messageKey="ship.reason" text={row.reason} />
+                    </p>
                   </li>
                 ))}
               </ol>

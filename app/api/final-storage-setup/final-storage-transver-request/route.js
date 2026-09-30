@@ -352,6 +352,7 @@ export const GET = withApiAuth(GETHandler);
 export const PUT = withApiAuth(PUTHandler, {
   access: "member",
   bodyObjects: ["data"],
+  texts: (body) => [body.data?.reason],
 });
 
 export const dynamic = "force-dynamic";

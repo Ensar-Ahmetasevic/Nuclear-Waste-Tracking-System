@@ -13,6 +13,6 @@ async function POSTHandler(request, { user }) {
 }
 
 export const GET = withApiAuth(GETHandler);
-export const POST = withApiAuth(POSTHandler);
+export const POST = withApiAuth(POSTHandler, { texts: (body) => [body.reason, body.approvalReference] });
 
 export const dynamic = "force-dynamic";

@@ -10,6 +10,8 @@ import useReviewDialog, {
 import { useT } from "../../shell/preferences";
 import { useFormat } from "../../ui/format";
 import { InlineLoader } from "../../loading/loaders";
+import { ButtonSpinner } from "../../loading/spinner";
+import { ProofreadPrompt, useProofread } from "../../ui/proofread";
 
 // Administrator links an earlier receipt to the whole accepted profiles it contained.
 export default function LegacyLinkDialog({ hall, receipt, onClose }) {
@@ -18,6 +20,7 @@ export default function LegacyLinkDialog({ hall, receipt, onClose }) {
   const [selected, setSelected] = useState([]);
   const [filter, setFilter] = useState("");
   const [reason, setReason] = useState("");
+  const proofread = useProofread();
   const [error, setError] = useState("");
   const [phase, setPhase] = useState("edit");
   const [message, setMessage] = useState("");
@@ -57,8 +60,9 @@ export default function LegacyLinkDialog({ hall, receipt, onClose }) {
       time: format.dateTime(row.createdAt),
     });
 
-  function review(event) {
+  async function review(event) {
     event.preventDefault();
+    if (proofread.waiting) return;
     if (!chosen.length) {
       setError(t("recon.link.error.select"));
       return;
@@ -74,6 +78,7 @@ export default function LegacyLinkDialog({ hall, receipt, onClose }) {
       return;
     }
     setError("");
+    setReason(await proofread.confirm(reason.trim()));
     payload.current = null;
     setMessage("");
     setPhase("review");
@@ -229,7 +234,9 @@ export default function LegacyLinkDialog({ hall, receipt, onClose }) {
               onChange={(event) => setReason(event.target.value)}
             />
           </label>
-          <button type="submit" className="btn min-h-11 btn-primary">
+          <ProofreadPrompt proofread={proofread} />
+          <button type="submit" className="btn min-h-11 btn-primary" disabled={proofread.waiting}>
+            {proofread.checking && <ButtonSpinner />}
             {t("recon.link.reviewButton")}
           </button>
         </form>

@@ -4,7 +4,7 @@ import { HttpError } from "@/lib/server/errors.cjs";
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/server/scoped-database.cjs";
-import { withApiAuth } from "@/lib/server/api-route";
+import { reasonText, withApiAuth } from "@/lib/server/api-route";
 
 const archivedChoice = "The selected Location Origin or Waste Profile has been archived. Reload the options and choose an active definition.";
 
@@ -180,10 +180,10 @@ async function PATCHHandler(request, { user }) {
   }
 }
 
-export const POST = withApiAuth(POSTHandler, { access: "shipping" });
+export const POST = withApiAuth(POSTHandler, { access: "shipping", texts: reasonText });
 export const GET = withApiAuth(GETHandler);
-export const DELETE = withApiAuth(DELETEHandler, { access: "member", allowedRoles: ["ADMINISTRATOR", "SUPERVISION"] });
-export const PUT = withApiAuth(PUTHandler, { access: "shipping", bodyObjects: ["preparedData"] });
+export const DELETE = withApiAuth(DELETEHandler, { access: "member", allowedRoles: ["ADMINISTRATOR", "SUPERVISION"], texts: reasonText });
+export const PUT = withApiAuth(PUTHandler, { access: "shipping", bodyObjects: ["preparedData"], texts: (body) => [body.preparedData?.reason] });
 export const PATCH = withApiAuth(PATCHHandler, { access: "shipping", bodyObjects: ["containerStatusUpdateData"] });
 
 export const dynamic = "force-dynamic";

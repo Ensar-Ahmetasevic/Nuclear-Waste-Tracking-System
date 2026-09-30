@@ -31,7 +31,7 @@ export default function RequestFromFinalStorage({ requestData }) {
       </div>
       <div className="flex flex-wrap gap-2">
         <button
-          className="btn min-h-11 btn-primary btn-sm"
+          className="btn min-h-11 btn-sm btn-success"
           onClick={() =>
             setDecision({ request: { ...requestData }, accept: true })
           }

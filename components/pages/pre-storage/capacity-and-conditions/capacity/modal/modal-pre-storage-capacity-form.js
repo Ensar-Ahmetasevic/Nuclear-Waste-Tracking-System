@@ -110,8 +110,8 @@ function ReceiptReview({ closeModal, hallData, entryData }) {
         {receipt ? t("rec.done") : t("rec.title")}
       </h2>
       <p className="mt-2 text-sm text-base-content/65">
-        {t("area.PRE_STORAGE")} ·{" "}
-        {t("ship.number", { id: entryData.id })} → {hallData.name}
+        {t("area.PRE_STORAGE")} · {t("ship.number", { id: entryData.id })} →{" "}
+        {hallData.name}
       </p>
       {receipt ? (
         <div className="operational-confirm mt-5 space-y-3" role="status">
@@ -201,7 +201,7 @@ function ReceiptReview({ closeModal, hallData, entryData }) {
           </div>
           {phase === "review" && (
             <button
-              className="operational-control btn mt-4 min-h-11 w-full btn-primary"
+              className="operational-control btn mt-4 min-h-11 w-full btn-success"
               onClick={save}
             >
               {t("rec.confirm", { count: entryData.totalQuantity })}

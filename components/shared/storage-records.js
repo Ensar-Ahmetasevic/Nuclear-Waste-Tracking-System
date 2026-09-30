@@ -11,6 +11,7 @@ import PageHeader from "../ui/page-header";
 import StatusChip from "../ui/status-chip";
 import { manualRefreshOptions } from "./data-freshness";
 import { InlineLoader, PageLoader } from "../loading/loaders";
+import Breadcrumb from "../ui/breadcrumb";
 
 const LEVEL_TONE = {
   danger: "error",
@@ -91,21 +92,12 @@ function Records({ area }) {
   };
   return (
     <main className="mx-auto w-full max-w-4xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-      <nav
-        aria-label={t("ship.breadcrumb")}
-        className="flex items-center gap-2 text-sm text-base-content/65"
-      >
-        <Link
-          href={`/${area}`}
-          className="hover:text-base-content hover:underline"
-        >
-          {t(`storage.title.${areaKey}`)}
-        </Link>
-        <span aria-hidden="true">›</span>
-        <span aria-current="page" className="text-base-content/85">
-          {t("home.history")}
-        </span>
-      </nav>
+      <Breadcrumb
+        items={[
+          { href: `/${area}`, label: t(`storage.title.${areaKey}`) },
+          { label: t("home.history") },
+        ]}
+      />
       <PageHeader title={t("home.history")} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div

@@ -133,11 +133,7 @@ export default function ScanPage() {
           aria-labelledby="scan-code-title"
           className="space-y-4"
         >
-          <CardHeader
-            id="scan-code-title"
-            title={t("scan.code")}
-            description={t("scan.code.desc")}
-          />
+          <CardHeader id="scan-code-title" title={t("scan.code")} />
           <form
             className="space-y-3"
             onSubmit={(event) => {
@@ -159,7 +155,6 @@ export default function ScanPage() {
                 autoCapitalize="characters"
                 spellCheck={false}
                 enterKeyHint="go"
-                aria-describedby="scan-hint"
                 aria-invalid={message ? true : undefined}
                 value={value}
                 onChange={(event) => setValue(event.target.value)}
@@ -171,9 +166,6 @@ export default function ScanPage() {
                 {t("scan.open")}
               </button>
             </div>
-            <p id="scan-hint" className="text-sm text-base-content/70">
-              {t("scan.hint")}
-            </p>
           </form>
           <div aria-live="polite" className="space-y-3">
             {message && (
@@ -239,7 +231,6 @@ export default function ScanPage() {
           <CardHeader
             id="scan-camera-title"
             title={t("scan.camera")}
-            description={t("scan.camera.desc")}
             action={
               support === "yes" && (
                 <button
@@ -290,9 +281,6 @@ export default function ScanPage() {
               </p>
             )}
           </div>
-          <p className="text-sm text-base-content/70">
-            {t("scan.camera.note")}
-          </p>
         </Card>
       </div>
     </main>

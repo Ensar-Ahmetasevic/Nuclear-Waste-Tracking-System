@@ -10,6 +10,7 @@ import { readingDevices } from "../../lib/measurement-reading.cjs";
 import { useFormat } from "../ui/format";
 import StatusChip from "../ui/status-chip";
 import { ruleSentence } from "./rule-sentence";
+import AlertProblems, { AlertState } from "./alert-problems";
 
 const LEVEL = {
   optimal: ["success", "border-success/40"],
@@ -45,11 +46,12 @@ export default function MeasurementDetails({
     refetchOnWindowFocus: false,
   });
   const alerts = useQuery({
-    queryKey: ["conditionAlerts", area, locationId, "summary"],
-    queryFn: () => read(`/api/${area}-setup/monitoring?location=${locationId}`),
+    queryKey: ["hallAlerts", area, "location", locationId],
+    queryFn: () => read(`/api/${area}-setup/alerts?location=${locationId}`),
     enabled: Boolean(locationId),
     refetchOnWindowFocus: false,
   });
+  const alert = alerts.data?.alerts?.[0];
   const hallRules = rules.data?.locations?.[0]?.rules;
   const nextDue =
     hallRules && recordedAt
@@ -178,59 +180,25 @@ export default function MeasurementDetails({
           {t("meas.record")}
         </button>
       </div>
-      {/* A latest value outside range with no open alert was saved before alerts were evaluated. */}
-      {measurement &&
-        hallRules &&
-        alerts.data &&
-        (() => {
-          const unevaluated = MONITORING_PARAMETERS.filter(
-            ({ key, field }) =>
-              ["warning", "danger"].includes(
-                classify(hallRules[key], measurement[prefix + field]),
-              ) &&
-              !alerts.data.alerts.some(
-                (row) => row.kind === "OUT_OF_RANGE" && row.parameter === key,
-              ),
-          );
-          return (
-            unevaluated.length > 0 && (
-              <p className="rounded-xl border border-warning p-3 text-sm">
-                {t("meas.unevaluated", {
-                  parameters: unevaluated
-                    .map((row) => t(`param.${row.key}`))
-                    .join(", "),
-                })}
-              </p>
-            )
-          );
-        })()}
-      {/* Open alerts only; each opens its own record, where it is acknowledged or closed. */}
-      {alerts.data?.alerts?.length > 0 && (
-        <ul className="space-y-2">
-          {alerts.data.alerts.map((row) => (
-            <li key={row.id}>
-              <Link
-                href={`/${area}/alerts/${row.id}`}
-                className={`flex min-h-11 items-center justify-between gap-3 rounded-xl border p-3 text-sm hover:bg-base-content/5 ${row.severity === "CRITICAL" ? "border-error bg-error/10" : "border-warning bg-warning/10"}`}
-              >
-                <span>
-                  <span className="font-semibold">
-                    {t(`param.${row.parameter}`)}
-                  </span>{" "}
-                  ·{" "}
-                  {t(
-                    row.kind === "MISSING"
-                      ? "attention.alert.overdue"
-                      : row.severity === "CRITICAL"
-                        ? "attention.alert.critical"
-                        : "attention.alert.warning",
-                  )}
-                </span>
-                <LuArrowRight className="size-4 shrink-0" aria-hidden="true" />
-              </Link>
-            </li>
-          ))}
-        </ul>
+      {/* The hall's unresolved alert: what is wrong, and its messages and handling. */}
+      {alert && (
+        <Link
+          href={`/${area}/alerts/${alert.id}`}
+          className={`flex min-h-14 items-center gap-3 rounded-xl border-2 p-3 hover:bg-base-content/5 ${
+            !alert.problems.length
+              ? "border-success/50 bg-success/10"
+              : alert.severity === "CRITICAL"
+                ? "border-error bg-error/10"
+                : "border-warning bg-warning/10"
+          }`}
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold">{t("halert.banner")}</span>
+            <AlertProblems problems={alert.problems} className="text-sm" />
+          </span>
+          <AlertState alert={alert} />
+          <LuArrowRight className="size-4 shrink-0" aria-hidden="true" />
+        </Link>
       )}
       {range && hallRules && (
         <RangeDialog

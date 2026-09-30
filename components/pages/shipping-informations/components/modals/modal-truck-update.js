@@ -4,6 +4,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useT } from "../../../../shell/preferences";
 import { useFormat } from "../../../../ui/format";
 import { SavingButton } from "../../../../loading/loaders";
+import { ButtonSpinner } from "../../../../loading/spinner";
+import { ProofreadPrompt, useProofread } from "../../../../ui/proofread";
 // Field → label key.
 const detailFields = {
   companyName: "field.companyName",
@@ -36,6 +38,7 @@ export default function ModalTruckUpdate({
     ),
   );
   const [reason, setReason] = useState("");
+  const proofread = useProofread();
   const [phase, setPhase] = useState("edit");
   const [message, setMessage] = useState("");
   const [result, setResult] = useState(null);
@@ -68,8 +71,9 @@ export default function ModalTruckUpdate({
     if (result || phase === "unknown" || phase === "conflict")
       await client.invalidateQueries();
   }
-  function review(event) {
+  async function review(event) {
     event.preventDefault();
+    if (proofread.waiting) return;
     if (
       Object.keys(fields).every(
         (key) => values[key].trim() === (original[key] || ""),
@@ -78,6 +82,7 @@ export default function ModalTruckUpdate({
       setMessage(t("def.error.unchanged"));
       return;
     }
+    if (correction) setReason(await proofread.confirm(reason.trim()));
     payload.current = null;
     setMessage("");
     setPhase("review");
@@ -240,7 +245,9 @@ export default function ModalTruckUpdate({
               />
             </label>
           )}
-          <button className="btn min-h-11 btn-primary" type="submit">
+          <ProofreadPrompt proofread={proofread} />
+          <button className="btn min-h-11 btn-primary" type="submit" disabled={proofread.waiting}>
+            {proofread.checking && <ButtonSpinner />}
             {t("users.reviewChanges")}
           </button>
         </form>

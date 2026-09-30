@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { LuHistory, LuInfo, LuPencil, LuTrash2 } from "react-icons/lu";
+import { LuHistory, LuInfo, LuLock, LuPencil, LuTrash2 } from "react-icons/lu";
 import { useT } from "../../../shell/preferences";
 import { useFormat } from "../../../ui/format";
 import IconTile from "../../../ui/icon-tile";
@@ -75,6 +75,12 @@ export default function ShowContainerDetails({ data, canEdit = false }) {
           <h3 className="text-base font-semibold">
             {t("ship.profile", { id })}
           </h3>
+          {data.correctionLocked && (
+            <span title={t("ship.locked")} className="text-base-content/60">
+              <LuLock className="size-4" aria-hidden="true" />
+              <span className="sr-only">{t("ship.locked")}</span>
+            </span>
+          )}
         </div>
         <StatusChip tone={status.chip}>
           {t(`profile.${shownStatus}`)}
@@ -152,10 +158,13 @@ export default function ShowContainerDetails({ data, canEdit = false }) {
 
       {shownStatus === "rejected" && data.lastReturn && (
         <p className="text-sm text-error">
-          {t(`return.onProfile.${data.lastReturn.state === "escalated" ? "escalated" : "open"}`, {
-            id: data.lastReturn.id,
-            hall: data.lastReturn.hall || `#${data.lastReturn.locationId}`,
-          })}
+          {t(
+            `return.onProfile.${data.lastReturn.state === "escalated" ? "escalated" : "open"}`,
+            {
+              id: data.lastReturn.id,
+              hall: data.lastReturn.hall || `#${data.lastReturn.locationId}`,
+            },
+          )}
         </p>
       )}
       {shownStatus === "pending" && data.lastReturn && (
@@ -165,9 +174,6 @@ export default function ShowContainerDetails({ data, canEdit = false }) {
             hall: data.lastReturn.hall || `#${data.lastReturn.locationId}`,
           })}
         </p>
-      )}
-      {data.correctionLocked && (
-        <p className="text-sm text-base-content/70">{t("ship.locked")}</p>
       )}
       <div className="flex flex-wrap items-center gap-2 border-t border-base-content/10 pt-3">
         <Link

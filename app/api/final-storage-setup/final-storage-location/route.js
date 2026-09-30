@@ -1,5 +1,5 @@
 import { storageBalances } from "@/lib/server/storage-balances";
-import { withApiAuth } from "@/lib/server/api-route";
+import { reasonText, withApiAuth } from "@/lib/server/api-route";
 import { definitionRoutes } from "@/lib/server/definition-changes";
 
 // Hall changes are reviewed and recorded; a hall with transfers, measurements or
@@ -16,8 +16,8 @@ const routes = definitionRoutes("FINAL_STORAGE_LOCATION", {
 });
 
 export const GET = withApiAuth(routes.GET);
-export const POST = withApiAuth(routes.POST, { bodyObjects: ["values"] });
-export const PUT = withApiAuth(routes.PUT, { bodyObjects: ["values"] });
-export const DELETE = withApiAuth(routes.DELETE);
+export const POST = withApiAuth(routes.POST, { bodyObjects: ["values"], texts: reasonText });
+export const PUT = withApiAuth(routes.PUT, { bodyObjects: ["values"], texts: reasonText });
+export const DELETE = withApiAuth(routes.DELETE, { texts: reasonText });
 
 export const dynamic = "force-dynamic";

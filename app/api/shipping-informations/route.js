@@ -5,7 +5,7 @@ import { HttpError } from "@/lib/server/errors.cjs";
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/server/scoped-database.cjs";
-import { withApiAuth } from "@/lib/server/api-route";
+import { reasonText, withApiAuth } from "@/lib/server/api-route";
 import { returnStates } from "@/lib/server/receipt-rejections";
 
 // Creating  data
@@ -59,16 +59,11 @@ async function GETHandler(req, res) {
       );
     }
 
-    // Containers of each shipment that arrived in final storage through linked transfers.
-    const completed = await prisma.transferSource.findMany({ where: { state: "completed" }, select: { shipmentId: true, quantity: true } });
-    const finalContainers = new Map();
-    for (const row of completed) finalContainers.set(row.shipmentId, (finalContainers.get(row.shipmentId) || 0) + row.quantity);
     const receipts = new Set((await prisma.receiptAllocation.findMany({ select: { containerProfileId: true } })).map(row => row.containerProfileId));
     const returns = await returnStates(shippingData);
     return NextResponse.json({ shippingData: shippingData.map(row => ({
       ...row,
       returnState: returns.get(row.id),
-      finalContainers: finalContainers.get(row.id) || 0,
       containerProfiles: row.containerProfiles.map(profile => ({ ...profile, receiptRecorded: receipts.has(profile.id) })),
     })) }, { status: 200 });
   }
@@ -256,14 +251,16 @@ async function PATCHHandler(req, { user }) {
 export const POST = withApiAuth(POSTHandler, { access: "shipping" });
 export const GET = withApiAuth(GETHandler);
 // Authorization for OUT/contained profiles is checked above, after replay lookup.
-export const DELETE = withApiAuth(DELETEHandler, { access: "member" });
+export const DELETE = withApiAuth(DELETEHandler, { access: "member", texts: reasonText });
 export const PUT = withApiAuth(PUTHandler, {
   access: "shipping",
   bodyObjects: ["updatedTruckData"],
+  texts: (body) => [body.updatedTruckData?.reason],
 });
 export const PATCH = withApiAuth(PATCHHandler, {
   access: "admin",
   bodyObjects: ["shippingStatusData"],
+  texts: (body) => [body.shippingStatusData?.reason],
 });
 
 export const dynamic = "force-dynamic";

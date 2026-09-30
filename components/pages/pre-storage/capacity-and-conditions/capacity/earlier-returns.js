@@ -3,6 +3,7 @@ import { LuCheck, LuShieldAlert, LuUndo2 } from "react-icons/lu";
 import { useT } from "../../../../shell/preferences";
 import { useFormat } from "../../../../ui/format";
 import { personLabel } from "../../../../shared/person-label";
+import MessageText from "../../../../ui/message-text";
 
 // Earlier returns of these incoming profiles: what Pre-storage found, and what
 // Shipments or Supervision corrected before sending them again.
@@ -86,7 +87,7 @@ function ReturnTimeline({ report }) {
           <ul className="space-y-1.5 pb-1">
             {notes.map((event) => (
               <li key={event.key} className="break-words">
-                <span className="font-medium">{event.title}:</span> {event.note}
+                <span className="font-medium">{event.title}:</span> <MessageText text={event.note} />
               </li>
             ))}
           </ul>

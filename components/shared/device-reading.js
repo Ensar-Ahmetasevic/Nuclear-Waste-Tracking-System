@@ -1,6 +1,13 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { LuBluetooth, LuScanLine, LuX } from "react-icons/lu";
+import {
+  LuBluetooth,
+  LuCheck,
+  LuLoaderCircle,
+  LuRadioTower,
+  LuScanLine,
+  LuX,
+} from "react-icons/lu";
 import { parseDeviceCode } from "../../lib/measurement-reading.cjs";
 import { useT } from "../shell/preferences";
 
@@ -31,10 +38,133 @@ async function readBluetooth(field) {
   }
 }
 
+// Local demo only: a stand-in device that "connects", "measures" and returns a
+// random value inside the location's acceptable range (the optimal band of its
+// monitoring rule), so a demo reading never raises an alert.
+export const SIMULATION = process.env.NWTS_DEVICE_SIMULATION === "1";
+const SIM_DEVICE = "NWTS Demo-Sensor";
+const DECIMALS = {
+  Temperature: 1,
+  RadiationLevel: 2,
+  Humidity: 1,
+  Pressure: 0,
+};
+
+function simulatedValue(field, rule) {
+  const upper = rule?.upperWarning ?? null;
+  let low = rule?.lowerWarning ?? (upper != null ? upper * 0.2 : 0);
+  let high = upper ?? low * 1.5 + 1;
+  if (field !== "Temperature") low = Math.max(0, low);
+  if (field === "Humidity") high = Math.min(100, high);
+  // Keep clear of the bounds themselves.
+  const margin = (high - low) * 0.1;
+  const value = low + margin + Math.random() * (high - low - 2 * margin);
+  const factor = 10 ** DECIMALS[field];
+  return Math.round(value * factor) / factor;
+}
+
+// Durations of the simulated steps, slow enough to follow on a demo screen.
+const SIM_STEPS = { connecting: 2500, reading: 3500, done: 2000 };
+
+function SimulatedDevice({ field, label, unit, rule, onRead, onClose }) {
+  const t = useT();
+  // ready → (the person starts it) → connecting → reading → done → value applied
+  const [phase, setPhase] = useState("ready");
+  const [value, setValue] = useState(null);
+  const timers = useRef([]);
+  useEffect(() => () => timers.current.forEach(clearTimeout), []);
+  function start() {
+    const reading = simulatedValue(field, rule);
+    const at = (ms, action) => timers.current.push(setTimeout(action, ms));
+    setPhase("connecting");
+    at(SIM_STEPS.connecting, () => setPhase("reading"));
+    at(SIM_STEPS.connecting + SIM_STEPS.reading, () => {
+      setValue(reading);
+      setPhase("done");
+    });
+    // onRead writes the value into the field and closes the panel.
+    at(SIM_STEPS.connecting + SIM_STEPS.reading + SIM_STEPS.done, () =>
+      onRead({ value: reading, method: "SIMULATED", device: SIM_DEVICE }),
+    );
+  }
+  return (
+    <div
+      role="status"
+      className="mt-2 flex items-center gap-3 rounded-xl border border-primary/40 bg-primary/5 p-3"
+    >
+      <span
+        className={`inline-flex size-10 shrink-0 items-center justify-center rounded-full ${phase === "done" ? "bg-success/15 text-success" : "bg-primary/15 text-primary"}`}
+      >
+        {phase === "ready" ? (
+          <LuRadioTower className="size-5" aria-hidden="true" />
+        ) : phase === "connecting" ? (
+          <LuRadioTower className="size-5 animate-pulse" aria-hidden="true" />
+        ) : phase === "reading" ? (
+          <LuLoaderCircle className="size-5 animate-spin" aria-hidden="true" />
+        ) : (
+          <LuCheck className="size-5" aria-hidden="true" />
+        )}
+      </span>
+      <span className="min-w-0 flex-1 text-sm">
+        <span className="block font-medium">
+          {phase === "done"
+            ? `${value} ${unit}`
+            : t(`dev.sim.${phase}`, { device: SIM_DEVICE })}
+        </span>
+        <span className="block text-base-content/65">
+          {phase === "done"
+            ? t("dev.sim.done", { device: SIM_DEVICE })
+            : phase === "reading"
+              ? t("dev.sim.measuring", { parameter: label })
+              : t("dev.sim.demo")}
+        </span>
+        {phase !== "done" && (
+          <span
+            className={`mt-2 block h-1 overflow-hidden rounded-full bg-base-content/10 ${phase === "ready" ? "invisible" : ""}`}
+          >
+            <span
+              className={`block h-full rounded-full bg-primary transition-[width] ease-linear ${
+                phase === "reading"
+                  ? "w-full duration-[3500ms]"
+                  : phase === "connecting"
+                    ? "w-1/3 duration-[2500ms]"
+                    : "w-0"
+              }`}
+            />
+          </span>
+        )}
+      </span>
+      {phase === "ready" && (
+        <button
+          type="button"
+          className="btn min-h-11 btn-primary btn-sm"
+          onClick={start}
+        >
+          {t("dev.sim.start")}
+        </button>
+      )}
+      <button
+        type="button"
+        className="btn btn-square min-h-11 btn-ghost btn-sm"
+        aria-label={t("common.cancel")}
+        disabled={phase === "done"}
+        onClick={onClose}
+      >
+        <LuX className="size-4" aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
+
 // Reads one value from a measuring device: from the code it shows (hand
 // scanner, camera or pasted) or over Bluetooth. Other values in the code are
 // ignored; each field is read on its own.
-export default function DeviceScan({ field, label, onRead, onClose }) {
+export default function DeviceScan(props) {
+  if (SIMULATION) return <SimulatedDevice {...props} />;
+  return <DeviceReader {...props} />;
+}
+
+function DeviceReader({ field, label, onRead, onClose }) {
   const t = useT();
   const video = useRef(null);
   const input = useRef(null);

@@ -4,12 +4,12 @@ import AccountChangeReview from "@/components/pages/users/account-change-review"
 import PermissionMatrix from "@/components/pages/users/permission-matrix";
 import { areas } from "../../lib/workspaces.cjs";
 import { useEffect, useRef, useState } from "react";
-import { LuPencil } from "react-icons/lu";
+import { LuPencil, LuPlus } from "react-icons/lu";
 import { useT } from "../../components/shell/preferences";
 import { useFormat } from "../../components/ui/format";
+import { TextIn } from "../../components/ui/message-text";
 import PageHeader from "../../components/ui/page-header";
 import StatusChip from "../../components/ui/status-chip";
-import EmptyState from "../../components/ui/empty-state";
 
 const ROLES = ["ADMINISTRATOR", "SUPERVISION", "EMPLOYEE"];
 const empty = {
@@ -34,12 +34,11 @@ export default function UsersPage() {
   const [role, setRole] = useState(null);
   const [form, setForm] = useState(empty);
   const [editing, setEditing] = useState(null);
+  // The form opens for a new account or an edit; the list is the page.
+  const [formOpen, setFormOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
-  const areaLabel = (key) =>
-    areas[key]
-      ? t(`area.${key}`)
-      : null;
+  const areaLabel = (key) => (areas[key] ? t(`area.${key}`) : null);
   async function refresh() {
     const response = await fetch("/api/users", { cache: "no-store" });
     const data = await response.json();
@@ -127,6 +126,7 @@ export default function UsersPage() {
           saved={() => {
             setReview(null);
             setEditing(null);
+            setFormOpen(false);
             setForm(empty);
             refresh().catch((error) => setMessage(error.message));
           }}
@@ -141,14 +141,35 @@ export default function UsersPage() {
           }}
           saved={() => {
             setCreation(null);
-            requestAnimationFrame(() => reviewTrigger.current?.focus());
+            setFormOpen(false);
             setForm(empty);
             setMessage(t("users.created"));
             refresh().catch(() => setMessage(t("users.createdNoRefresh")));
           }}
         />
       )}
-      <PageHeader title={t("users.title")} description={t("users.desc")} />
+      <PageHeader
+        title={t("users.title")}
+        description={t("users.desc")}
+        actions={
+          role &&
+          !formOpen && (
+            <button
+              type="button"
+              className="btn min-h-11 btn-primary"
+              onClick={() => {
+                setEditing(null);
+                setForm(empty);
+                setMessage("");
+                setFormOpen(true);
+              }}
+            >
+              <LuPlus className="size-5" aria-hidden="true" />
+              {t("users.create")}
+            </button>
+          )
+        }
+      />
       {message && (
         <p
           role="status"
@@ -161,110 +182,111 @@ export default function UsersPage() {
         <p role="status">{t("users.loading")}</p>
       ) : (
         role && (
-          <div className="grid gap-6 lg:grid-cols-5">
-            <section
-              className={`${card} lg:col-span-2 lg:self-start`}
-              aria-labelledby="account-form-title"
-            >
-              <h2 id="account-form-title" className="text-lg font-semibold">
-                {editing ? t("users.edit") : t("users.create")}
-              </h2>
-              <form onSubmit={submit}>
-                <fieldset
-                  disabled={Boolean(creation)}
-                  className="grid min-w-0 gap-4"
-                >
-                  {field("displayName")}
-                  {field("username")}
-                  {field("email", "email")}
-                  {!editing && field("password", "password")}
-                  <label className="flex flex-col gap-2 text-sm">
-                    {t("users.field.role")}
-                    <select
-                      className="select w-full"
-                      value={form.role}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          role: event.target.value,
-                        }))
-                      }
-                    >
-                      {(role === "ADMINISTRATOR" ? ROLES : ["EMPLOYEE"]).map(
-                        (value) => (
-                          <option key={value} value={value}>
-                            {t(`role.${value}`)}
-                          </option>
-                        ),
-                      )}
-                    </select>
-                  </label>
-                  {form.role === "EMPLOYEE" && (
+          <div className={`grid gap-6 ${formOpen ? "lg:grid-cols-5" : ""}`}>
+            {formOpen && (
+              <section
+                className={`${card} lg:col-span-2 lg:self-start`}
+                aria-labelledby="account-form-title"
+              >
+                <h2 id="account-form-title" className="text-lg font-semibold">
+                  {editing ? t("users.edit") : t("users.create")}
+                </h2>
+                <form onSubmit={submit}>
+                  <fieldset
+                    disabled={Boolean(creation)}
+                    className="grid min-w-0 gap-4"
+                  >
+                    {field("displayName")}
+                    {field("username")}
+                    {field("email", "email")}
+                    {!editing && field("password", "password")}
                     <label className="flex flex-col gap-2 text-sm">
-                      {t("users.field.workArea")}
+                      {t("users.field.role")}
                       <select
-                        required
                         className="select w-full"
-                        value={form.workArea || ""}
+                        value={form.role}
                         onChange={(event) =>
                           setForm((current) => ({
                             ...current,
-                            workArea: event.target.value,
+                            role: event.target.value,
                           }))
                         }
                       >
-                        <option value="">{t("users.chooseStep")}</option>
-                        {Object.keys(areas).map((key) => (
-                          <option key={key} value={key}>
-                            {areaLabel(key)}
-                          </option>
-                        ))}
+                        {(role === "ADMINISTRATOR" ? ROLES : ["EMPLOYEE"]).map(
+                          (value) => (
+                            <option key={value} value={value}>
+                              {t(`role.${value}`)}
+                            </option>
+                          ),
+                        )}
                       </select>
                     </label>
-                  )}
-                  {editing && (
-                    <label className="flex min-h-11 items-center gap-3 text-sm">
-                      <input
-                        type="checkbox"
-                        className="checkbox"
-                        checked={form.enabled}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            enabled: event.target.checked,
-                          }))
-                        }
-                      />
-                      {t("users.field.active")}
-                    </label>
-                  )}
-                  <div className="flex flex-wrap gap-3">
-                    <button
-                      ref={reviewTrigger}
-                      className="btn min-h-11 btn-primary"
-                    >
-                      {editing
-                        ? t("users.reviewChanges")
-                        : t("users.reviewNew")}
-                    </button>
+                    {form.role === "EMPLOYEE" && (
+                      <label className="flex flex-col gap-2 text-sm">
+                        {t("users.field.workArea")}
+                        <select
+                          required
+                          className="select w-full"
+                          value={form.workArea || ""}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              workArea: event.target.value,
+                            }))
+                          }
+                        >
+                          <option value="">{t("users.chooseStep")}</option>
+                          {Object.keys(areas).map((key) => (
+                            <option key={key} value={key}>
+                              {areaLabel(key)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
                     {editing && (
+                      <label className="flex min-h-11 items-center gap-3 text-sm">
+                        <input
+                          type="checkbox"
+                          className="checkbox"
+                          checked={form.enabled}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              enabled: event.target.checked,
+                            }))
+                          }
+                        />
+                        {t("users.field.active")}
+                      </label>
+                    )}
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        ref={reviewTrigger}
+                        className="btn min-h-11 btn-primary"
+                      >
+                        {editing
+                          ? t("users.reviewChanges")
+                          : t("users.reviewNew")}
+                      </button>
                       <button
                         className="btn min-h-11 btn-ghost"
                         type="button"
                         onClick={() => {
                           setEditing(null);
                           setForm(empty);
+                          setFormOpen(false);
                         }}
                       >
                         {t("common.cancel")}
                       </button>
-                    )}
-                  </div>
-                </fieldset>
-              </form>
-            </section>
+                    </div>
+                  </fieldset>
+                </form>
+              </section>
+            )}
             <section
-              className="space-y-3 lg:col-span-3"
+              className={`space-y-3 ${formOpen ? "lg:col-span-3" : ""}`}
               aria-labelledby="accounts-title"
             >
               <h2 id="accounts-title" className="text-lg font-semibold">
@@ -322,6 +344,7 @@ export default function UsersPage() {
                           enabled: user.active,
                         });
                         setMessage("");
+                        setFormOpen(true);
                         window.scrollTo({ top: 0, behavior: "smooth" });
                       }}
                     >
@@ -343,17 +366,9 @@ export default function UsersPage() {
         />
       )}
       <div className="grid gap-6 lg:grid-cols-2">
-        {role === "ADMINISTRATOR" && (
+        {role === "ADMINISTRATOR" && changes.length > 0 && (
           <section className={card}>
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold">{t("users.changes")}</h2>
-              <p className="text-sm text-base-content/70">
-                {t("users.changes.desc")}
-              </p>
-            </div>
-            {!changes.length && (
-              <EmptyState>{t("users.changes.empty")}</EmptyState>
-            )}
+            <h2 className="text-lg font-semibold">{t("users.changes")}</h2>
             {changes.map((change) => (
               <details
                 key={change.id}
@@ -368,8 +383,8 @@ export default function UsersPage() {
                 </summary>
                 <div className="space-y-2 pb-3 text-sm">
                   <p>{t("ship.recordedBy", { actor: change.actorId })}</p>
-                  <p className="break-words">
-                    {t("ship.reason", { reason: change.reason })}
+                  <p>
+                    <TextIn messageKey="ship.reason" text={change.reason} />
                   </p>
                   <p>
                     {t("users.fieldsChanged", {
@@ -404,21 +419,9 @@ export default function UsersPage() {
             ))}
           </section>
         )}
-        {role && (
+        {role && creations.length > 0 && (
           <section className={card}>
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold">{t("users.creations")}</h2>
-              <p className="text-sm text-base-content/70">
-                {t(
-                  role === "SUPERVISION"
-                    ? "users.creations.descOwn"
-                    : "users.creations.desc",
-                )}
-              </p>
-            </div>
-            {!creations.length && (
-              <EmptyState>{t("users.creations.empty")}</EmptyState>
-            )}
+            <h2 className="text-lg font-semibold">{t("users.creations")}</h2>
             {creations.map((item) => (
               <article
                 key={item.id}

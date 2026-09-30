@@ -2,6 +2,7 @@
 import { useT } from "../../shell/preferences";
 import { useFormat } from "../../ui/format";
 import { personLabel } from "../../shared/person-label";
+import MessageText from "../../ui/message-text";
 
 // Recorded events of a shipment. Event details are recorded text and stay as
 // stored; titles are shown in the interface language when known.
@@ -22,14 +23,9 @@ export default function ShipmentTimeline({
       aria-labelledby={titleId}
       className="space-y-4 rounded-box border border-base-content/10 bg-base-100 p-5"
     >
-      <div className="space-y-1">
-        <h2 id={titleId} className="text-lg font-semibold">
-          {t("ship.activity")}
-        </h2>
-        <p className="text-sm text-base-content/70">
-          {t("ship.activity.desc", { limit: timeline.limit })}
-        </p>
-      </div>
+      <h2 id={titleId} className="text-lg font-semibold">
+        {t("ship.activity")}
+      </h2>
       {timeline.events.length ? (
         <ol className="space-y-0">
           {timeline.events.map((event, index) => (
@@ -57,6 +53,11 @@ export default function ShipmentTimeline({
                 <p className="text-sm break-words text-base-content/75">
                   {event.detail}
                 </p>
+                {event.note && (
+                  <p className="text-sm">
+                    <MessageText text={event.note} />
+                  </p>
+                )}
               </div>
             </li>
           ))}

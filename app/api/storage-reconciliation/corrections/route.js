@@ -7,6 +7,9 @@ async function POSTHandler(request, { user }) {
   return NextResponse.json(await applyStockCorrection(await request.json(), user));
 }
 
-export const POST = withApiAuth(POSTHandler);
+export const POST = withApiAuth(POSTHandler, {
+  // The correction's reason is the start of what was found.
+  texts: ({ report }) => [...Object.values(report || {}), typeof report?.incident === "string" && report.incident.trim().slice(0, 1000)],
+});
 
 export const dynamic = "force-dynamic";

@@ -4,7 +4,6 @@ import { LuCheck, LuMinus } from "react-icons/lu";
 import { permissionMatrix } from "../../../lib/permission-matrix.cjs";
 import { areas } from "../../../lib/workspaces.cjs";
 import { useT } from "../../shell/preferences";
-import { Card, CardHeader } from "../../ui/card";
 
 const GROUP_TONE = {
   SHIPPING: "border-l-step-1",
@@ -25,19 +24,18 @@ export default function PermissionMatrix({ highlight }) {
       for (const limit of action.limits)
         if (!notes.includes(limit.key)) notes.push(limit.key);
   const subjectLabel = (subject) =>
-    subject.area
-      ? t(`area.${subject.area}`)
-      : t(`role.${subject.key}`);
+    subject.area ? t(`area.${subject.area}`) : t(`role.${subject.key}`);
   const managers = matrix.subjects.filter((subject) => !subject.area);
   const employees = matrix.subjects.filter((subject) => subject.area);
 
   return (
-    <Card as="section" aria-labelledby="matrix-title" className="space-y-4">
-      <CardHeader
-        id="matrix-title"
-        title={t("matrix.title")}
-        description={t("matrix.desc")}
-      />
+    // Closed by default: a reference, not part of creating an account.
+    <details className="group space-y-4 rounded-box border border-base-content/10 bg-base-100 p-5 open:space-y-4 sm:px-6">
+      <summary className="min-h-11 cursor-pointer text-lg font-semibold">
+        <h2 id="matrix-title" className="inline">
+          {t("matrix.title")}
+        </h2>
+      </summary>
       {highlight && (
         <p className="text-sm text-base-content/75">
           {t("matrix.highlight", {
@@ -64,7 +62,7 @@ export default function PermissionMatrix({ highlight }) {
         </li>
       </ul>
       <div className="relative -mx-5 overflow-x-auto sm:-mx-6">
-        <table className="w-full min-w-[42rem] sm:min-w-[52rem] border-separate border-spacing-0 text-sm">
+        <table className="w-full min-w-[42rem] border-separate border-spacing-0 text-sm sm:min-w-[52rem]">
           <caption className="sr-only">{t("matrix.caption")}</caption>
           <thead>
             <tr className="text-xs text-base-content/65">
@@ -87,7 +85,7 @@ export default function PermissionMatrix({ highlight }) {
             <tr>
               <th
                 scope="col"
-                className="sticky left-0 z-10 w-40 min-w-36 border-b sm:w-72 sm:min-w-56 border-base-content/15 bg-base-100 py-2 pr-3 pl-5 text-left font-semibold sm:pl-6"
+                className="sticky left-0 z-10 w-40 min-w-36 border-b border-base-content/15 bg-base-100 py-2 pr-3 pl-5 text-left font-semibold sm:w-72 sm:min-w-56 sm:pl-6"
               >
                 {t("matrix.action")}
               </th>
@@ -175,7 +173,7 @@ export default function PermissionMatrix({ highlight }) {
         ))}
       </ol>
       <p className="text-sm text-base-content/70">{t("matrix.note")}</p>
-    </Card>
+    </details>
   );
 }
 

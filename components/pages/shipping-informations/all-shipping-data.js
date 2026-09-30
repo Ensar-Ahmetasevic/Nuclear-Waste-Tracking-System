@@ -31,10 +31,7 @@ export default function AllShippingData({ truck }) {
   const journey = journeyView(
     t,
     format,
-    shipmentJourney({
-      ...truck,
-      finalContainers: truck.finalContainers ?? null,
-    }),
+    shipmentJourney(truck),
     { returnState: truck.returnState },
   );
   return (

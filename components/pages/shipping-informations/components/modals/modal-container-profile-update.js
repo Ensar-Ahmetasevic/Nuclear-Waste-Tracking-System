@@ -6,6 +6,8 @@ import useLocationOriginQuery from "@/requests/request-container-profile/request
 import { useT } from "../../../../shell/preferences";
 import { useFormat } from "../../../../ui/format";
 import { InlineLoader } from "../../../../loading/loaders";
+import { ButtonSpinner } from "../../../../loading/spinner";
+import { ProofreadPrompt, useProofread } from "../../../../ui/proofread";
 import ReturnReport from "../../container-data/return-report";
 
 export default function ModalContainerProfilUpdate({
@@ -26,6 +28,7 @@ export default function ModalContainerProfilUpdate({
   const [phase, setPhase] = useState("edit"),
     [message, setMessage] = useState(""),
     [result, setResult] = useState(null);
+  const proofread = useProofread();
   const dialog = useRef(null),
     heading = useRef(null),
     first = useRef(null),
@@ -187,15 +190,18 @@ export default function ModalContainerProfilUpdate({
       {phase === "edit" ? (
         <form
           className="space-y-4"
-          onSubmit={(event) => {
+          onSubmit={async (event) => {
             event.preventDefault();
             if (
               ready &&
               origin &&
               waste &&
               changed &&
-              form.reason.trim().length >= 3
+              form.reason.trim().length >= 3 &&
+              !proofread.waiting
             ) {
+              const reason = await proofread.confirm(form.reason.trim());
+              setForm((current) => ({ ...current, reason }));
               payload.current = null;
               setMessage("");
               setPhase("review");
@@ -279,11 +285,13 @@ export default function ModalContainerProfilUpdate({
               onChange={update("reason")}
             />
           </label>
+          <ProofreadPrompt proofread={proofread} />
           <p className="text-sm text-base-content/70">{t("corr.note")}</p>
           {!changed && <p className="text-sm">{t("def.error.unchanged")}</p>}
           <button
             className="btn min-h-11 btn-primary"
             disabled={
+              proofread.waiting ||
               !ready ||
               !origin ||
               !waste ||
@@ -291,6 +299,7 @@ export default function ModalContainerProfilUpdate({
               form.reason.trim().length < 3
             }
           >
+            {proofread.checking && <ButtonSpinner />}
             {t("recon.correct.reviewButton")}
           </button>
         </form>

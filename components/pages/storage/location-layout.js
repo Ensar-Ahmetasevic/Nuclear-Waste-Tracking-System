@@ -1,15 +1,14 @@
 "use client";
-import Link from "next/link";
 import { useT } from "../../shell/preferences";
 import { Card, CardHeader } from "../../ui/card";
-import CapacityRing from "../../ui/capacity-ring";
-import { capacityLevel } from "../../ui/capacity-bar";
+import CapacityBar, { capacityLevel } from "../../ui/capacity-bar";
 import { useFormat } from "../../ui/format";
 import PageHeader from "../../ui/page-header";
 import { locationTone } from "../../../lib/location-colors";
 import StatusChip from "../../ui/status-chip";
 import { useWorkspace } from "../../shared/use-workspace";
 import HallPlan from "../../ui/hall-plan";
+import Breadcrumb from "../../ui/breadcrumb";
 
 const WORST = ["critical", "warning", "overdue", "nodata"];
 
@@ -28,13 +27,12 @@ const AREA = {
   },
 };
 
-// Page frame of one hall or room: capacity, the operational panel of the area
-// and the conditions panel. The panels keep their existing forms and rules.
+// Page frame of one hall or room: one capacity line beside the operational
+// panel, the layout plan and the conditions panel.
 export default function LocationLayout({
   area,
   location,
   containers,
-  detail,
   operations,
   conditions,
 }) {
@@ -58,60 +56,27 @@ export default function LocationLayout({
   const free = Math.max(0, slots - containers);
   const percent = slots ? Math.round((100 * containers) / slots) : 0;
   const level = capacityLevel(percent);
-  const tiles = [
-    ["storage.stored", format.number(containers)],
-    ["loc.free", format.number(free)],
-    [
-      "loc.usedArea",
-      t("loc.area", {
-        value: format.number(containers * location.containerFootprint),
-      }),
-    ],
-    [
-      "loc.surface",
-      t("loc.area", { value: format.number(location.surfaceArea) }),
-    ],
-  ];
   return (
     <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-      <nav
-        aria-label={t("ship.breadcrumb")}
-        className="flex items-center gap-2 text-sm text-base-content/65"
-      >
-        <Link
-          href={style.href}
-          className="hover:text-base-content hover:underline"
-        >
-          {t(`storage.title.${area}`)}
-        </Link>
-        <span aria-hidden="true">›</span>
-        <span aria-current="page" className="text-base-content/85">
-          {location.name}
-        </span>
-      </nav>
+      <Breadcrumb
+        items={[
+          { href: style.href, label: t(`storage.title.${area}`) },
+          { label: location.name },
+        ]}
+      />
       <PageHeader
         scene={style.scene}
         tone={style.tone}
         position={style.position}
         eyebrow={t(`storage.eyebrow.${area}`)}
         title={location.name}
-        description={detail}
+        top
         actions={
-          <StatusChip
-            tone={
-              level === "full"
-                ? "error"
-                : level === "near"
-                  ? "warning"
-                  : "neutral"
-            }
-          >
-            {level === "full"
-              ? t("capacity.full")
-              : level === "near"
-                ? t("capacity.near")
-                : t("capacity.used", { percent })}
-          </StatusChip>
+          level !== "normal" && (
+            <StatusChip tone={level === "full" ? "error" : "warning"}>
+              {level === "full" ? t("capacity.full") : t("capacity.near")}
+            </StatusChip>
+          )
         }
       />
 
@@ -133,34 +98,27 @@ export default function LocationLayout({
           className="space-y-5 lg:col-span-2"
         >
           <CardHeader id="capacity-title" title={t("loc.capacity")} />
-          <div className="flex flex-wrap items-center gap-6">
-            <CapacityRing
-              percent={percent}
-              tone={style.tone}
-              caption={t("loc.slotsCaption", {
+          <p className="flex items-baseline justify-between gap-3">
+            <span className="font-mono text-3xl font-semibold tabular-nums">
+              {percent}%
+            </span>
+            <span className="text-sm text-base-content/75">
+              {t("loc.slotsLine", {
                 used: format.number(containers),
                 slots: format.number(slots),
+                free: format.number(free),
               })}
-              label={t("capacity.aria", {
-                name: location.name,
-                used: containers,
-                slots,
-              })}
-            />
-            <dl className="grid min-w-44 flex-1 grid-cols-2 gap-2.5">
-              {tiles.map(([label, value]) => (
-                <div
-                  key={label}
-                  className="rounded-xl bg-base-200/70 px-3 py-2.5"
-                >
-                  <dt className="text-xs text-base-content/65">{t(label)}</dt>
-                  <dd className="text-lg font-semibold tabular-nums">
-                    {value}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </div>
+            </span>
+          </p>
+          <CapacityBar
+            percent={percent}
+            tone={style.tone}
+            label={t("capacity.aria", {
+              name: location.name,
+              used: containers,
+              slots,
+            })}
+          />
         </Card>
         <Card
           as="section"
@@ -176,10 +134,7 @@ export default function LocationLayout({
       </div>
 
       <Card as="section" aria-labelledby="plan-title" className="space-y-4">
-        <CardHeader
-          id="plan-title"
-          title={t("plan.title")}
-        />
+        <CardHeader id="plan-title" title={t("plan.title")} />
         <HallPlan
           name={location.name}
           used={containers}
@@ -194,10 +149,7 @@ export default function LocationLayout({
         aria-labelledby="conditions-panel-title"
         className="space-y-4"
       >
-        <CardHeader
-          id="conditions-panel-title"
-          title={t("conditions.title")}
-        />
+        <CardHeader id="conditions-panel-title" title={t("conditions.title")} />
         {conditions}
       </Card>
     </main>

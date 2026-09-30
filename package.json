@@ -16,8 +16,9 @@
     "db:generate": "prisma generate && node scripts/generate-schema-field-meta.cjs",
     "db:migrate": "prisma migrate deploy",
     "typecheck": "tsc --noEmit",
-    "test": "node --test --test-isolation=none tests/validation.test.cjs",
+    "test": "node --test --test-isolation=none tests/validation.test.cjs tests/i18n.test.cjs",
     "test:integration": "node scripts/test-database.mjs",
+    "texts:backfill": "node --env-file-if-exists=.env scripts/backfill-translations.mjs",
     "organization:provision": "node --env-file-if-exists=.env scripts/provision-organization.cjs",
     "dev:demo": "node scripts/dev-demo.mjs",
     "check": "npm run db:validate && npm run lint && npm run typecheck && npm test"

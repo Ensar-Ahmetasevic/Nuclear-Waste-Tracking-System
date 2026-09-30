@@ -122,6 +122,7 @@ export default function FormTruckData({ onSubmitForm, closeModal }) {
             <input
               id={`arrival-${key}`}
               className="input mt-1 w-full"
+              placeholder={t(`arrival.example.${key}`)}
               aria-invalid={Boolean(errors[key])}
               aria-describedby={
                 errors[key] ? `arrival-error-${key}` : undefined

@@ -34,7 +34,6 @@ const AREA = {
   },
 };
 
-
 // What waits in a hall or room, shortest first; "action" marks work for this area.
 function signalsOf(t, format, area, signals = {}) {
   const items =
@@ -114,11 +113,7 @@ export default function StorageArea({ area }) {
           </Link>
         }
         footer={
-          <DataFreshness
-            query={query}
-            autoRefreshMs={WORKSPACE_REFRESH_MS}
-            compact
-          />
+          <DataFreshness query={query} autoRefreshMs={WORKSPACE_REFRESH_MS} />
         }
       />
       {query.isError && !data && (
@@ -251,7 +246,7 @@ export default function StorageArea({ area }) {
                         </div>
                         <Link
                           href={row.href}
-                          className="btn mt-auto min-h-11 btn-primary"
+                          className="btn mt-auto min-h-11 border-base-content/20 btn-ghost"
                           aria-label={t("storage.open", { name: row.name })}
                         >
                           {t("home.openTask")}

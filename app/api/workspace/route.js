@@ -5,55 +5,18 @@ import { areas, manages } from "@/lib/workspaces.cjs";
 import { monitoringSummary } from "@/lib/server/monitoring";
 import { storageBalances } from "@/lib/server/storage-balances";
 import { conditionCells } from "@/lib/server/overview";
-import { KIND_LABELS, SEVERITY_LABELS, parameterInfo } from "@/lib/monitoring";
 
-// Open condition alerts of an area: counts for the metrics and escalated alerts
-// first in the task list, so they need no separate search. Metrics are
-// [label, count, href, key] and tasks carry a `kind`, so the interface can show
-// them in the chosen language.
-async function alertOverview(area, href, locations) {
+// Unresolved hall alerts of an area: counts for the bell and the navigation.
+// Unread ones are new for Supervision.
+async function alertOverview(area) {
   const { open, noData } = await monitoringSummary(area);
-  const escalated = open
-    .filter((row) => row.escalatedAt)
-    .sort(
-      (a, b) =>
-        (b.severity === "CRITICAL") - (a.severity === "CRITICAL") ||
-        new Date(a.escalatedAt) - new Date(b.escalatedAt),
-    );
   return {
     summary: { open, noData },
     alerts: {
       open: open.length,
+      unread: open.filter((row) => !row.readAt).length,
       critical: open.filter((row) => row.severity === "CRITICAL").length,
     },
-    metrics: [
-      ["Open condition alerts", open.length, `${href}/alerts`, "openAlerts"],
-      ["Escalated alerts", escalated.length, `${href}/alerts`, "escalated"],
-      ...(noData.length
-        ? [
-            [
-              "Halls without measurement",
-              noData.length,
-              `${href}/alerts`,
-              "noMeasurement",
-            ],
-          ]
-        : []),
-    ],
-    tasks: escalated.slice(0, 5).map((row) => ({
-      id: `alert-${row.id}`,
-      kind: "alert",
-      parameter: row.parameter,
-      location:
-        locations.find((location) => location.id === row.locationId)?.name ||
-        `#${row.locationId}`,
-      severity: row.severity,
-      alertKind: row.kind,
-      escalatedAt: row.escalatedAt,
-      label: `${parameterInfo(row.parameter).label} · ${locations.find((location) => location.id === row.locationId)?.name || `Hall #${row.locationId}`}`,
-      detail: `${SEVERITY_LABELS[row.severity]} · ${KIND_LABELS[row.kind]} · escalated ${new Date(row.escalatedAt).toISOString().slice(0, 16).replace("T", " ")} UTC`,
-      href: `${href}/alerts?location=${row.locationId}`,
-    })),
   };
 }
 export const GET = withApiAuth(async (req, { user }) => {
@@ -89,7 +52,7 @@ export const GET = withApiAuth(async (req, { user }) => {
   };
   for (const [key, area] of Object.entries(areas)) {
     if (!manages(user) && user.workArea !== key) continue;
-    // badge: open work for the navigation; alerts: open condition alerts of the area.
+    // badge: open work for the navigation; alerts: its unresolved hall alert.
     let metrics, tasks, badge, alerts, occupied;
     if (key === "SHIPPING") {
       const rows = await prisma.shippingInformation.findMany({
@@ -196,19 +159,13 @@ export const GET = withApiAuth(async (req, { user }) => {
         detail: "Open receipts, transfers and conditions",
         href: `/pre-storage/${row.id}`,
       }));
-      const overview = await alertOverview(
-        "PRE_STORAGE",
-        "/pre-storage",
-        locations,
-      );
-      metrics.push(...overview.metrics);
-      tasks = [...overview.tasks, ...tasks];
+      const overview = await alertOverview("PRE_STORAGE");
       badge = incoming + transfers;
       alerts = overview.alerts;
       occupied = await occupancy("pre", "/pre-storage", overview.summary);
       // What waits in each hall: deliveries offered to it (matched by Waste
       // Profile, as the hall page does), transfer requests for its container
-      // type and open condition alerts.
+      // type and its unresolved alert.
       const [halls, profiles, requests] = await Promise.all([
         prisma.preStorageLocation.findMany({ select: { id: true, wasteProfile: true, containerType: true } }),
         prisma.containerProfile.findMany({
@@ -265,18 +222,12 @@ export const GET = withApiAuth(async (req, { user }) => {
         detail: "Open requests, receipts and conditions",
         href: `/final-storage/${row.id}`,
       }));
-      const overview = await alertOverview(
-        "FINAL_STORAGE",
-        "/final-storage",
-        locations,
-      );
-      metrics.push(...overview.metrics);
-      tasks = [...overview.tasks, ...tasks];
+      const overview = await alertOverview("FINAL_STORAGE");
       badge = pending + incoming;
       alerts = overview.alerts;
       occupied = await occupancy("final", "/final-storage", overview.summary);
       // What waits in each room: its requests still with Pre-storage, transfers
-      // on their way to be received, and open condition alerts.
+      // on their way to be received, and its unresolved alert.
       const requests = await prisma.storageTransferRequest.findMany({
         where: { finalStorageStatus: { in: ["requestPending", "transportPending"] } },
         select: { finalStorageLocationId: true, finalStorageStatus: true },

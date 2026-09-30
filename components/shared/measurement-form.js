@@ -7,7 +7,8 @@ import { useForm } from "react-hook-form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { InlineLoader } from "../loading/loaders";
 import { LuScanLine } from "react-icons/lu";
-import DeviceScan from "./device-reading";
+import DeviceScan, { SIMULATION } from "./device-reading";
+import AlertProblems from "./alert-problems";
 // [form field, parameter, unit, min, max]
 const fields = [
   ["Temperature", "TEMPERATURE", "°C"],
@@ -50,6 +51,19 @@ export default function MeasurementForm({ area, location, close }) {
     setReadings(({ [key]: _removed, ...rest }) => rest);
     setChecked((current) => current.filter((item) => item !== key));
   }
+  // The simulated device reads inside this location's acceptable ranges.
+  const rules = useQuery({
+    queryKey: ["measurementRules", area, location.id],
+    enabled: SIMULATION,
+    queryFn: async () => {
+      const response = await fetch(
+        `/api/${area}-setup/monitoring-rules?location=${location.id}`,
+        { signal: AbortSignal.timeout(20000) },
+      );
+      if (!response.ok) throw Error("Unable to load");
+      return (await response.json()).locations[0]?.rules || {};
+    },
+  });
   const client = useQueryClient();
   const employees = useQuery({
     queryKey: ["measurementEmployees", area],
@@ -122,7 +136,7 @@ export default function MeasurementForm({ area, location, close }) {
         return;
       }
       if (!data.measurement?.id) throw Error("Missing result");
-      setResult({ ...data.measurement, alerts: data.alerts || null });
+      setResult({ ...data.measurement, alert: data.alert || null });
       setPhase("success");
       heading.current?.focus();
     } catch {
@@ -186,7 +200,8 @@ export default function MeasurementForm({ area, location, close }) {
                   id={"measurement-" + key}
                   className="input min-h-11 flex-1"
                   type="number"
-                  step={pre && key === "Pressure" ? "1" : "any"}
+                  // Arrow keys and the spinner move by 0.1; the form checks the value itself.
+                  step={pre && key === "Pressure" ? "1" : "0.1"}
                   aria-invalid={Boolean(errors[prefix + key])}
                   aria-describedby={
                     errors[prefix + key] ? "error-" + key : undefined
@@ -240,6 +255,8 @@ export default function MeasurementForm({ area, location, close }) {
                 <DeviceScan
                   field={key}
                   label={label}
+                  unit={unit}
+                  rule={rules.data?.[parameter]}
                   onRead={(reading) => applyReading(key, reading)}
                   onClose={() => setScanFor(null)}
                 />
@@ -370,22 +387,18 @@ export default function MeasurementForm({ area, location, close }) {
                   actor: result.recordedById,
                 })}
               </p>
-              {/* Alert outcomes of this measurement; a replayed save does not repeat them. */}
-              {result.alerts?.length > 0 && (
-                <ul className="mt-2 list-disc pl-5">
-                  {result.alerts.map((row) => (
-                    <li key={row.alertId}>
-                      {t(`param.${row.parameter}`)}:{" "}
-                      {t(`meas.outcome.${row.outcome}`)} ·{" "}
-                      {t(
-                        row.severity === "CRITICAL"
-                          ? "cell.critical"
-                          : "cell.warning",
-                      )}{" "}
-                      · {t("alert.number", { id: row.alertId })}
-                    </li>
-                  ))}
-                </ul>
+              {/* The hall's alert after this measurement; a replayed save does not repeat it. */}
+              {result.alert && (
+                <div className="mt-2 space-y-1">
+                  <AlertProblems problems={result.alert.problems} />
+                  <p className="text-sm">
+                    {t(
+                      result.alert.problems.length
+                        ? "halert.saved.problems"
+                        : "halert.saved.normal",
+                    )}
+                  </p>
+                </div>
               )}
             </div>
           ) : phase === "saving" ? (

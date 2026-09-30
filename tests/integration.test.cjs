@@ -496,11 +496,11 @@ integration('storage history paginates and latest-condition overview stays scope
   assert.equal(first.total,12); assert.equal(first.rows.length,10); assert.equal(first.rows[0].level,'optimal');
   const second=await (await call(url+'?location='+hall.id+'&page=2','GET',undefined,session)).json();
   assert.equal(second.rows.length,2); assert.ok(first.rows[9].id>second.rows[0].id);
-  // Condition alerts come from evaluated measurements; stored older readings are not turned into alerts afterwards.
-  const alerts=await (await call('/api/pre-storage-setup/monitoring?location='+hall.id,'GET',undefined,session)).json();
-  assert.equal(alerts.alerts.filter(row=>row.kind==='OUT_OF_RANGE').length,0, 'older abnormal readings are not reconstructed as alerts');
+  // Alerts follow the latest measurement: earlier abnormal readings are not turned into alerts afterwards.
+  const alerts=await (await call('/api/pre-storage-setup/alerts?location='+hall.id,'GET',undefined,session)).json();
+  assert.ok(alerts.alerts.every(row=>row.problems.every(problem=>problem.key==='OVERDUE')), 'older abnormal readings are not reconstructed as alerts');
   const missing=await db.preStorageLocation.create({data:{organizationId:orgA.id,name:'No measurements',surfaceArea:100,containerFootprint:2,containerType:'M01',wasteProfile:'M01',preStorageFor:'Test'}});
-  const unknown=await (await call('/api/pre-storage-setup/monitoring?location='+missing.id,'GET',undefined,session)).json();
+  const unknown=await (await call('/api/pre-storage-setup/alerts?location='+missing.id,'GET',undefined,session)).json();
   assert.deepEqual(unknown.noData.map(row=>row.locationId),[missing.id]); assert.equal(unknown.alerts.length,0);
   assert.equal((await call('/api/final-storage-setup/overview','GET',undefined,session)).status,403);
   assert.equal((await call(url+'?page=0','GET',undefined,session)).status,400);
@@ -514,11 +514,6 @@ integration('workspace counters link to matching filtered receiving and transfer
     const session='next-auth.session-token='+await encode({secret:process.env.NEXTAUTH_SECRET,token:{id:String(user.id)}});
     const dashboard=await (await call('/api/workspace','GET',undefined,session)).json();
     for(const [label,count,href] of dashboard.workspaces[0].metrics.filter(metric=>metric[2])) {
-      if (href.endsWith('/alerts')) {
-        const monitoring=await (await call(`/api/${area}-setup/monitoring`,'GET',undefined,session)).json();
-        assert.equal(count,{'Open condition alerts':monitoring.counts.open,'Escalated alerts':monitoring.counts.escalated,'Halls without measurement':monitoring.noData.length}[label],label);
-        continue;
-      }
       const query = new URL(href,base).search;
       const response=await call(`/api/${area}-setup/overview${query}`,'GET',undefined,session);
       assert.equal(response.status,200,href);
@@ -1695,7 +1690,7 @@ integration('administrators link earlier receipts with a document reference and 
   assert.equal((await call(correctionPath,'POST',{...approval,actionKey:uuid()},foreignSession)).status,404);
 });
 
-integration('condition alerts open, continue, clear, escalate and close according to the agreed rules', async () => {
+integration('one alert per hall lists its problems; workers and Supervision message, Supervision reads and resolves', async () => {
   const uuid=()=>require('node:crypto').randomUUID();
   const organizationId=orgA.id, HOUR=3600000;
   const session=async user=>'next-auth.session-token='+await encode({secret:process.env.NEXTAUTH_SECRET,token:{id:String(user.id)}});
@@ -1707,7 +1702,7 @@ integration('condition alerts open, continue, clear, escalate and close accordin
   const supervisorSession=await session(supervisor);
   const hall=await db.preStorageLocation.create({data:{organizationId,name:'Alert hall',surfaceArea:100,containerFootprint:1,preStorageFor:'Demo',containerType:'Demo',wasteProfile:'Demo'}});
   const person=await db.preStorageResponsibleEmployee.create({data:{organizationId,name:'Alert',surname:'Person',dateOfBirth:new Date('1980-01-01'),address:'Demo',qualifications:'Demo',safetyTraining:true}});
-  const rulesPath='/api/pre-storage-setup/monitoring-rules', alertsPath='/api/pre-storage-setup/monitoring';
+  const rulesPath='/api/pre-storage-setup/monitoring-rules', alertsPath='/api/pre-storage-setup/alerts';
   // Rules: defaults are unconfirmed; only administrators add a confirmed version.
   const rules=await (await call(rulesPath+'?location='+hall.id,'GET',undefined,preSession)).json();
   assert.equal(rules.locations[0].rules.RADIATION.confirmed,false);assert.equal(rules.locations[0].rules.RADIATION.intervalHours,12);
@@ -1723,7 +1718,7 @@ integration('condition alerts open, continue, clear, escalate and close accordin
   assert.equal((await (await call(rulesPath+'?location='+hall.id)).json()).locations[0].rules.RADIATION.ruleId,ruleId);
   // Measurements: values are classified with the hall's rule.
   const measure=async(values,key=uuid())=>{ const response=await call('/api/pre-storage-setup/pre-storage-conditions','POST',{submissionKey:key,preStorageTemperature:20,preStorageRadiationLevel:0.1,preStorageHumidity:50,preStoragePressure:1015,preStorageLocationId:hall.id,preStorageResponsibleEmployeeId:person.id,...values},preSession); assert.equal(response.status,200); return response.json(); };
-  assert.deepEqual((await measure({})).alerts,[]);
+  assert.equal((await measure({})).alert,null);
   // Values read from a device are saved only when each one was checked.
   const deviceBody={submissionKey:uuid(),preStorageTemperature:20,preStorageRadiationLevel:0.1,preStorageHumidity:50,preStoragePressure:1015,preStorageLocationId:hall.id,preStorageResponsibleEmployeeId:person.id};
   const unchecked=await call('/api/pre-storage-setup/pre-storage-conditions','POST',{...deviceBody,readingSource:{readings:[{field:'Temperature',method:'BLUETOOTH',device:'TH-204'},{field:'Humidity',method:'CODE',device:'HY-9'}],confirmed:['Temperature']}},preSession);
@@ -1731,93 +1726,78 @@ integration('condition alerts open, continue, clear, escalate and close accordin
   assert.equal((await call('/api/pre-storage-setup/pre-storage-conditions','POST',{...deviceBody,readingSource:{readings:[{field:'Temperature',method:'FAX'}],confirmed:['Temperature']}},preSession)).status,400);
   const fromDevice=await measure({readingSource:{readings:[{field:'Humidity',method:'CODE',device:'HY-9'},{field:'Temperature',method:'BLUETOOTH',device:'TH-204'}],confirmed:['Temperature','Humidity']}});
   assert.deepEqual((await db.preStorageConditions.findUniqueOrThrow({where:{id:fromDevice.measurement.id}})).readingSource,{readings:[{field:'Temperature',method:'BLUETOOTH',device:'TH-204'},{field:'Humidity',method:'CODE',device:'HY-9'}]});
+  // One alert per hall lists every parameter outside range, worst first.
   const first=await measure({preStorageRadiationLevel:0.5});
-  assert.deepEqual(first.alerts.map(row=>[row.parameter,row.outcome,row.severity]),[['RADIATION','opened','WARNING']]);
-  const alertId=first.alerts[0].alertId;
+  assert.deepEqual(first.alert.problems.map(row=>[row.key,row.level]),[['RADIATION','warning']]);
+  const alertId=first.alert.id;
   const repeatKey=uuid();
-  await measure({preStorageRadiationLevel:0.6},repeatKey);
-  const replayed=await measure({preStorageRadiationLevel:0.6},repeatKey);
-  assert.equal(replayed.replayed,true);
-  // Alert focus: recorded values of the parameter, classified with the alert's
-  // rule snapshot, the latest measurement of every parameter and the hall slots.
-  const focus=await (await call(`${alertsPath}?alertId=${alertId}`,'GET',undefined,preSession)).json();
-  assert.deepEqual(focus.series.map(row=>[row.value,row.level]),[[0.1,'optimal'],[0.5,'warning'],[0.6,'warning']]);
-  assert.equal(focus.seriesTruncated,false);
-  assert.deepEqual(focus.latest.values.map(row=>[row.key,row.value,row.level]),[['TEMPERATURE',20,'optimal'],['RADIATION',0.6,'warning'],['HUMIDITY',50,'optimal'],['PRESSURE',1015,'optimal']]);
-  assert.deepEqual(focus.location,{id:hall.id,name:'Alert hall',used:0,slots:100});
-  assert.equal((await call(`/api/final-storage-setup/monitoring?alertId=${alertId}`,'GET',undefined,finalSession)).status,404);
-  let alert=await db.conditionAlert.findUniqueOrThrow({where:{id:alertId}});
-  assert.equal(alert.measurementCount,2);assert.equal(alert.escalatedAt,null);assert.equal(alert.rule.ruleId,ruleId);assert.equal(alert.rule.upperWarning,0.2);
-  await measure({preStorageRadiationLevel:0.7});
-  alert=await db.conditionAlert.findUniqueOrThrow({where:{id:alertId}});
-  assert.equal(alert.measurementCount,3);assert.match(alert.escalationReason,/3 or more consecutive/);
-  // A critical value opens an alert that is escalated at once.
-  const critical=(await measure({preStorageRadiationLevel:0.7,preStorageHumidity:80})).alerts.find(row=>row.parameter==='HUMIDITY');
-  assert.equal(critical.severity,'CRITICAL');
-  const criticalAlert=await db.conditionAlert.findUniqueOrThrow({where:{id:critical.alertId}});
-  assert.ok(criticalAlert.escalatedAt);assert.equal(criticalAlert.escalationReason,'Critical deviation');
-  await assert.rejects(db.conditionAlert.create({data:{organizationId,area:'PRE_STORAGE',locationId:hall.id,parameter:'HUMIDITY',kind:'OUT_OF_RANGE',severity:'WARNING',openedAt:new Date(),rule:{}}}),{code:'P2002'});
-  // Handling: acknowledge once, notes, closing only after a control measurement.
-  const act=async(id,action,extra={},who=preSession)=>{ const current=await db.conditionAlert.findUniqueOrThrow({where:{id}}); return call(alertsPath,'POST',{alertId:id,action,note:'',expectedVersion:current.version,actionKey:uuid(),...extra},who); };
-  assert.equal((await act(alertId,'ACKNOWLEDGE')).status,200);
-  assert.equal((await act(alertId,'ACKNOWLEDGE')).status,409);
-  assert.equal((await act(alertId,'NOTE',{note:'x'})).status,400);
-  assert.equal((await act(alertId,'NOTE',{note:'Checked shielding, no visible damage'})).status,200);
-  assert.equal((await act(alertId,'CLOSE',{note:'Closed too early'})).status,409);
-  assert.equal((await act(alertId,'CLOSE',{note:'Stale review',expectedVersion:0})).status,409);
-  assert.equal((await act(alertId,'ACKNOWLEDGE',{},finalSession)).status,403);
-  const cleared=await measure({preStorageRadiationLevel:0.1,preStorageHumidity:50});
-  assert.deepEqual(cleared.alerts.map(row=>row.outcome).sort(),['cleared','cleared']);
-  assert.equal((await db.conditionAlert.findUniqueOrThrow({where:{id:alertId}})).closedAt,null);
-  const close=await act(alertId,'CLOSE',{note:'Control measurement within range'});
-  assert.equal(close.status,200);
-  assert.equal((await act(critical.alertId,'CLOSE',{note:'Control measurement within range'})).status,403);
-  const closeCritical={alertId:critical.alertId,action:'CLOSE',note:'Ventilation repaired, control measurement in range',expectedVersion:(await db.conditionAlert.findUniqueOrThrow({where:{id:critical.alertId}})).version,actionKey:uuid()};
-  assert.equal((await call(alertsPath,'POST',closeCritical,supervisorSession)).status,200);
-  assert.equal((await (await call(alertsPath,'POST',closeCritical,supervisorSession)).json()).replayed,true);
-  const events=await db.conditionAlertEvent.findMany({where:{alertId},orderBy:{id:'asc'}});
-  assert.deepEqual(events.map(row=>row.type),['OPENED','CONTINUED','CONTINUED','ESCALATED','CONTINUED','ACKNOWLEDGED','NOTE','CONDITION_CLEARED','CLOSED']);
-  // A new deviation after closing opens a new alert.
-  const again=(await measure({preStorageRadiationLevel:0.4})).alerts[0];
-  assert.notEqual(again.alertId,alertId);assert.equal(again.outcome,'opened');
-  // Overdue measurements open alerts at the moment they became overdue; escalation keeps its deadline time.
+  const second=await measure({preStorageRadiationLevel:0.6,preStorageHumidity:80},repeatKey);
+  assert.equal(second.alert.id,alertId);
+  assert.deepEqual(second.alert.problems.map(row=>[row.key,row.level]),[['HUMIDITY','danger'],['RADIATION','warning']]);
+  assert.equal((await measure({preStorageRadiationLevel:0.6,preStorageHumidity:80},repeatKey)).replayed,true);
+  let alert=await db.hallAlert.findUniqueOrThrow({where:{id:alertId}});
+  assert.equal(alert.severity,'CRITICAL');
+  await assert.rejects(db.hallAlert.create({data:{organizationId,area:'PRE_STORAGE',locationId:hall.id,severity:'WARNING',problems:[]}}),{code:'P2002'});
+  const detail=await (await call(`${alertsPath}?alertId=${alertId}`,'GET',undefined,preSession)).json();
+  assert.deepEqual(detail.latest.values.map(row=>[row.key,row.value,row.level]),[['TEMPERATURE',20,'optimal'],['RADIATION',0.6,'warning'],['HUMIDITY',80,'danger'],['PRESSURE',1015,'optimal']]);
+  assert.equal((await call(`/api/final-storage-setup/alerts?alertId=${alertId}`,'GET',undefined,finalSession)).status,404);
+  // Workers write messages; Supervision marks the alert read and resolves it.
+  const act=(action,text='',who=supervisorSession,id=alertId)=>call(alertsPath,'POST',{alertId:id,action,text},who);
+  assert.equal((await act('READ','',preSession)).status,403);
+  assert.equal((await act('MESSAGE','',preSession)).status,400);
+  assert.equal((await act('MESSAGE','Humidity rose after the door was left open',preSession)).status,200);
+  assert.equal((await act('READ')).status,200);
+  assert.ok((await db.hallAlert.findUniqueOrThrow({where:{id:alertId}})).readAt);
+  assert.equal((await act('MESSAGE','Please measure again once the door is closed')).status,200);
+  assert.equal((await act('RESOLVE')).status,409, 'not resolved while values are outside range');
+  // A problem that gets worse makes the alert unread again.
+  await measure({preStorageRadiationLevel:1.5,preStorageHumidity:80});
+  assert.equal((await db.hallAlert.findUniqueOrThrow({where:{id:alertId}})).readAt,null);
+  assert.equal((await act('READ')).status,200);
+  const normal=await measure({});
+  assert.equal(normal.alert.id,alertId); assert.deepEqual(normal.alert.problems,[]);
+  assert.equal((await act('RESOLVE','x'.repeat(1001))).status,400);
+  assert.equal((await act('RESOLVE','Door seal replaced; humidity back in range')).status,200);
+  assert.equal((await act('MESSAGE','Late message',preSession)).status,409);
+  alert=await db.hallAlert.findUniqueOrThrow({where:{id:alertId}});
+  assert.equal(alert.resolveNote,'Door seal replaced; humidity back in range'); assert.equal(alert.resolvedById,supervisor.id);
+  const entries=await db.hallAlertEntry.findMany({where:{alertId},orderBy:{id:'asc'}});
+  assert.deepEqual(entries.map(row=>row.type),['OPENED','MEASURED','MESSAGE','READ','MESSAGE','MEASURED','READ','MEASURED','RESOLVED']);
+  const resolvedList=await (await call(alertsPath+'?view=resolved&location='+hall.id,'GET',undefined,preSession)).json();
+  assert.deepEqual(resolvedList.alerts[0].seen.map(row=>[row.key,row.level]),[['RADIATION','danger'],['HUMIDITY','danger']]);
+  // A new deviation after resolving opens a new alert.
+  const again=(await measure({preStorageRadiationLevel:0.4})).alert;
+  assert.notEqual(again.id,alertId);
+  // An overdue measurement is added once, at the moment the shortest interval passed.
   const late=await db.preStorageLocation.create({data:{organizationId,name:'Late hall',surfaceArea:100,containerFootprint:1,preStorageFor:'Demo',containerType:'Demo',wasteProfile:'Demo'}});
   const measuredAt=new Date(Date.now()-30*HOUR);
-  const old=await db.preStorageConditions.create({data:{organizationId,createdAt:measuredAt,preStorageTemperature:20,preStorageRadiationLevel:0.05,preStorageHumidity:50,preStoragePressure:1015,preStorageLocationId:late.id,preStorageResponsibleEmployeeId:person.id}});
+  await db.preStorageConditions.create({data:{organizationId,createdAt:measuredAt,preStorageTemperature:20,preStorageRadiationLevel:0.05,preStorageHumidity:50,preStoragePressure:1015,preStorageLocationId:late.id,preStorageResponsibleEmployeeId:person.id}});
   const empty=await db.preStorageLocation.create({data:{organizationId,name:'Never measured hall',surfaceArea:100,containerFootprint:1,preStorageFor:'Demo',containerType:'Demo',wasteProfile:'Demo'}});
   const list=await (await call(alertsPath+'?location='+late.id,'GET',undefined,preSession)).json();
-  const missing=list.alerts.filter(row=>row.kind==='MISSING');
-  assert.equal(missing.length,4);
-  const radiationMissing=missing.find(row=>row.parameter==='RADIATION');
-  assert.equal(new Date(radiationMissing.openedAt).getTime(),measuredAt.getTime()+12*HOUR);
-  assert.equal(new Date(radiationMissing.escalatedAt).getTime(),measuredAt.getTime()+14*HOUR);
-  assert.equal(radiationMissing.lastMeasurementId,old.id);
-  const again2=await (await call(alertsPath+'?location='+late.id,'GET',undefined,preSession)).json();
-  assert.equal(again2.alerts.filter(row=>row.kind==='MISSING').length,4);
+  assert.equal(list.alerts.length,1);
+  const overdue=list.alerts[0];
+  assert.deepEqual(overdue.problems.map(row=>row.key),['OVERDUE']);
+  assert.equal(new Date(overdue.openedAt).getTime(),measuredAt.getTime()+12*HOUR);
+  await call(alertsPath+'?location='+late.id,'GET',undefined,preSession);
+  assert.equal(await db.hallAlertEntry.count({where:{alertId:overdue.id}}),1);
   const all=await (await call(alertsPath,'GET',undefined,preSession)).json();
   assert.ok(all.noData.some(row=>row.locationId===empty.id));
   const lateMeasurement=await call('/api/pre-storage-setup/pre-storage-conditions','POST',{submissionKey:uuid(),preStorageTemperature:20,preStorageRadiationLevel:0.05,preStorageHumidity:50,preStoragePressure:1015,preStorageLocationId:late.id,preStorageResponsibleEmployeeId:person.id},preSession);
   assert.equal(lateMeasurement.status,200);
-  assert.ok((await db.conditionAlert.findUniqueOrThrow({where:{id:radiationMissing.id}})).clearedAt);
-  assert.equal((await act(radiationMissing.id,'CLOSE',{note:'Measurement recorded'})).status,200);
-  // An unacknowledged warning escalates at its deadline, even when noticed later.
-  const openedAt=new Date(Date.now()-3*HOUR);
-  const quiet=await db.conditionAlert.create({data:{organizationId,area:'PRE_STORAGE',locationId:empty.id,parameter:'TEMPERATURE',kind:'OUT_OF_RANGE',severity:'WARNING',openedAt,rule:{lowerDanger:-25,lowerWarning:-5,upperWarning:35,upperDanger:40,intervalHours:24,confirmed:false,ruleId:null},lastValue:37,lastMeasuredAt:openedAt,measurementCount:1}});
-  await call(alertsPath,'GET',undefined,preSession);
-  const escalated=await db.conditionAlert.findUniqueOrThrow({where:{id:quiet.id}});
-  assert.equal(new Date(escalated.escalatedAt).getTime(),openedAt.getTime()+2*HOUR);assert.match(escalated.escalationReason,/Not acknowledged/);
-  const detail=await (await call(alertsPath+'?alertId='+quiet.id,'GET',undefined,preSession)).json();
-  assert.equal(detail.events.at(-1).type,'ESCALATED');
-  // Home page, area and organization boundaries.
+  assert.deepEqual((await db.hallAlert.findUniqueOrThrow({where:{id:overdue.id}})).problems,[]);
+  // A stored reading outside range without an alert (e.g. from before these alerts) opens one when noticed.
+  await db.preStorageConditions.create({data:{organizationId,createdAt:new Date(),preStorageTemperature:45,preStorageRadiationLevel:0.05,preStorageHumidity:50,preStoragePressure:1015,preStorageLocationId:empty.id,preStorageResponsibleEmployeeId:person.id}});
+  const stored=(await (await call(alertsPath+'?location='+empty.id,'GET',undefined,preSession)).json()).alerts[0];
+  assert.deepEqual(stored.problems.map(row=>[row.key,row.level]),[['TEMPERATURE','danger']]);
+  // Counts for the bell, area and organization boundaries.
   const home=await (await call('/api/workspace','GET',undefined,supervisorSession)).json();
   const pre=home.workspaces.find(row=>row.key==='PRE_STORAGE');
-  assert.ok(pre.metrics.some(([label,count])=>label==='Escalated alerts'&&count>0));
-  assert.ok(pre.tasks.some(task=>String(task.id).startsWith('alert-')));
+  assert.ok(pre.alerts.unread>0 && pre.alerts.open>=pre.alerts.unread);
   assert.equal((await call(alertsPath,'GET',undefined,finalSession)).status,403);
   const foreignUser=await db.userProfile.findUniqueOrThrow({where:{email:'prep-other@test.example'}});
   const foreignSession=await session(foreignUser);
   assert.ok(!(await (await call(alertsPath,'GET',undefined,foreignSession)).json()).alerts.some(row=>row.locationId===hall.id));
-  assert.equal((await act(again.alertId,'NOTE',{note:'Foreign attempt'},foreignSession)).status,404);
+  assert.equal((await act('MESSAGE','Foreign attempt',foreignSession,again.id)).status,404);
   // Existing overview measurements use the hall's rule.
   const overview=await (await call('/api/pre-storage-setup/overview?view=measurements&location='+hall.id,'GET',undefined,preSession)).json();
   assert.equal(overview.rows[0].values.find(value=>value.key==='radiation').level,'warning');
@@ -1851,7 +1831,7 @@ integration('management overview is limited to management roles and matches the 
   // Recent shipments carry the same five-step journey as the shipment list.
   const recent=overview.recent.find(row=>row.id===fixture.shipmentId);
   assert.equal(recent.containers,profiles.reduce((sum,row)=>sum+row.quantity,0));
-  assert.deepEqual(recent.journey.steps.map(step=>step.key),['arrival','content','receipt','departure','final']);
+  assert.deepEqual(recent.journey.steps.map(step=>step.key),['arrival','content','receipt','departure']);
   assert.equal(recent.journey.steps[0].state,'done');
   // The overview counts the same trucks as the Step 1 home counters.
   const workspace=await (await call('/api/workspace','GET',undefined,supervisorSession)).json();

@@ -25,12 +25,13 @@ model Organization {
   legacyReceiptLinks LegacyReceiptLink[]
   stockCorrections StockCorrection[]
   monitoringRules MonitoringRule[]
-  conditionAlerts ConditionAlert[]
-  conditionAlertEvents ConditionAlertEvent[]
+  hallAlerts HallAlert[]
+  hallAlertEntries HallAlertEntry[]
   receiptAllocations ReceiptAllocation[]
   transferSources TransferSource[]
   shippingCorrections ShippingCorrection[]
   transferActions TransferAction[]
+  textTranslations TextTranslation[]
   id Int @id @default(autoincrement())
   name String
   createdAt DateTime @default(now())
@@ -672,25 +673,18 @@ enum MonitoringParameter {
   PRESSURE
 }
 
-enum AlertKind {
-  OUT_OF_RANGE
-  MISSING
-}
-
 enum AlertSeverity {
   WARNING
   CRITICAL
 }
 
-enum AlertEventType {
+enum HallAlertEntryType {
   OPENED
-  CONTINUED
-  SEVERITY_RAISED
-  CONDITION_CLEARED
-  ACKNOWLEDGED
-  NOTE
-  ESCALATED
-  CLOSED
+  MEASURED
+  OVERDUE
+  READ
+  MESSAGE
+  RESOLVED
 }
 
 // Append-only versions of the range and expected interval for one parameter of a
@@ -716,56 +710,60 @@ model MonitoringRule {
   @@index([organizationId, area, locationId, parameter, createdAt])
 }
 
-// One deviation or overdue measurement of a parameter at a hall. At most one alert
-// per hall, parameter and kind is open (partial unique index in the migration).
-model ConditionAlert {
+// One alert per hall or room at a time: what is wrong there now. `problems` holds
+// the parameters outside range and an overdue measurement ([] once a new
+// measurement is within range). Supervision or an administrator marks it read,
+// writes with the workers in its entries and resolves it. A partial unique index
+// in the migration keeps one unresolved alert per hall or room.
+model HallAlert {
   id Int @id @default(autoincrement())
   organizationId Int
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   area StorageArea
   locationId Int
-  parameter MonitoringParameter
-  kind AlertKind
   severity AlertSeverity
-  version Int @default(0)
-  openedAt DateTime
-  rule Json
-  firstMeasurementId Int?
-  lastMeasurementId Int?
-  lastValue Float?
-  lastMeasuredAt DateTime?
-  measurementCount Int @default(0)
-  clearedAt DateTime?
-  clearedByMeasurementId Int?
-  acknowledgedAt DateTime?
-  acknowledgedById Int?
-  escalatedAt DateTime?
-  escalationReason String?
-  closedAt DateTime?
-  closedById Int?
-  closeNote String?
-  createdAt DateTime @default(now())
-  events ConditionAlertEvent[]
-  @@index([organizationId, area, closedAt])
-  @@index([organizationId, area, locationId, parameter, kind])
+  problems Json
+  openedAt DateTime @default(now())
+  changedAt DateTime @default(now())
+  readAt DateTime?
+  readById Int?
+  resolvedAt DateTime?
+  resolvedById Int?
+  resolveNote String?
+  entries HallAlertEntry[]
+  @@index([organizationId, area, resolvedAt])
 }
 
-// Immutable history of an alert. effectiveAt is when the condition applied
-// (e.g. when an escalation deadline passed); createdAt is when it was recorded.
-model ConditionAlertEvent {
+// History of an alert: measurements, reading, messages and the resolution.
+// Rows are never changed.
+model HallAlertEntry {
   id Int @id @default(autoincrement())
   organizationId Int
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   alertId Int
-  alert ConditionAlert @relation(fields: [alertId], references: [id], onDelete: Restrict)
-  type AlertEventType
-  actorId Int?
+  alert HallAlert @relation(fields: [alertId], references: [id], onDelete: Restrict)
+  type HallAlertEntryType
+  authorId Int?
+  text String?
+  problems Json?
   measurementId Int?
-  value Float?
-  note String?
-  effectiveAt DateTime
-  actionKey String? @unique
-  fingerprint String?
   createdAt DateTime @default(now())
   @@index([organizationId, alertId])
+}
+
+// AI translations of what people write (notes, reasons, messages), shared by all
+// those fields: one row per text and language. German is always created, so
+// Supervision can read every exchange. `text` is null when the text already is
+// in that language.
+model TextTranslation {
+  id Int @id @default(autoincrement())
+  organizationId Int
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  sourceHash String
+  sourceLanguage String
+  targetLanguage String
+  text String?
+  model String
+  createdAt DateTime @default(now())
+  @@unique([organizationId, sourceHash, targetLanguage])
 }

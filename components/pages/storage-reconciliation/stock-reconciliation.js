@@ -9,6 +9,7 @@ import DataFreshness, {
 } from "@/components/shared/data-freshness";
 import { useT } from "../../shell/preferences";
 import { useFormat } from "../../ui/format";
+import { TextIn } from "../../ui/message-text";
 import EmptyState from "../../ui/empty-state";
 import IconTile from "../../ui/icon-tile";
 import PageHeader from "../../ui/page-header";
@@ -74,7 +75,7 @@ function VerificationHistory({ area, locationId }) {
               · {differenceText(t, row.countedQuantity, row.recordedQuantity)}
             </p>
             <p className="text-base-content/75">
-              {t("recon.basisValue", { basis: row.reason })}
+              <TextIn messageKey="recon.basisValue" name="basis" text={row.reason} />
             </p>
             {row.correction && (
               <details className="mt-1">
@@ -120,7 +121,10 @@ function VerificationHistory({ area, locationId }) {
   );
 }
 
-function HallCard({
+// One location per row: recorded stock, the latest count and the actions. The
+// calculation and the verification history open on demand; findings and
+// differences are shown only when there is something to check.
+function HallRow({
   area,
   hall,
   listLimit,
@@ -131,7 +135,7 @@ function HallCard({
 }) {
   const t = useT();
   const format = useFormat();
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const [open, setOpen] = useState(false);
   const last = hall.lastVerification;
   const items =
     area === "PRE_STORAGE" ? hall.unlinkedReceipts : hall.unlinkedTransfers;
@@ -144,35 +148,71 @@ function HallCard({
     !last.correction &&
     last.countedQuantity !== hall.figures.recordedQuantity;
   return (
-    <li className="space-y-4 rounded-box border border-base-content/10 bg-base-100 p-5 [overflow-wrap:anywhere]">
-      <div className="flex items-center gap-3">
+    <li className="space-y-3 py-4 [overflow-wrap:anywhere]">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
         <IconTile
           icon={area === "PRE_STORAGE" ? "warehouse" : "layers"}
           tone={area === "PRE_STORAGE" ? "step-2" : "step-3"}
         />
-        <h3 className="text-lg font-semibold">
-          {hall.name}{" "}
-          <span className="font-mono text-xs font-normal text-base-content/65">
-            #{hall.id}
+        <div className="min-w-0 flex-1">
+          <h3 className="font-semibold">{hall.name}</h3>
+          <p
+            className={`text-sm ${differs ? "text-warning" : "text-base-content/70"}`}
+          >
+            {last
+              ? t("recon.verified", {
+                  time: format.dateTime(last.createdAt),
+                  counted: last.countedQuantity,
+                  difference: differenceText(
+                    t,
+                    last.countedQuantity,
+                    last.recordedQuantity,
+                  ),
+                })
+              : t("recon.notVerified")}
+          </p>
+        </div>
+        <p className="text-right">
+          <span className="block font-mono text-2xl font-semibold tabular-nums">
+            {format.number(hall.figures.recordedQuantity)}
           </span>
-        </h3>
-      </div>
-      <dl className="grid gap-2 sm:grid-cols-2">
-        {Object.entries(hall.figures)
-          .filter(([key]) => key !== "inconsistent")
-          .map(([key, value]) => (
-            <div
-              key={key}
-              className="flex justify-between gap-3 rounded-xl bg-base-200/70 px-3 py-2 text-sm"
+          <span className="text-xs text-base-content/65">
+            {t("recon.figure.recordedQuantity")}
+          </span>
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="btn min-h-11 btn-outline btn-primary"
+            aria-label={t("recon.recordFor", { name: hall.name })}
+            onClick={() => onVerify(hall)}
+          >
+            {t("recon.record")}
+          </button>
+          {isAdmin && differs && last.correctionVersion && (
+            <button
+              type="button"
+              className="btn min-h-11 btn-warning"
+              aria-label={t("recon.reviewCorrectionFor", { name: hall.name })}
+              onClick={() => onCorrect(hall)}
             >
-              <dt className="text-base-content/75">
-                {t(`recon.figure.${key}`)}
-              </dt>
-              <dd className="font-semibold tabular-nums">{value}</dd>
-            </div>
-          ))}
-      </dl>
-      {hall.findings.length ? (
+              {t("recon.correct.reviewButton")}
+            </button>
+          )}
+          <button
+            type="button"
+            className="btn min-h-11 border-base-content/20 btn-ghost"
+            aria-expanded={open}
+            onClick={() => setOpen((value) => !value)}
+          >
+            {open ? t("recon.hideDetails") : t("recon.details")}
+          </button>
+        </div>
+      </div>
+      {differs && !isAdmin && (
+        <p className="text-sm text-warning">{t("recon.differs.other")}</p>
+      )}
+      {hall.findings.length > 0 && (
         <div className="rounded-xl border border-warning/60 p-3 text-sm">
           <p className="font-semibold">{t("recon.findings")}</p>
           <ul className="list-disc pl-5">
@@ -181,11 +221,9 @@ function HallCard({
             ))}
           </ul>
         </div>
-      ) : (
-        <p className="text-sm text-base-content/75">{t("recon.noFindings")}</p>
       )}
       {itemCount > 0 && (
-        <details className="rounded-xl border border-base-content/15 px-3">
+        <details className="rounded-xl border border-warning/60 px-3">
           <summary className="min-h-11 cursor-pointer py-3 text-sm">
             {t(
               area === "PRE_STORAGE"
@@ -236,70 +274,39 @@ function HallCard({
           )}
         </details>
       )}
-      <p className="text-sm">
-        {last
-          ? t("recon.lastVerification", {
-              id: last.id,
-              time: format.dateTime(last.createdAt),
-              counted: last.countedQuantity,
-              recorded: last.recordedQuantity,
-              difference: differenceText(
-                t,
-                last.countedQuantity,
-                last.recordedQuantity,
-              ),
-              actor: last.actorId,
-            })
-          : t("recon.noVerification")}
-      </p>
-      {last?.correction && (
-        <details>
-          <summary className="min-h-11 cursor-pointer py-2 text-sm">
-            {t("recon.appliedAs", {
-              id: last.correction.id,
-              delta: `${last.correction.delta > 0 ? "+" : ""}${last.correction.delta}`,
-              time: format.dateTime(last.correction.createdAt),
-              actor: last.correction.actorId,
-            })}
-          </summary>
-          <CorrectionReport report={last.correction.report} />
-        </details>
+      {open && (
+        <div className="space-y-4 rounded-xl bg-base-200/50 p-4">
+          <dl className="grid gap-2 sm:grid-cols-2">
+            {Object.entries(hall.figures)
+              .filter(([key]) => key !== "inconsistent")
+              .map(([key, value]) => (
+                <div
+                  key={key}
+                  className="flex justify-between gap-3 rounded-lg bg-base-100 px-3 py-2 text-sm"
+                >
+                  <dt className="text-base-content/75">
+                    {t(`recon.figure.${key}`)}
+                  </dt>
+                  <dd className="font-semibold tabular-nums">{value}</dd>
+                </div>
+              ))}
+          </dl>
+          {last?.correction && (
+            <details>
+              <summary className="min-h-11 cursor-pointer py-2 text-sm">
+                {t("recon.appliedAs", {
+                  id: last.correction.id,
+                  delta: `${last.correction.delta > 0 ? "+" : ""}${last.correction.delta}`,
+                  time: format.dateTime(last.correction.createdAt),
+                  actor: last.correction.actorId,
+                })}
+              </summary>
+              <CorrectionReport report={last.correction.report} />
+            </details>
+          )}
+          <VerificationHistory area={area} locationId={hall.id} />
+        </div>
       )}
-      {differs && (
-        <p className="rounded-xl border border-warning/60 p-3 text-sm">
-          {t("recon.differs")}{" "}
-          {t(isAdmin ? "recon.differs.admin" : "recon.differs.other")}
-        </p>
-      )}
-      <div className="flex flex-wrap gap-2 border-t border-base-content/10 pt-3">
-        <button
-          type="button"
-          className="btn min-h-11 btn-primary"
-          aria-label={t("recon.recordFor", { name: hall.name })}
-          onClick={() => onVerify(hall)}
-        >
-          {t("recon.record")}
-        </button>
-        {isAdmin && differs && last.correctionVersion && (
-          <button
-            type="button"
-            className="btn min-h-11 btn-outline"
-            aria-label={t("recon.reviewCorrectionFor", { name: hall.name })}
-            onClick={() => onCorrect(hall)}
-          >
-            {t("recon.correct.reviewButton")}
-          </button>
-        )}
-        <button
-          type="button"
-          className="btn min-h-11 border-base-content/20 btn-ghost"
-          aria-expanded={historyOpen}
-          onClick={() => setHistoryOpen((open) => !open)}
-        >
-          {historyOpen ? t("recon.hideHistory") : t("recon.showHistory")}
-        </button>
-      </div>
-      {historyOpen && <VerificationHistory area={area} locationId={hall.id} />}
     </li>
   );
 }
@@ -331,9 +338,9 @@ export default function StockReconciliation() {
       {!halls.length ? (
         <EmptyState>{t(`storage.empty.${area}`)}</EmptyState>
       ) : (
-        <ul className="grid gap-4 xl:grid-cols-2">
+        <ul className="divide-y divide-base-content/10 rounded-box border border-base-content/10 bg-base-100 px-5">
           {halls.map((hall) => (
-            <HallCard
+            <HallRow
               key={hall.id}
               area={area}
               hall={hall}
@@ -357,6 +364,7 @@ export default function StockReconciliation() {
           </span>
         }
         description={t("recon.intro")}
+        actions={allowed && <DataFreshness query={query} />}
       />
       {status === "loading" ? (
         <InlineLoader />
@@ -364,7 +372,6 @@ export default function StockReconciliation() {
         <p>{t("recon.forbidden")}</p>
       ) : (
         <>
-          <DataFreshness query={query} />
           {query.isPending ? (
             <InlineLoader />
           ) : query.isError && !data ? (
@@ -382,50 +389,43 @@ export default function StockReconciliation() {
             <>
               {section("PRE_STORAGE", data.pre)}
               {section("FINAL_STORAGE", data.final)}
-              <section
-                aria-labelledby="profiles-heading"
-                className="space-y-3 rounded-box border border-base-content/10 bg-base-100 p-5"
-              >
-                <h2 id="profiles-heading" className="text-lg font-semibold">
-                  {t("recon.unlinkedProfiles")}
-                </h2>
-                <p className="text-sm text-base-content/75">
-                  {t("recon.unlinkedProfiles.desc")}
-                </p>
-                {!data.unlinkedAcceptedProfileCount ? (
-                  <EmptyState>{t("recon.none")}</EmptyState>
-                ) : (
-                  <>
-                    <ul className="space-y-1 text-sm">
-                      {data.unlinkedAcceptedProfiles.map((profile) => (
-                        <li
-                          key={profile.id}
-                          className="[overflow-wrap:anywhere]"
-                        >
-                          {t("recon.profileItem", {
-                            id: profile.id,
-                            shipment: profile.shippingInformationId,
-                            containers: t("ship.containers", {
-                              count: profile.quantity,
-                            }),
-                            waste: profile.wasteProfileName,
-                            time: format.dateTime(profile.createdAt),
-                          })}
-                        </li>
-                      ))}
-                    </ul>
-                    {data.unlinkedAcceptedProfileCount >
-                      data.unlinkedAcceptedProfiles.length && (
-                      <p className="text-sm">
-                        {t("recon.oldestOf", {
-                          limit: data.listLimit,
-                          total: data.unlinkedAcceptedProfileCount,
+              {data.unlinkedAcceptedProfileCount > 0 && (
+                <section
+                  aria-labelledby="profiles-heading"
+                  className="space-y-3 rounded-box border border-warning/60 bg-base-100 p-5"
+                >
+                  <h2 id="profiles-heading" className="text-lg font-semibold">
+                    {t("recon.unlinkedProfiles")}
+                  </h2>
+                  <p className="text-sm text-base-content/75">
+                    {t("recon.unlinkedProfiles.desc")}
+                  </p>
+                  <ul className="space-y-1 text-sm">
+                    {data.unlinkedAcceptedProfiles.map((profile) => (
+                      <li key={profile.id} className="[overflow-wrap:anywhere]">
+                        {t("recon.profileItem", {
+                          id: profile.id,
+                          shipment: profile.shippingInformationId,
+                          containers: t("ship.containers", {
+                            count: profile.quantity,
+                          }),
+                          waste: profile.wasteProfileName,
+                          time: format.dateTime(profile.createdAt),
                         })}
-                      </p>
-                    )}
-                  </>
-                )}
-              </section>
+                      </li>
+                    ))}
+                  </ul>
+                  {data.unlinkedAcceptedProfileCount >
+                    data.unlinkedAcceptedProfiles.length && (
+                    <p className="text-sm">
+                      {t("recon.oldestOf", {
+                        limit: data.listLimit,
+                        total: data.unlinkedAcceptedProfileCount,
+                      })}
+                    </p>
+                  )}
+                </section>
+              )}
             </>
           )}
         </>

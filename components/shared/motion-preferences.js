@@ -57,7 +57,6 @@ export function MotionPreferenceControl() {
         />
         {t("motion.reduce")}
       </label>
-      <p className="text-sm text-base-content/65">{t("motion.note")}</p>
     </section>
   );
 }

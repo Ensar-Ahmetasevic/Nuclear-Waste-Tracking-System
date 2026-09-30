@@ -26,12 +26,14 @@ function CellIcon({ state }) {
 }
 
 // Locations × parameters; each cell shows the worst open alert. A table so
-// screen readers can move by row and column.
+// screen readers can move by row and column. `lead` adds one column after the
+// name (e.g. occupancy) so a location's figures stay in one row.
 export default function ConditionMatrix({
   caption,
   rows,
   parameters,
   stateLabel,
+  lead,
 }) {
   return (
     <table className="w-full border-separate border-spacing-1.5 text-sm">
@@ -41,6 +43,14 @@ export default function ConditionMatrix({
           <th scope="col" className="sr-only">
             {caption}
           </th>
+          {lead && (
+            <th
+              scope="col"
+              className="text-left text-[11px] font-semibold tracking-wide text-base-content/65 uppercase"
+            >
+              {lead.label}
+            </th>
+          )}
           {parameters.map((parameter) => {
             const Icon = ICONS[parameter.key];
             return (
@@ -68,6 +78,7 @@ export default function ConditionMatrix({
                 {row.name}
               </Link>
             </th>
+            {lead && <td className="w-2/5 pr-3">{lead.render(row)}</td>}
             {parameters.map((parameter) => {
               const state = row.cells[parameter.key];
               return (

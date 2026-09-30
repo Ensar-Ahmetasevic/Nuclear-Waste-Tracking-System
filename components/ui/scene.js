@@ -78,6 +78,7 @@ export default function SceneHeader({
   actions,
   children,
   footer,
+  top = false,
   preload = true,
 }) {
   const accent = sceneAccent(tone);
@@ -97,9 +98,9 @@ export default function SceneHeader({
         aria-hidden="true"
         className="absolute inset-0 -z-10 bg-linear-to-t from-base-300 via-base-300/80 to-base-300/20 sm:bg-linear-to-r sm:from-base-300/95 sm:via-base-300/75 sm:to-base-300/30"
       />
-      {/* With a footer the title sits at the top of the photo and the footer at its bottom. */}
+      {/* With a footer (or `top`) the title sits at the top of the photo. */}
       <div
-        className={`flex min-h-56 flex-col gap-5 p-5 sm:min-h-64 sm:p-8 ${footer ? "justify-between" : "justify-end"}`}
+        className={`flex min-h-56 flex-col gap-5 p-5 sm:min-h-64 sm:p-8 ${footer ? "justify-between" : top ? "justify-start" : "justify-end"}`}
       >
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="max-w-2xl min-w-0 space-y-2">
@@ -176,64 +177,6 @@ export function SceneStat({ label, value, note, tone, href }) {
       ) : (
         <span className={className}>{body}</span>
       )}
-    </li>
-  );
-}
-
-// A phase of the process as a card with its scene: shipment detail and home.
-export function SceneCard({
-  scene,
-  tone,
-  number,
-  title,
-  state,
-  stateLabel,
-  children,
-  current = false,
-}) {
-  const accent = sceneAccent(tone);
-  const faded = state === "upcoming";
-  return (
-    <li
-      aria-current={current ? "step" : undefined}
-      className={`flex flex-col overflow-hidden rounded-box border bg-base-100 ${
-        current
-          ? "border-2 border-success shadow-[0_0_0_4px] shadow-success/15"
-          : state === "blocked"
-            ? "border-2 border-error"
-            : state === "done"
-              ? "border-base-content/15"
-              : "border-base-content/10"
-      }`}
-    >
-      <div data-theme="nwts-dark" className="relative h-40 bg-base-300">
-        <SceneImage
-          scene={scene}
-          sizes="(min-width: 1024px) 400px, 100vw"
-          className={faded ? "brightness-50 grayscale" : ""}
-        />
-        <span
-          className={`absolute top-3 left-3 rounded-full px-2.5 py-1 text-xs font-semibold ${
-            current
-              ? "bg-success text-success-content"
-              : state === "blocked"
-                ? "bg-error text-error-content"
-                : "bg-base-300/85 text-base-content"
-          }`}
-        >
-          {stateLabel}
-        </span>
-        <span
-          aria-hidden="true"
-          className={`absolute right-3 bottom-1 font-mono text-4xl font-semibold ${accent.text}`}
-        >
-          {number}
-        </span>
-      </div>
-      <div className="flex flex-1 flex-col gap-3.5 p-5">
-        <h3 className="text-lg font-semibold">{title}</h3>
-        {children}
-      </div>
     </li>
   );
 }

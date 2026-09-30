@@ -17,7 +17,7 @@ export function RadiationMark({ className = "size-6" }) {
 }
 
 // Badge counts per navigation item from the /api/workspace summary: open work of
-// the area plus its open condition alerts (red when one is critical), since
+// the area plus its unresolved hall alerts (red when one is critical), since
 // alerts are handled in the hall or room they belong to.
 export function badgeFor(entry, workspaces) {
   const area = workspaces?.find((row) => row.key === entry.badge);

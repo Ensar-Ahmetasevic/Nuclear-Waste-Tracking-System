@@ -1,22 +1,13 @@
-// Shared wording for alert rows on the overview.
-export function alertView(
-  t,
-  { parameter, location, severity, kind, escalated },
-) {
-  const meta =
-    kind === "MISSING"
-      ? t("attention.alert.overdue")
-      : severity === "CRITICAL"
-        ? t("attention.alert.critical")
-        : t("attention.alert.warning");
+import { problemText } from "../../shared/alert-problems";
+
+// Wording for a hall alert row on the overview: the hall and what is wrong there.
+export function alertView(t, format, { location, severity, problems }) {
   return {
-    icon: kind === "MISSING" ? "clock" : "alert",
+    icon: "alert",
     tone: severity === "CRITICAL" ? "error" : "warning",
-    title: t("attention.alert", {
-      parameter: t(`param.${parameter}`),
-      location,
-    }),
-    meta: escalated ? `${meta} · ${t("attention.escalated")}` : meta,
+    title: t("attention.alert", { location }),
+    meta: problems.length
+      ? problems.map((problem) => problemText(t, format, problem)).join(" · ")
+      : t("halert.allNormal"),
   };
 }
-

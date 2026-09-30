@@ -1,6 +1,5 @@
 "use client";
 import { useState } from "react";
-import { useT } from "../../../../shell/preferences";
 import LocationLayout from "../../../storage/location-layout";
 import ModalFinalStorageConditionsForm from "./conditions/modal/modal-final-storage-conditions-form";
 import CapacityDetails from "./capacity/capacity-details";
@@ -9,7 +8,6 @@ import ConditionsDetails from "./conditions/conditions-details";
 export default function FinalCapacityAndConditionsDetails({
   finalStorageData,
 }) {
-  const t = useT();
   const [isModalConditionsOpen, setIsModalConditionsOpen] = useState(false);
   const toggelConditionsModal = () => setIsModalConditionsOpen((prev) => !prev);
   const totalContainers =
@@ -20,10 +18,6 @@ export default function FinalCapacityAndConditionsDetails({
         area="FINAL_STORAGE"
         location={finalStorageData}
         containers={totalContainers}
-        detail={[
-          finalStorageData.containerType,
-          t("storage.depth", { depth: finalStorageData.depth }),
-        ].join(" · ")}
         operations={<CapacityDetails roomData={finalStorageData} />}
         conditions={
           <ConditionsDetails

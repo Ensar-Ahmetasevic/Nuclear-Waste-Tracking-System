@@ -4,6 +4,7 @@ import { useT } from "../../../shell/preferences";
 import { useFormat } from "../../../ui/format";
 import StatusChip from "../../../ui/status-chip";
 import { personLabel } from "../../../shared/person-label";
+import MessageText from "../../../ui/message-text";
 
 const STATE_TONE = { open: "error", escalated: "warning", resolved: "neutral" };
 const CHANGE_FIELDS = ["quantity", "locationOrigin", "wasteProfile"];
@@ -56,7 +57,7 @@ export default function ReturnReport({ report, profileId = null, showState = fal
       ))}
       {report.note && (
         <p className="break-words">
-          <span className="font-medium">{t("return.note")}:</span> {report.note}
+          <span className="font-medium">{t("return.note")}:</span> <MessageText text={report.note} />
         </p>
       )}
       <p className="text-base-content/70">
@@ -91,7 +92,7 @@ export default function ReturnReport({ report, profileId = null, showState = fal
                   </p>
                 )),
               )}
-              <p className="break-words">{row.note}</p>
+              <p><MessageText text={row.note} /></p>
             </li>
           ))}
         </ol>

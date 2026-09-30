@@ -7,6 +7,7 @@ import Providers from "./providers";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { LOCALE_COOKIE, THEME_COOKIE, pickLocale, pickTheme } from "../lib/i18n";
+import { messagesFor } from "../lib/locales";
 
 const rubik = Rubik({
   subsets: ["latin"],
@@ -40,7 +41,7 @@ export default async function RootLayout({ children }) {
       className={`${rubik.variable} ${mono.variable} scroll-smooth`}
     >
       <body className="overflow-x-clip font-rubik">
-        <Providers locale={locale} theme={theme}>
+        <Providers locale={locale} messages={messagesFor(locale)} theme={theme}>
           <ToastContainer
             position="top-center"
             autoClose={4000}

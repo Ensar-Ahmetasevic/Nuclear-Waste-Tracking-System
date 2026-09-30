@@ -13,7 +13,6 @@ import DataFreshness, {
 } from "../../components/shared/data-freshness";
 import { useT } from "../../components/shell/preferences";
 import PageHeader from "../../components/ui/page-header";
-import IconTile from "../../components/ui/icon-tile";
 import EmptyState from "../../components/ui/empty-state";
 import {
   shipmentGroup,
@@ -21,13 +20,14 @@ import {
 } from "../../lib/shipping-overview.cjs";
 import { shipmentSearchId } from "../../lib/record-codes.cjs";
 
-// Filter tiles; labels come from the interface language.
+// Filter chips; labels come from the interface language. `alert` marks the
+// ones whose count needs someone.
 const views = [
-  { id: "all", tone: "step-1", icon: "truck" },
-  { id: "missing", tone: "warning", icon: "box" },
-  { id: "recorded", tone: "success", icon: "box" },
-  { id: "out", tone: "neutral", icon: "truck" },
-  { id: "returned", tone: "error", icon: "alert" },
+  { id: "all" },
+  { id: "missing", alert: "text-warning" },
+  { id: "recorded" },
+  { id: "out" },
+  { id: "returned", alert: "text-error" },
 ];
 
 export default function ShippingInformations() {
@@ -61,11 +61,8 @@ function ShippingList() {
     : "all";
   const queryState = useShippingInformationQuery(manualRefreshOptions);
   const { data, isLoading } = queryState;
-  if (isLoading)
-    return (
-      <PageLoader />
-    );
-  const header = (
+  if (isLoading) return <PageLoader />;
+  const header = (freshness) => (
     <PageHeader
       scene="gate"
       tone="step-1"
@@ -83,18 +80,24 @@ function ShippingList() {
           </Link>
         )
       }
+      footer={freshness}
     />
   );
   if (!data)
     return (
       <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-        {header}
-        <DataFreshness query={queryState} />
+        {header(<DataFreshness query={queryState} />)}
       </main>
     );
 
   const trucks = newestShipments(data.shippingData || []);
-  const counts = { all: trucks.length, missing: 0, recorded: 0, out: 0, returned: 0 };
+  const counts = {
+    all: trucks.length,
+    missing: 0,
+    recorded: 0,
+    out: 0,
+    returned: 0,
+  };
   trucks.forEach((truck) => {
     counts[shipmentGroup(truck)]++;
     // Returned from Pre-storage, at Step 1 or waiting for Supervision; overlaps "recorded".
@@ -104,7 +107,12 @@ function ShippingList() {
   // A shipment code (S-000025, NWTS-S-25, #25 …) finds exactly that shipment.
   const codeId = shipmentSearchId(query);
   const filtered = trucks.filter((truck) => {
-    if (view === "returned" ? !truck.returnState : view !== "all" && shipmentGroup(truck) !== view) return false;
+    if (
+      view === "returned"
+        ? !truck.returnState
+        : view !== "all" && shipmentGroup(truck) !== view
+    )
+      return false;
     if (codeId) return truck.id === codeId;
     const date = dayjs(truck.entryDateTime);
     // Only numeric D/M/Y shortcuts are dates; company names remain searchable.
@@ -131,47 +139,9 @@ function ShippingList() {
   const viewLabel = t(`ship.view.${view}`);
   return (
     <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-      {header}
-      <DataFreshness query={queryState} />
-      <div
-        role="group"
-        className="grid grid-cols-2 gap-3 lg:grid-cols-5"
-        aria-label={t("ship.filterLabel")}
-      >
-        {views.map((option) => (
-          <button
-            key={option.id}
-            type="button"
-            aria-pressed={view === option.id}
-            onClick={() => {
-              updateFilters({ view: option.id, page: 1 });
-            }}
-            className={`operational-control flex flex-col gap-2 rounded-box border p-4 text-left ${
-              view === option.id
-                ? "border-primary bg-primary/10 ring-1 ring-primary"
-                : "border-base-content/10 bg-base-100 hover:border-base-content/30"
-            }`}
-          >
-            <span className="flex items-center gap-2.5">
-              <IconTile icon={option.icon} tone={option.tone} size="sm" />
-              <span className="text-sm font-semibold">
-                {t(`ship.view.${option.id}`)}
-              </span>
-            </span>
-            <span className="text-3xl font-semibold tabular-nums">
-              {counts[option.id]}
-            </span>
-            <span className="text-xs text-base-content/70">
-              {t(`ship.view.${option.id}.hint`)}
-            </span>
-          </button>
-        ))}
-      </div>
-      <div className="rounded-box border border-base-content/10 bg-base-100 p-4">
-        <label
-          htmlFor="searchShippings"
-          className="mb-2 block text-sm font-semibold"
-        >
+      {header(<DataFreshness query={queryState} />)}
+      <div className="space-y-3 rounded-box border border-base-content/10 bg-base-100 p-4">
+        <label htmlFor="searchShippings" className="sr-only">
           {t("ship.search")}
         </label>
         <input
@@ -184,15 +154,42 @@ function ShippingList() {
             updateFilters({ search: event.target.value, page: 1 });
           }}
         />
-        <p className="mt-2 text-xs text-base-content/65">
-          {t("ship.search.hint")}
-        </p>
-      </div>
-      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-        <p role="status">
+        <div
+          role="group"
+          className="flex flex-wrap gap-2"
+          aria-label={t("ship.filterLabel")}
+        >
+          {views.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              aria-pressed={view === option.id}
+              title={t(`ship.view.${option.id}.hint`)}
+              onClick={() => {
+                updateFilters({ view: option.id, page: 1 });
+              }}
+              className={`btn min-h-11 rounded-full btn-sm ${
+                view === option.id
+                  ? "btn-primary"
+                  : "border-base-content/15 btn-ghost"
+              }`}
+            >
+              {t(`ship.view.${option.id}`)}
+              <span
+                className={`font-mono tabular-nums ${
+                  view !== option.id && option.alert && counts[option.id]
+                    ? option.alert
+                    : "opacity-70"
+                }`}
+              >
+                {counts[option.id]}
+              </span>
+            </button>
+          ))}
+        </div>
+        <p role="status" className="sr-only">
           {t("ship.count", { count: filtered.length, view: viewLabel })}
         </p>
-        <p className="text-base-content/65">{t("ship.newestFirst")}</p>
       </div>
       {items.length ? (
         <ul className="space-y-3">

@@ -97,8 +97,7 @@ export default function DepartureReview({ shipment, close }) {
         {result ? t("dep.done") : t("dep.title")}
       </h2>
       <p className="my-3">
-        {t("area.SHIPPING")} ·{" "}
-        {t("ship.number", { id: reviewed.id })}
+        {t("area.SHIPPING")} · {t("ship.number", { id: reviewed.id })}
       </p>
       <dl className="grid gap-2 rounded-xl bg-base-200/70 p-4 break-words sm:grid-cols-3">
         <div>
@@ -134,13 +133,11 @@ export default function DepartureReview({ shipment, close }) {
         <>
           <p className="my-4">{t("dep.effect")}</p>
           {phase === "review" && (
-            <button className="btn min-h-11 btn-primary" onClick={save}>
+            <button className="btn min-h-11 btn-warning" onClick={save}>
               {t("dep.confirm")}
             </button>
           )}
-          {phase === "saving" && (
-            <SavingButton />
-          )}
+          {phase === "saving" && <SavingButton />}
           {["unknown", "error"].includes(phase) && (
             <button className="btn min-h-11 btn-primary" onClick={save}>
               {t("dep.check")}

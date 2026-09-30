@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { withApiAuth } from "@/lib/server/api-route";
+import { reasonText, withApiAuth } from "@/lib/server/api-route";
 import { legacyLinkCandidates, linkLegacyReceipt } from "@/lib/server/stock-reconciliation";
 
 async function GETHandler() {
@@ -12,6 +12,6 @@ async function POSTHandler(request, { user }) {
 }
 
 export const GET = withApiAuth(GETHandler, { allowedRoles: ["ADMINISTRATOR", "SUPERVISION"] });
-export const POST = withApiAuth(POSTHandler);
+export const POST = withApiAuth(POSTHandler, { texts: reasonText });
 
 export const dynamic = "force-dynamic";

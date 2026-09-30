@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
-import { canAccess } from "../../lib/workspaces.cjs";
+import { canAccess, manages } from "../../lib/workspaces.cjs";
 import { activeItemKey, navigationFor } from "../../lib/navigation";
 import { useWorkspace } from "../shared/use-workspace";
 import ModalTruckDataForm from "../pages/shipping-informations/components/modals/modal-truck-data-form";
@@ -17,32 +17,31 @@ export default function AppShell({ children }) {
   const path = usePathname();
   const router = useRouter();
   const { query } = useWorkspace();
-  const [launcher, setLauncher] = useState(false);
+  // null, "search" (Ctrl K, top bar) or "menu" (phones).
+  const [launcher, setLauncher] = useState(null);
   const [arrival, setArrival] = useState(false);
   const user = session?.user;
   const bare = !user || path === "/login" || path === "/register";
   const sections = useMemo(() => navigationFor(user), [user]);
   const active = activeItemKey(sections, path);
   const workspaces = query.data?.workspaces;
-  // Bell: open alerts in the storage areas this user may see. Alerts are handled
-  // in their hall or room, so it opens the area whose halls or rooms show them.
+  // Bell: hall alerts in the storage areas this user may see. Supervision and
+  // administrators count the ones they have not read yet; workers the open ones.
   const alertAreas = ["PRE_STORAGE", "FINAL_STORAGE"]
     .filter((area) => canAccess(user, area))
-    .map((area) => ({
-      href: area === "PRE_STORAGE" ? "/pre-storage" : "/final-storage",
-      ...(workspaces?.find((row) => row.key === area)?.alerts || {}),
-    }));
+    .map((area) => workspaces?.find((row) => row.key === area)?.alerts || {});
+  const count = manages(user) ? "unread" : "open";
   const alerts = {
-    open: alertAreas.reduce((total, row) => total + (row.open || 0), 0),
+    open: alertAreas.reduce((total, row) => total + (row[count] || 0), 0),
     critical: alertAreas.reduce((total, row) => total + (row.critical || 0), 0),
-    href: (alertAreas.find((row) => row.open) || alertAreas[0])?.href,
+    href: alertAreas.length ? "/alerts" : null,
   };
   useEffect(() => {
     if (bare) return;
     const shortcut = (event) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        setLauncher(true);
+        setLauncher("search");
       }
     };
     window.addEventListener("keydown", shortcut);
@@ -61,7 +60,7 @@ export default function AppShell({ children }) {
         <Topbar
           user={user}
           alerts={alerts}
-          onOpenLauncher={() => setLauncher(true)}
+          onOpenLauncher={() => setLauncher("search")}
           onRecordArrival={
             canAccess(user, "SHIPPING") ? () => setArrival(true) : null
           }
@@ -72,11 +71,12 @@ export default function AppShell({ children }) {
         sections={sections}
         active={active}
         workspaces={workspaces}
-        onOpenLauncher={() => setLauncher(true)}
+        onOpenLauncher={() => setLauncher("menu")}
       />
       <Launcher
-        open={launcher}
-        onClose={() => setLauncher(false)}
+        open={Boolean(launcher)}
+        mode={launcher || "search"}
+        onClose={() => setLauncher(null)}
         user={user}
         sections={sections}
         workspaces={workspaces}
