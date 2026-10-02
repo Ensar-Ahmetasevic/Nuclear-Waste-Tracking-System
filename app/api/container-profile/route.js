@@ -27,6 +27,8 @@ async function POSTHandler(req, { user }) {
     return NextResponse.json({ preparation: Object.fromEntries(Object.keys(select).map(key => [key, previous[key]])), replayed: true });
   }
   const shipment = await prisma.shippingInformation.findUniqueOrThrow({ where: { id: shippingInformationId } });
+  if (shipment.truckStatus === "OUT" && user.role === "EMPLOYEE")
+    throw new HttpError(403, "Only Supervision or an administrator can correct a departed shipment");
   const origin = await prisma.locationOrigin.findUniqueOrThrow({ where: { id: locationOriginId } });
   const waste = await prisma.wasteProfile.findUniqueOrThrow({ where: { id: wasteProfileId } });
   if (origin.archivedAt || waste.archivedAt) throw new HttpError(409, archivedChoice);
@@ -84,8 +86,9 @@ async function DELETEHandler(req, { user }) {
   }
   const current = await prisma.containerProfile.findUniqueOrThrow({ where: { id } });
   const shipment = await prisma.shippingInformation.findUniqueOrThrow({ where: { id: current.shippingInformationId } });
-  if (shipment.truckStatus === "OUT" && user.role !== "ADMINISTRATOR")
-    throw new HttpError(403, "Only administrators can correct a departed shipment");
+  // Employees correct; deleting is for Supervision and Administrators only.
+  if (user.role === "EMPLOYEE")
+    throw new HttpError(403, "Only Supervision or an administrator can delete a Container Profile");
   const before = profileSnapshot(current, shipment);
   if (keys.some(key => before[key] !== expected[key])) throw new HttpError(409, "The profile or shipment changed. Close and reload before reviewing deletion again.");
   await assertUnreceivedProfile(current);
@@ -111,6 +114,8 @@ async function PUTHandler(req, { user }) {
     throw new HttpError(400, "Review the profile and provide a reason (3–1000 characters)");
   const current = await prisma.containerProfile.findUniqueOrThrow({ where: { id: Number(id) } });
   const shipment = await prisma.shippingInformation.findUniqueOrThrow({ where: { id: current.shippingInformationId } });
+  if (shipment.truckStatus === "OUT" && user.role === "EMPLOYEE")
+    throw new HttpError(403, "Only Supervision or an administrator can correct a departed shipment");
   const before = profileSnapshot(current, shipment);
   const keys = Object.keys(before);
   const reviewed = Object.fromEntries(keys.map(key => [key, expected[key]]));
@@ -182,7 +187,7 @@ async function PATCHHandler(request, { user }) {
 
 export const POST = withApiAuth(POSTHandler, { access: "shipping", texts: reasonText });
 export const GET = withApiAuth(GETHandler);
-export const DELETE = withApiAuth(DELETEHandler, { access: "member", allowedRoles: ["ADMINISTRATOR", "SUPERVISION"], texts: reasonText });
+export const DELETE = withApiAuth(DELETEHandler, { access: "member", texts: reasonText });
 export const PUT = withApiAuth(PUTHandler, { access: "shipping", bodyObjects: ["preparedData"], texts: (body) => [body.preparedData?.reason] });
 export const PATCH = withApiAuth(PATCHHandler, { access: "shipping", bodyObjects: ["containerStatusUpdateData"] });
 

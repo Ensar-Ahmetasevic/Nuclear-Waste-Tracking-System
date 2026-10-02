@@ -1,11 +1,14 @@
 "use client";
 import { useRef, useState } from "react";
 import { LuLogOut, LuPencil, LuTrash2 } from "react-icons/lu";
+import {
+  GROUP_TONE,
+  shipmentGroup,
+} from "../../../../lib/shipping-overview.cjs";
 import { useT } from "../../../shell/preferences";
 import { useFormat } from "../../../ui/format";
 import IconTile from "../../../ui/icon-tile";
 import StatusChip from "../../../ui/status-chip";
-import { personLabel } from "../../../shared/person-label";
 import CreateContainerProfile from "./../container-data/create-container-profile";
 import ModalTruckUpdate from "./../components/modals/modal-truck-update";
 import ShipmentDelete from "../components/modals/shipment-delete";
@@ -34,6 +37,7 @@ export default function TruckData({ data, canEdit = false }) {
     truckStatus,
   } = shipment;
   const out = truckStatus === "OUT";
+  const tone = GROUP_TONE[shipmentGroup(shipment)];
   // Amber when the truck is due to leave (all content received), so the gate
   // sees its turn; before that departure is a quiet, secondary action.
   const departureDue = data.journey?.current === "departure";
@@ -44,18 +48,13 @@ export default function TruckData({ data, canEdit = false }) {
     <>
       <header className="flex flex-wrap items-start justify-between gap-5">
         <div className="flex min-w-0 items-start gap-4">
-          <IconTile
-            icon="truck"
-            tone={out ? "neutral" : "step-1"}
-            solid
-            size="lg"
-          />
+          <IconTile icon="truck" tone={tone} solid size="lg" />
           <div className="min-w-0 space-y-2">
             <div className="flex flex-wrap items-center gap-2.5">
               <h1 className="text-2xl font-semibold sm:text-3xl">
                 {t("ship.number", { id })}
               </h1>
-              <StatusChip tone={out ? "error" : "warning"}>
+              <StatusChip tone={tone === "step-1" ? "info" : tone}>
                 {t(`ship.status.${truckStatus}`)}
               </StatusChip>
               {data.returnState && (
@@ -80,6 +79,8 @@ export default function TruckData({ data, canEdit = false }) {
               <span aria-hidden="true">•</span>
               <span>
                 {t("ship.entered", { time: format.dateTime(entryDateTime) })}
+                {shipment.exitDateTime &&
+                  ` – ${t("ship.exited", { time: format.dateTime(shipment.exitDateTime) })}`}
               </span>
             </p>
           </div>
@@ -95,28 +96,34 @@ export default function TruckData({ data, canEdit = false }) {
               <button
                 type="button"
                 disabled={unconfirmedDeletion}
-                className={secondary}
+                aria-label={t("ship.edit")}
+                title={t("ship.edit")}
+                className={`btn-square ${secondary}`}
                 onClick={() => setOpenModalUpdate(true)}
               >
                 <LuPencil className="size-4" aria-hidden="true" />
-                {t("ship.edit")}
               </button>
               {permissions.canDelete && (
                 <button
                   ref={deleteTrigger}
                   type="button"
-                  className="btn min-h-11 btn-soft btn-error"
+                  aria-label={
+                    unconfirmedDeletion
+                      ? t("ship.checkDeletion")
+                      : t("ship.delete")
+                  }
+                  title={t("ship.delete")}
+                  className={`btn min-h-11 btn-soft btn-error ${unconfirmedDeletion ? "" : "btn-square"}`}
                   onClick={() => {
                     setDeletionStarted(true);
                     setShowDeleteConfirm(true);
                   }}
                 >
-                  {!unconfirmedDeletion && (
+                  {unconfirmedDeletion ? (
+                    t("ship.checkDeletion")
+                  ) : (
                     <LuTrash2 className="size-4" aria-hidden="true" />
                   )}
-                  {unconfirmedDeletion
-                    ? t("ship.checkDeletion")
-                    : t("ship.delete")}
                 </button>
               )}
               {!out && (
@@ -164,27 +171,10 @@ export default function TruckData({ data, canEdit = false }) {
         </div>
       </header>
 
-      {(out || !canEdit || data.departure) && (
+      {!canEdit && (
         <div role="status" className="space-y-1 text-sm text-base-content/75">
-          {out && (
-            <p>
-              {canEdit ? t("ship.note.outAdmin") : t("ship.note.outReadOnly")}
-            </p>
-          )}
+          {out && !canEdit && <p>{t("ship.note.outReadOnly")}</p>}
           {!out && !canEdit && <p>{t("ship.note.readOnly")}</p>}
-          {data.departure && (
-            <p>
-              {t("ship.lastDeparture", {
-                id: data.departure.id,
-                time: format.dateTime(data.departure.createdAt),
-                actor: personLabel(
-                  t,
-                  data.people?.[data.departure.actorId],
-                  data.departure.actorId,
-                ),
-              })}
-            </p>
-          )}
         </div>
       )}
 

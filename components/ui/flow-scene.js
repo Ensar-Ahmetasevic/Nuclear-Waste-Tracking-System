@@ -4,11 +4,12 @@ import { useT } from "../shell/preferences";
 import { SceneImage } from "./scene";
 
 // Positions on public/scenes/flow.webp (percent of width and height): the pin
-// sits above truck, hall and tunnel, the label to its right.
+// sits above truck, hall and tunnel, the label to its right. `width` is the
+// room the label has before the next pin or the edge of the photo.
 export const FLOW_STAGES = [
-  { key: "step1", tone: "step-1", icon: LuTruck, x: 13.4, label: 18.5 },
-  { key: "step2", tone: "step-2", icon: LuWarehouse, x: 47, label: 52 },
-  { key: "step3", tone: "step-3", icon: LuLayers, x: 82.7, label: 87.8 },
+  { key: "step1", tone: "step-1", icon: LuTruck, x: 13.4, label: 18.5, width: 22 },
+  { key: "step2", tone: "step-2", icon: LuWarehouse, x: 47, label: 52, width: 24 },
+  { key: "step3", tone: "step-3", icon: LuLayers, x: 82.7, label: 87.8, width: 11.8 },
 ];
 
 const TONE = {
@@ -50,15 +51,16 @@ export default function FlowScene({ preload = false, sizes, children }) {
                   />
                 </span>
                 <span
-                  className="absolute top-[11%] hidden w-[12.5%] flex-col text-white [text-shadow:0_1px_8px_rgb(0_0_0/0.6)] @xl:flex"
-                  style={{ left: `${stage.label}%` }}
+                  // Words break only at spaces: a label must never lose a letter to the next line.
+                  className="absolute top-[11%] hidden flex-col [overflow-wrap:normal] text-white [text-shadow:0_1px_8px_rgb(0_0_0/0.6)] @xl:flex"
+                  style={{ left: `${stage.label}%`, width: `${stage.width}%` }}
                 >
                   <span
                     className={`font-mono text-[3.2cqw] leading-none font-bold ${TONE[stage.tone].split(" ")[1]}`}
                   >
                     {String(index + 1).padStart(2, "0")}
                   </span>
-                  <span className="mt-[0.4cqw] text-[1.9cqw] leading-tight font-semibold">
+                  <span className="mt-[0.4cqw] text-[1.8cqw] leading-tight font-semibold">
                     {t(`flow.${stage.key}.title`)}
                   </span>
                   <span className="mt-[0.3cqw] hidden text-[1.3cqw] leading-snug text-white/85 @3xl:block">

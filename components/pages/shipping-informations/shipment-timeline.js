@@ -4,8 +4,8 @@ import { useFormat } from "../../ui/format";
 import { personLabel } from "../../shared/person-label";
 import MessageText from "../../ui/message-text";
 
-// Recorded events of a shipment. Event details are recorded text and stay as
-// stored; titles are shown in the interface language when known.
+// Recorded events of a shipment, in the interface language: titles from the
+// interface text, details and notes through the stored AI translation.
 export default function ShipmentTimeline({
   timeline,
   titleId = "shipment-timeline-title",
@@ -51,7 +51,7 @@ export default function ShipmentTimeline({
                     : t("ship.activity.noUser")}
                 </p>
                 <p className="text-sm break-words text-base-content/75">
-                  {event.detail}
+                  <MessageText text={event.detail} />
                 </p>
                 {event.note && (
                   <p className="text-sm">
@@ -67,16 +67,6 @@ export default function ShipmentTimeline({
           {t("ship.activity.empty")}
         </p>
       )}
-      <details className="rounded-xl border border-base-content/15 px-3">
-        <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium">
-          {t("ship.activity.coverage")}
-        </summary>
-        <ul className="list-disc space-y-2 pb-3 pl-5 text-sm text-base-content/70">
-          {timeline.notes.map((note) => (
-            <li key={note}>{note}</li>
-          ))}
-        </ul>
-      </details>
     </section>
   );
 }

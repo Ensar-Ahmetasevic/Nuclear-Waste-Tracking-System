@@ -142,7 +142,7 @@ function LoginForm() {
               id="login-language"
               value={locale}
               onChange={(event) => setLocale(event.target.value)}
-              className="select h-11 w-auto border-base-content/20 bg-base-300/80 text-sm backdrop-blur"
+              className="select h-11 w-auto shrink-0 border-base-content/20 bg-base-300/80 bg-none px-3 text-sm font-medium backdrop-blur"
             >
               <LanguageOptions short />
             </select>

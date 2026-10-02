@@ -17,8 +17,7 @@ import DataFreshness, { manualRefreshOptions } from "./data-freshness";
 import { ruleSentence } from "./rule-sentence";
 import useReviewDialog, { sendAttempt } from "./use-review-dialog";
 import { InlineLoader } from "../loading/loaders";
-import { ButtonSpinner } from "../loading/spinner";
-import { ProofreadPrompt, useProofread } from "../ui/proofread";
+import { AiTextarea } from "../ui/proofread";
 
 // Labels: rules.bound.<key>.
 const BOUNDS = [
@@ -67,7 +66,6 @@ function RuleDialog({ area, hall, parameter, current, onClose }) {
     ]),
   );
   const [error, setError] = useState(null);
-  const proofread = useProofread();
   const [phase, setPhase] = useState("edit");
   const [message, setMessage] = useState("");
   const [result, setResult] = useState(null);
@@ -113,7 +111,6 @@ function RuleDialog({ area, hall, parameter, current, onClose }) {
 
   async function review(event) {
     event.preventDefault();
-    if (proofread.waiting) return;
     const ruleError = ruleProblem(values);
     const problem = ruleError
       ? {
@@ -141,11 +138,11 @@ function RuleDialog({ area, hall, parameter, current, onClose }) {
       )?.focus();
       return;
     }
-    const checked = await proofread.confirm({
-      approvalReference: form.approvalReference.trim(),
-      reason: form.reason.trim(),
-    });
-    setForm((current) => ({ ...current, ...checked }));
+    setForm((current) => ({
+      ...current,
+      approvalReference: current.approvalReference.trim(),
+      reason: current.reason.trim(),
+    }));
     payload.current = null;
     setMessage("");
     setPhase("review");
@@ -250,7 +247,7 @@ function RuleDialog({ area, hall, parameter, current, onClose }) {
           </label>
           <label className="block text-sm">
             {t("rules.reference")}
-            <textarea
+            <AiTextarea
               {...field("approvalReference")}
               required
               maxLength={1000}
@@ -261,7 +258,7 @@ function RuleDialog({ area, hall, parameter, current, onClose }) {
           </label>
           <label className="block text-sm">
             {t("def.reason")}
-            <textarea
+            <AiTextarea
               {...field("reason")}
               required
               maxLength={1000}
@@ -270,12 +267,7 @@ function RuleDialog({ area, hall, parameter, current, onClose }) {
               onChange={update("reason")}
             />
           </label>
-          <ProofreadPrompt
-            proofread={proofread}
-            labels={{ approvalReference: t("rules.reference"), reason: t("def.reason") }}
-          />
-          <button type="submit" className="btn min-h-11 btn-primary" disabled={proofread.waiting}>
-            {proofread.checking && <ButtonSpinner />}
+          <button type="submit" className="btn min-h-11 btn-primary">
             {t("rules.review")}
           </button>
         </form>

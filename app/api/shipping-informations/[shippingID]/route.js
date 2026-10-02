@@ -1,3 +1,4 @@
+import { shipmentDocuments } from "@/lib/server/profile-documents";
 import { shipmentTimeline } from "@/lib/server/shipment-timeline";
 import { shipmentRemovalSnapshot, shipmentRemovalVersion } from "@/lib/server/shipment-removal";
 import { NextResponse } from "next/server";
@@ -31,17 +32,20 @@ async function GETHandler(req, { params, user }) {
       );
     }
 
-    const linked = await prisma.receiptAllocation.findMany({ where: { shipmentId: shippingData.id }, select: { containerProfileId: true } });
+    const linked = await prisma.receiptAllocation.findMany({ where: { shipmentId: shippingData.id }, select: { containerProfileId: true, locationId: true } });
     const transferred = await prisma.transferSource.findMany({ where: { shipmentId: shippingData.id }, select: { containerProfileId: true, quantity: true, state: true } });
     const departure = await prisma.shipmentDeparture.findFirst({ where: { shipmentId: shippingData.id }, orderBy: { id: "desc" }, select: { id: true, actorId: true, createdAt: true } });
     const locked = new Set([...linked, ...transferred].map(row => row.containerProfileId));
     const receiptRecorded = new Set(linked.map(row => row.containerProfileId));
+    const halls = new Map((await prisma.preStorageLocation.findMany({ where: { id: { in: [...new Set(linked.map(row => row.locationId))] } }, select: { id: true, name: true } })).map(row => [row.id, row.name]));
+    const hallNames = profileId => [...new Set(linked.filter(row => row.containerProfileId === profileId).map(row => halls.get(row.locationId)).filter(Boolean))];
     const returns = await rejectionReports(shippingData);
     shippingData.containerProfiles = shippingData.containerProfiles.map(profile => ({ ...profile,
       lastReturn: latestReport(returns, profile.id),
       truckStatus: shippingData.truckStatus,
       correctionLocked: profile.containerStatus === "accepted" || locked.has(profile.id),
       receiptRecorded: receiptRecorded.has(profile.id),
+      receiptHalls: hallNames(profile.id),
     }));
     // Steps of the truck for the stepper.
     const journey = shipmentJourney({
@@ -66,23 +70,26 @@ async function GETHandler(req, { params, user }) {
     return NextResponse.json(
       {
         shippingData, containerCorrections, returns,
+        documents: await shipmentDocuments(shippingData),
         returnState: returns.some(row => row.state === "escalated") ? "escalated" : returns.some(row => row.state === "open") ? "open" : null,
         deletionVersion: shipmentRemovalVersion(shipmentRemovalSnapshot(shippingData)),
-        timeline: await shipmentTimeline(shippingData, user.role === "ADMINISTRATOR", canReviewCorrections, returns),
+        timeline: await shipmentTimeline(shippingData, user.role === "ADMINISTRATOR", true, returns),
         departure,
         journey,
         corrections,
         people,
         permissions: {
-          canDelete: (user.role === "ADMINISTRATOR" || shippingData.truckStatus !== "OUT") && (canReviewCorrections || !shippingData.containerProfiles.length) && !linked.length && !transferred.length && !shippingData.containerProfiles.some(profile => profile.containerStatus === "accepted"),
+          canRemoveDocuments: canReviewCorrections,
+          // Employees correct; only management deletes shipments and profiles.
+          canDeleteContainers: canReviewCorrections,
+          canDelete: canReviewCorrections && !linked.length && !transferred.length && !shippingData.containerProfiles.some(profile => profile.containerStatus === "accepted"),
           canCorrectStatus: user.role === "ADMINISTRATOR",
           // Once Step 1 hands a return to Supervision, only management resends it.
           canDecideReturns: canReviewCorrections,
+          // Employees correct while the truck is IN; after OUT only management.
           canEditContainers:
-            user.role === "ADMINISTRATOR" ||
-            (user.role === "SUPERVISION" && shippingData.truckStatus !== "OUT"),
-          canEdit:
-            user.role === "ADMINISTRATOR" || shippingData.truckStatus !== "OUT",
+            canReviewCorrections || shippingData.truckStatus !== "OUT",
+          canEdit: canReviewCorrections || shippingData.truckStatus !== "OUT",
         },
       },
       { status: 200 },

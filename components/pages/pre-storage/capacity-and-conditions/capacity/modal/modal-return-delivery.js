@@ -7,7 +7,7 @@ import { useT } from "../../../../../shell/preferences";
 import { useFormat } from "../../../../../ui/format";
 import { InlineLoader } from "../../../../../loading/loaders";
 import { ButtonSpinner } from "../../../../../loading/spinner";
-import { ProofreadPrompt, useProofread } from "../../../../../ui/proofread";
+import { AiTextarea } from "../../../../../ui/proofread";
 import EarlierReturns from "../earlier-returns";
 import IncomingDelivery from "../incoming-delivery";
 
@@ -30,7 +30,6 @@ function ReturnReview({ closeModal, hallData, entryData }) {
   const [reasons, setReasons] = useState([]);
   const [counted, setCounted] = useState({});
   const [note, setNote] = useState("");
-  const proofread = useProofread();
   const [phase, setPhase] = useState("edit");
   const [message, setMessage] = useState("");
   const [rejection, setRejection] = useState(null);
@@ -151,11 +150,9 @@ function ReturnReview({ closeModal, hallData, entryData }) {
               className="space-y-5"
               onSubmit={async (event) => {
                 event.preventDefault();
-                if (proofread.waiting) return;
                 const problem = rejectionProblem(report());
                 setMessage(problem ? t(`ret.problem.${problem}`) : "");
                 if (problem) return;
-                setNote(await proofread.confirm(note));
                 setPhase("review");
               }}
             >
@@ -198,12 +195,10 @@ function ReturnReview({ closeModal, hallData, entryData }) {
               ))}
               <div>
                 <label className="block text-sm font-medium" htmlFor="return-note">{t("ret.note")}</label>
-                <textarea id="return-note" rows={3} maxLength={1000} className="textarea mt-2 w-full" value={note} onChange={(event) => setNote(event.target.value)} />
+                <AiTextarea id="return-note" rows={3} maxLength={1000} className="textarea mt-2 w-full" value={note} onChange={(event) => setNote(event.target.value)} />
                 <p className="mt-1 text-sm text-base-content/65">{t("ret.noteHint")}</p>
               </div>
-              <ProofreadPrompt proofread={proofread} />
-              <button className="operational-control btn min-h-11 btn-primary" type="submit" disabled={proofread.waiting}>
-                {proofread.checking && <ButtonSpinner />}
+              <button className="operational-control btn min-h-11 btn-primary" type="submit">
                 {t("ret.review")}
               </button>
             </form>

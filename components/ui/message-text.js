@@ -1,6 +1,7 @@
 "use client";
 import { useQuery } from "@tanstack/react-query";
-import { languageShort, usePreferences } from "../shell/preferences";
+import { usePreferences } from "../shell/preferences";
+import { ButtonSpinner } from "../loading/spinner";
 
 // Every note on a page is asked for in one request, shortly after the page renders.
 const waiting = new Map();
@@ -35,12 +36,14 @@ async function send(locale) {
   }
 }
 
-// What a person wrote, as written, with an AI translation into the reader's
-// language below it when the note is in another language.
+// What a person wrote or the server recorded, shown in the reader's language:
+// the original with a small "translating" mark until the AI translation
+// arrives, then the translation (the original stays on hover). Without a
+// translation the original is shown.
 export default function MessageText({ text, className = "" }) {
   const { locale, t } = usePreferences();
   const original = typeof text === "string" ? text.trim() : "";
-  const { data } = useQuery({
+  const { data, isPending } = useQuery({
     queryKey: ["text-translation", locale, original],
     enabled: Boolean(original),
     staleTime: Infinity,
@@ -50,17 +53,21 @@ export default function MessageText({ text, className = "" }) {
   if (!original) return null;
   const from = data?.text && data.sourceLanguage;
   return (
-    <span className={`break-words whitespace-pre-line ${className}`}>
-      {text}
-      {from && (
-        <span className="mt-1 block text-base-content/70" lang={locale}>
-          <span
-            className="mr-1.5 rounded border border-base-content/20 px-1 font-mono text-[10px] tracking-wide text-base-content/60"
-            title={t("text.aiTranslation", { language: languageName(from, locale) })}
-          >
-            {languageShort(from)} → {languageShort(locale)} · AI
-          </span>
-          {data.text}
+    <span
+      className={`break-words whitespace-pre-line ${className}`}
+      lang={from ? locale : undefined}
+      title={
+        from
+          ? `${t("text.aiTranslation", { language: languageName(from, locale) })}: ${original}`
+          : undefined
+      }
+      aria-busy={isPending}
+    >
+      {from ? data.text : text}
+      {isPending && (
+        <span className="ml-2 inline-flex items-center gap-1.5 align-middle text-xs text-base-content/60">
+          <ButtonSpinner />
+          {t("text.translating")}
         </span>
       )}
     </span>

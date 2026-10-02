@@ -13,14 +13,19 @@ export default function CreateContainerProfile({ shipment }) {
     <>
       <button
         type="button"
-        className={`btn min-h-11 ${unconfirmed ? "btn-warning" : "border-base-content/20 bg-base-200"}`}
+        aria-label={unconfirmed ? t("ship.checkPreparation") : t("ship.addProfile")}
+        title={t("ship.addProfile")}
+        className={`btn min-h-11 ${unconfirmed ? "btn-warning" : "btn-square border-base-content/20 btn-ghost"}`}
         onClick={() => {
           setStarted(true);
           setIsOpen(true);
         }}
       >
-        {!unconfirmed && <LuPlus className="size-4.5" aria-hidden="true" />}
-        {unconfirmed ? t("ship.checkPreparation") : t("ship.addProfile")}
+        {unconfirmed ? (
+          t("ship.checkPreparation")
+        ) : (
+          <LuPlus className="size-4.5" aria-hidden="true" />
+        )}
       </button>
       {started && (
         <ModalContainerForm

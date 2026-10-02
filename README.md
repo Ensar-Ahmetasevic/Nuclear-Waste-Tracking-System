@@ -2,6 +2,21 @@
 
 Aplikacija za evidenciju pošiljki, profila kontejnera i otpada, privremenih i završnih skladišta te zahtjeva za transfer. Svaka firma ima zasebnu organizaciju i pristup svojim podacima.
 
+## Šta aplikacija radi
+
+Tok ima tri koraka: **pošiljka** (kamion IN → sadržaj → OUT), **Pre-storage** (prijem u halu) i **Final storage** (transfer u prostoriju).
+
+- **Sljedivost.** Jedinica praćenja je Container Profile: serija kontejnera iste vrste u jednoj pošiljci. Svaka pošiljka ima historiju, a svaki profil lanac nadzora: ko, kada, gdje i koliko, od dolaska do završnog skladišta. Pojedinačni kontejneri i njihove pozicije u hali se ne vode.
+- **Korekcije.** Svaka izmjena ili brisanje traži pisani razlog i ostaje u historiji sa stanjem prije i poslije. Zapisi historije se ne mijenjaju.
+- **QR naljepnice.** Pošiljka i profil imaju kod (`S-000025`, `P-00202`) i naljepnicu za štampu. Stranica **Scan** čita kod kamerom ili ručnim skenerom; isporuku koja čeka prijem vodi pravo na prijem u njenoj hali.
+- **Dokumenti.** Uz Container Profile se čuvaju PDF, PNG i JPEG fajlovi do 5 MB (transportni dokument, izvještaj o mjerenju, certifikat). Vide se i dodaju na stranici profila i na stranici njegove pošiljke; dodaje ih svako ko može otvoriti taj zapis; uklanjaju ih Supervision i Administrator uz pisani razlog, a zapis i fajl ostaju. Fajlovi su u bazi.
+- **Odobrenja.** Transfer ide zahtjev → odobrenje Pre-storagea → potvrda prijema, ili se vraća na doradu. Pre-storage može vratiti isporuku uz izvještaj; Step 1 je ispravlja ili predaje Supervisionu.
+- **Uslovi i alarmi.** Temperatura, zračenje, vlaga i pritisak mjere se po hali i prostoriji prema pravilima s granicama upozorenja i opasnosti. Odstupanje ili zakašnjelo mjerenje otvara alarm, koji Supervision čita, vodi kroz poruke i zatvara uz napomenu.
+- **Kapacitet.** Server odbija prijem ili transfer koji prelazi slobodan prostor. Plan hale prikazuje zauzeta i slobodna mjesta.
+- **Usklađivanje stanja.** Supervision i Administrator provjeravaju stanje skladišta i ispravljaju ga uz izvještaj.
+- **Pregled.** Home prikazuje tok, ono što čeka nekoga i stanje po lokaciji; Statistics trendove.
+- **Jezici.** Interfejs je na sedam jezika. Napomene koje ljudi pišu lektoriše i prevodi xAI Grok (`XAI_MODEL`, zadano `grok-4.5`).
+
 ## Tehnologije
 
 Node.js 24, Next.js 16 / React 19, PostgreSQL, Prisma 7.10 (`@prisma/adapter-pg` + `pg`), NextAuth 4, TanStack Query 5, React Hook Form, Tailwind CSS 4, daisyUI 5 i Recharts 3. Backend koristi Next.js Route Handlers. Većina aplikacije je još JS/JSX; TypeScript provjera nije potpuna provjera tog koda. Konekcijski URL za Prisma CLI je u `prisma.config.ts` (`DATABASE_URL`); klijent se kreira s driver adapterom.
@@ -47,7 +62,7 @@ Sve tri uloge mogu pregledati Home statistike svoje organizacije. Employee prist
 
 - **Administrator** kreira sve tri vrste računa, mijenja podatke i uloge te deaktivira račune svoje firme. Ne može deaktivirati ili degradirati vlastiti administratorski račun.
 - **Supervision** ima pregled sistema i može kreirati samo Employee račune svoje firme. Ne može mijenjati postojeće račune niti dodjeljivati više ovlasti.
-- **Employee** unosi pošiljke i kontejnere koristeći postojeće definicije otpada, tipova i porijekla. Definicije kreira i mijenja samo Administrator. Employee i Supervision mogu korigovati IN pošiljke; nakon OUT samo administrator može mijenjati pošiljku i njene kontejnere. Izmjene zajedničkih definicija i administrativne postavke ostaju administratorske.
+- **Employee** unosi pošiljke i kontejnere koristeći postojeće definicije otpada, tipova i porijekla. Definicije kreira i mijenja samo Administrator. Employee koriguje pošiljku dok je kamion IN; nakon OUT pošiljku i njene kontejnere mijenjaju samo Supervision i Administrator. Izmjene zajedničkih definicija i administrativne postavke ostaju administratorske.
 
 Odjeljak **Users** služi za dodavanje imena, korisničkog imena, emaila, uloge i početne šifre. Nema pozivnica: osoba koja kreira račun predaje podatke korisniku. **My account** omogućava promjenu vlastite šifre uz potvrdu stare; nakon promjene sve prethodne sesije prestaju važiti. Deaktivacija također opoziva sesije. Šifre imaju najmanje 12 znakova i najviše 72 UTF-8 bajta, a u bazi su bcrypt hashovi.
 
@@ -82,10 +97,8 @@ GitHub Actions workflow izvršava instalaciju, generisanje klijenta, provjere, b
 
 ## Obuhvat i preostali rad
 
-Status `OUT` označava da je kamion napustio zonu istovara. Employee i Supervision tada imaju samo pregled detalja pošiljke; Administrator zadržava korekcije uz jasnu napomenu. Ovlasti dolaze sa servera, a svaki upis ih zasebno provjerava u transakciji. Postojeća ograničenja interfejsa za prihvaćene kontejnere ostaju na snazi.
+Status `OUT` označava da je kamion napustio zonu istovara. Employee tada ima samo pregled detalja pošiljke; Supervision i Administrator zadržavaju korekcije uz pisani razlog. Ovlasti dolaze sa servera, a svaki upis ih zasebno provjerava u transakciji. Postojeća ograničenja interfejsa za prihvaćene kontejnere ostaju na snazi.
 
 Izolacija firmi se provodi u serverskom pristupu bazi i provjerava testovima. Nije uveden PostgreSQL RLS. Server provjerava trenutnu aktivnost i prava korisnika pri svakom poslovnom zahtjevu. Upisi zahtijevaju isti origin, JSON i odgovarajuću ulogu. Registracija i prijava imaju zajedničko ograničenje pokušaja u bazi.
 
-Potpuna sljedivost pojedinačnih kontejnera, kontrola svih prijelaza transfera, bilans količina, revizijski dnevnik i dodatne ovlasti po skladištu još nisu završeni. Stari POST `/api/final-storage-setup` vraća 410 jer je koristio uklonjeni model; koristi se tok zahtjeva za transfer. IoT, geolokacija, GraphQL i S3 nisu implementirane integracije ovog repozitorija.
-
-Status i naredne odluke: [PLAN_UNAPREDJENJA.md](PLAN_UNAPREDJENJA.md).
+Nije implementirano: praćenje pojedinačnih kontejnera i njihovih pozicija, verzije dokumenata, ovlasti po pojedinoj hali i javna API dokumentacija. Prijemi evidentirani prije uvođenja veza s profilima nemaju potpunu historiju; administrator ih može naknadno povezati. Stari POST `/api/final-storage-setup` vraća 410 jer je koristio uklonjeni model; koristi se tok zahtjeva za transfer. IoT, geolokacija, GraphQL i S3 nisu implementirane integracije ovog repozitorija.

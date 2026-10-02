@@ -43,7 +43,8 @@ test('workspace policy blocks cross-step data and separates transfer directions'
   assert.equal(apiAllowed(pre,'/api/shipping-informations','GET'),false);
   assert.equal(apiAllowed(pre,'/api/shipping-informations/pending','GET'),true);
   assert.equal(apiAllowed(final,'/api/shipping-informations/pending','GET'),false);
-  assert.equal(apiAllowed(shipping,'/api/container-profile','POST'),false);
+  assert.equal(apiAllowed(shipping,'/api/container-profile','POST'),true);
+  assert.equal(apiAllowed(pre,'/api/container-profile','POST'),false);
   assert.equal(apiAllowed(pre,'/api/pre-storage-setup/pre-storage-location','PUT'),false);
   const path='/api/final-storage-setup/final-storage-transver-request';
   for(const actor of [pre,final]) {

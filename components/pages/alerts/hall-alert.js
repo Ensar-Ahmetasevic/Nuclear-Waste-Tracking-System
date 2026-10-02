@@ -15,8 +15,7 @@ import { useFormat } from "../../ui/format";
 import Skeleton from "../../ui/skeleton";
 import Breadcrumb from "../../ui/breadcrumb";
 import MessageText from "../../ui/message-text";
-import { ProofreadPrompt, useProofread } from "../../ui/proofread";
-import { ButtonSpinner } from "../../loading/spinner";
+import { AiTextarea } from "../../ui/proofread";
 
 async function request(path, options) {
   const response = await fetch(path, {
@@ -43,8 +42,6 @@ export default function HallAlert({ area, alertId }) {
   const [message, setMessage] = useState("");
   const [resolving, setResolving] = useState(false);
   const [note, setNote] = useState("");
-  const checkNote = useProofread();
-  const checkMessage = useProofread();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const query = useQuery({
@@ -200,15 +197,14 @@ export default function HallAlert({ area, alertId }) {
             className="space-y-3 rounded-xl border border-success/40 p-4"
             onSubmit={async (event) => {
               event.preventDefault();
-              if (checkNote.waiting) return;
-              const text = await checkNote.confirm(note);
+              const text = note;
               setNote(text);
               act("RESOLVE", text);
             }}
           >
             <label className="block text-sm">
               {t("halert.resolveNote")}
-              <textarea
+              <AiTextarea
                 className="textarea mt-1 w-full"
                 rows={2}
                 maxLength={1000}
@@ -216,14 +212,12 @@ export default function HallAlert({ area, alertId }) {
                 onChange={(event) => setNote(event.target.value)}
               />
             </label>
-            <ProofreadPrompt proofread={checkNote} />
             <div className="flex flex-wrap gap-2">
               <button
                 type="submit"
                 className="btn min-h-11 btn-success"
-                disabled={busy || checkNote.waiting}
+                disabled={busy}
               >
-                {checkNote.checking && <ButtonSpinner />}
                 {t("halert.resolveConfirm")}
               </button>
               <button
@@ -296,15 +290,15 @@ export default function HallAlert({ area, alertId }) {
             className="flex items-end gap-2"
             onSubmit={async (event) => {
               event.preventDefault();
-              if (!message.trim() || checkMessage.waiting) return;
-              const text = await checkMessage.confirm(message);
+              if (!message.trim()) return;
+              const text = message;
               setMessage(text);
               act("MESSAGE", text);
             }}
           >
             <label className="flex-1 text-sm">
               <span className="sr-only">{t("halert.message")}</span>
-              <textarea
+              <AiTextarea
                 className="textarea w-full"
                 rows={2}
                 maxLength={1000}
@@ -320,14 +314,13 @@ export default function HallAlert({ area, alertId }) {
             <button
               type="submit"
               className="btn min-h-11 btn-primary"
-              disabled={busy || !message.trim() || checkMessage.waiting}
+              disabled={busy || !message.trim()}
             >
-              {checkMessage.checking ? <ButtonSpinner /> : <LuSend className="size-4" aria-hidden="true" />}
+              <LuSend className="size-4" aria-hidden="true" />
               {t("halert.send")}
             </button>
           </form>
         )}
-        {open && <ProofreadPrompt proofread={checkMessage} />}
       </Card>
     </main>
   );

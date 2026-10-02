@@ -1,7 +1,7 @@
 "use client";
 import { useT } from "../../shell/preferences";
 import { Card, CardHeader } from "../../ui/card";
-import CapacityBar, { capacityLevel } from "../../ui/capacity-bar";
+import { capacityLevel } from "../../ui/capacity-bar";
 import { useFormat } from "../../ui/format";
 import PageHeader from "../../ui/page-header";
 import { locationTone } from "../../../lib/location-colors";
@@ -56,6 +56,16 @@ export default function LocationLayout({
   const free = Math.max(0, slots - containers);
   const percent = slots ? Math.round((100 * containers) / slots) : 0;
   const level = capacityLevel(percent);
+  const shown = Math.min(100, percent);
+  // One line per side: share, floor area and container slots.
+  const spaceLine = (share, count) =>
+    [
+      `${share}%`,
+      t("loc.area", {
+        value: format.number(Math.round(count * location.containerFootprint)),
+      }),
+      t("ship.containers", { count: format.number(count) }),
+    ].join(" · ");
   return (
     <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
       <Breadcrumb
@@ -98,27 +108,52 @@ export default function LocationLayout({
           className="space-y-5 lg:col-span-2"
         >
           <CardHeader id="capacity-title" title={t("loc.capacity")} />
-          <p className="flex items-baseline justify-between gap-3">
-            <span className="font-mono text-3xl font-semibold tabular-nums">
-              {percent}%
-            </span>
-            <span className="text-sm text-base-content/75">
-              {t("loc.slotsLine", {
-                used: format.number(containers),
-                slots: format.number(slots),
-                free: format.number(free),
+          <div className="flex flex-wrap items-center gap-5">
+            <div
+              role="meter"
+              aria-label={t("capacity.aria", {
+                name: location.name,
+                used: containers,
+                slots,
               })}
-            </span>
-          </p>
-          <CapacityBar
-            percent={percent}
-            tone={style.tone}
-            label={t("capacity.aria", {
-              name: location.name,
-              used: containers,
-              slots,
-            })}
-          />
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={shown}
+              className="grid size-32 shrink-0 place-items-center rounded-full"
+              style={{
+                background: `conic-gradient(var(--color-error) 0 ${shown}%, var(--color-success) ${shown}% 100%)`,
+              }}
+            >
+              <div className="grid size-20 place-items-center rounded-full bg-base-100 text-center">
+                <span>
+                  <span className="block font-mono text-xl font-semibold tabular-nums">
+                    {100 - shown}%
+                  </span>
+                  <span className="text-xs text-base-content/70">
+                    {t("loc.free")}
+                  </span>
+                </span>
+              </div>
+            </div>
+            <dl className="min-w-48 flex-1 space-y-2.5">
+              <div className="rounded-xl border-2 border-success px-3.5 py-2.5">
+                <dt className="text-sm font-semibold text-success">
+                  {t("loc.free")}
+                </dt>
+                <dd className="font-mono text-sm tabular-nums">
+                  {spaceLine(100 - shown, free)}
+                </dd>
+              </div>
+              <div className="rounded-xl border-2 border-error px-3.5 py-2.5">
+                <dt className="text-sm font-semibold text-error">
+                  {t("loc.used")}
+                </dt>
+                <dd className="font-mono text-sm tabular-nums">
+                  {spaceLine(shown, containers)}
+                </dd>
+              </div>
+            </dl>
+          </div>
         </Card>
         <Card
           as="section"
@@ -139,7 +174,6 @@ export default function LocationLayout({
           name={location.name}
           used={containers}
           slots={slots}
-          tone={style.tone}
           condition={condition}
         />
       </Card>

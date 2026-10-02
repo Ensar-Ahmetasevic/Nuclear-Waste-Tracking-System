@@ -1,6 +1,8 @@
 "use client";
-import { useCallback, useState } from "react";
+import { useState } from "react";
+import { LuCheck, LuSparkles } from "react-icons/lu";
 import { useT } from "../shell/preferences";
+import { ButtonSpinner } from "../loading/spinner";
 
 async function check(text) {
   try {
@@ -14,40 +16,6 @@ async function check(text) {
   } catch {
     return null;
   }
-}
-
-// Spelling check when a note is sent: `await proofread.confirm(value)` returns
-// the text to save. With mistakes found, it waits until the person picks the
-// correction or their own text in <ProofreadPrompt>; otherwise (or when the check
-// is unavailable) it returns the text right away. `value` is a string or an
-// object of strings, such as the sections of a report. `checking` is true while
-// the check runs, for the submit button's spinner.
-export function useProofread() {
-  const [suggestion, setSuggestion] = useState(null);
-  const [checking, setChecking] = useState(false);
-  const confirm = useCallback(async (value) => {
-    const single = typeof value === "string";
-    const values = single ? { text: value } : { ...value };
-    const keys = Object.keys(values).filter((key) => typeof values[key] === "string" && values[key].trim());
-    setChecking(true);
-    const results = await Promise.all(keys.map((key) => check(values[key]))).finally(() => setChecking(false));
-    const changes = keys
-      .map((key, index) => ({ key, original: values[key].trim(), corrected: results[index]?.changed && results[index].corrected }))
-      .filter((row) => row.corrected);
-    if (!changes.length) return value;
-    const chosen = await new Promise((resolve) => setSuggestion({ changes, resolve }));
-    const result = { ...values };
-    if (chosen) for (const row of changes) result[row.key] = row.corrected;
-    return single ? result.text : result;
-  }, []);
-  const choose = useCallback(
-    (useCorrection) => {
-      suggestion?.resolve(useCorrection);
-      setSuggestion(null);
-    },
-    [suggestion],
-  );
-  return { confirm, checking, suggestion, choose, waiting: checking || Boolean(suggestion) };
 }
 
 // Word-level differences, so the person sees exactly what would change.
@@ -72,35 +40,84 @@ function changedWords(original, corrected) {
   return parts;
 }
 
-export function ProofreadPrompt({ proofread, labels = {} }) {
+// A textarea with its own "AI check" button. Nothing is sent to the AI until the
+// person presses it; the suggested text is shown under the field, inside the same
+// frame, and is used only when accepted. Takes the props of <textarea>.
+export function AiTextarea({ value, onChange, className = "", ...props }) {
   const t = useT();
-  const { suggestion, choose } = proofread;
-  if (!suggestion) return null;
+  const [state, setState] = useState(null); // null | "checking" | "clean" | "failed" | { original, corrected }
+  const text = String(value ?? "");
+  // A suggestion belongs to the text it was made for.
+  const suggestion = state?.original === text.trim() ? state : null;
+  const run = async () => {
+    const original = text.trim();
+    setState("checking");
+    const result = await check(original);
+    setState(!result ? "failed" : result.changed && result.corrected ? { original, corrected: result.corrected } : "clean");
+  };
+  const accept = () => {
+    onChange?.({ target: { value: suggestion.corrected, name: props.name } });
+    setState(null);
+  };
+  const status = state === "clean" || state === "failed" ? state : null;
   return (
-    <div role="status" className="space-y-2 rounded-box border border-info/40 bg-info/5 p-3 text-sm">
-      <p className="font-medium">{t("proofread.title")}</p>
-      {suggestion.changes.map((row) => (
-        <p key={row.key} className="break-words whitespace-pre-line">
-          {labels[row.key] && <span className="font-medium">{labels[row.key]}: </span>}
-          {changedWords(row.original, row.corrected).map((part, index) =>
-            part.changed ? (
-              <mark key={index} className="rounded bg-info/20 text-base-content">
-                {part.text}
-              </mark>
-            ) : (
-              part.text
-            ),
+    <span className="relative block">
+      <textarea
+        {...props}
+        value={value}
+        onChange={(event) => {
+          if (status) setState(null);
+          onChange?.(event);
+        }}
+        className={`${className} ${suggestion ? "rounded-b-none" : "pb-11"}`}
+      />
+      {!suggestion && (
+        <button
+          type="button"
+          className="btn absolute right-2 bottom-2 h-8 min-h-8 gap-1.5 border-secondary/40 bg-secondary/10 px-2.5 text-xs text-secondary btn-sm hover:bg-secondary/20"
+          disabled={!text.trim() || state === "checking" || props.disabled}
+          onClick={run}
+        >
+          {state === "checking" ? (
+            <ButtonSpinner />
+          ) : status === "clean" ? (
+            <LuCheck className="size-3.5" aria-hidden="true" />
+          ) : (
+            <LuSparkles className="size-3.5" aria-hidden="true" />
           )}
-        </p>
-      ))}
-      <div className="flex flex-wrap justify-end gap-2">
-        <button type="button" className="btn min-h-11 btn-ghost" onClick={() => choose(false)}>
-          {t("proofread.keep")}
+          <span role="status">{t(status ? `proofread.${status}` : "proofread.check")}</span>
         </button>
-        <button type="button" className="btn min-h-11 btn-primary" onClick={() => choose(true)}>
-          {t("proofread.use")}
-        </button>
-      </div>
-    </div>
+      )}
+      {suggestion && (
+        <span
+          role="status"
+          className="-mt-px block space-y-2 rounded-b-xl border border-secondary/50 bg-secondary/10 p-3 text-sm font-normal"
+        >
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-secondary">
+            <LuSparkles className="size-3.5 shrink-0" aria-hidden="true" />
+            {t("proofread.title")}
+          </span>
+          <span className="block break-words whitespace-pre-line">
+            {changedWords(suggestion.original, suggestion.corrected).map((part, index) =>
+              part.changed ? (
+                <mark key={index} className="rounded bg-secondary/30 px-0.5 text-base-content">
+                  {part.text}
+                </mark>
+              ) : (
+                part.text
+              ),
+            )}
+          </span>
+          <span className="flex flex-wrap justify-end gap-2">
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setState(null)}>
+              {t("proofread.keep")}
+            </button>
+            <button type="button" className="btn btn-sm btn-secondary" onClick={accept}>
+              {t("proofread.use")}
+            </button>
+          </span>
+        </span>
+      )}
+    </span>
   );
 }

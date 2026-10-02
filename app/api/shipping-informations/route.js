@@ -85,8 +85,8 @@ async function DELETEHandler(req, { user }) {
     return NextResponse.json({ removal: Object.fromEntries(Object.keys(select).map(key => [key, previous[key]])), replayed: true });
   }
   const shipment = await prisma.shippingInformation.findUniqueOrThrow({ where: { id }, include: { containerProfiles: { include: { locationOrigin: true, wasteProfile: true } } } });
-  if (shipment.truckStatus === "OUT" && user.role !== "ADMINISTRATOR") throw new HttpError(403, "Only administrators can correct a departed shipment");
-  if (user.role === "EMPLOYEE" && shipment.containerProfiles.length) throw new HttpError(403, "A shipment containing Container Profiles must be reviewed by Supervision or an Administrator.");
+  // Employees correct; deleting is for Supervision and Administrators only.
+  if (user.role === "EMPLOYEE") throw new HttpError(403, "Only Supervision or an administrator can delete a shipment");
   const before = shipmentRemovalSnapshot(shipment);
   if (expectedVersion !== shipmentRemovalVersion(before)) throw new HttpError(409, "The shipment or its profiles changed. Reload and review the complete deletion again.");
   if (await prisma.receiptAllocation.count({ where: { shipmentId: id } }) || await prisma.transferSource.count({ where: { shipmentId: id } }))
@@ -141,7 +141,6 @@ async function PUTHandler(req, { user }) {
   const current = await prisma.shippingInformation.findUniqueOrThrow({
     where: { id: Number(id) },
   });
-  const correction = current.truckStatus === "OUT";
   const fingerprint = createHash("sha256")
     .update(
       JSON.stringify({
@@ -163,30 +162,29 @@ async function PUTHandler(req, { user }) {
       return NextResponse.json({ correction: previous, replayed: true });
     }
   }
-  if (correction) {
-    if (user.role !== "ADMINISTRATOR")
-      throw new HttpError(
-        403,
-        "Only an administrator can correct a departed shipment",
-      );
-    if (
-      typeof reason !== "string" ||
-      reason.trim().length < 3 ||
-      reason.length > 1000
-    )
-      throw new HttpError(400, "Enter a correction reason (3–1000 characters)");
-    if (
-      typeof actionKey !== "string" ||
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-        actionKey,
-      ) ||
-      !expected
-    )
-      throw new HttpError(
-        400,
-        "Review the current shipment before confirming a correction",
-      );
-  }
+  // Every change of truck data is a correction: it needs a reason and stays in the history.
+  if (current.truckStatus === "OUT" && user.role === "EMPLOYEE")
+    throw new HttpError(
+      403,
+      "Only Supervision or an administrator can correct a departed shipment",
+    );
+  if (
+    typeof reason !== "string" ||
+    reason.trim().length < 3 ||
+    reason.length > 1000
+  )
+    throw new HttpError(400, "Enter a correction reason (3–1000 characters)");
+  if (
+    typeof actionKey !== "string" ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      actionKey,
+    ) ||
+    !expected
+  )
+    throw new HttpError(
+      400,
+      "Review the current shipment before confirming a correction",
+    );
   if (expected && truckFields.some((key) => expected[key] !== current[key]))
     throw new HttpError(
       409,
@@ -198,19 +196,17 @@ async function PUTHandler(req, { user }) {
     where: { id: current.id },
     data: changes,
   });
-  const record = correction
-    ? await prisma.shippingCorrection.create({
-        data: {
-          shipmentId: current.id,
-          actorId: user.id,
-          reason: reason.trim(),
-          before: snapshot(current),
-          after: snapshot(updateTruckData),
-          actionKey,
-          fingerprint,
-        },
-      })
-    : null;
+  const record = await prisma.shippingCorrection.create({
+    data: {
+      shipmentId: current.id,
+      actorId: user.id,
+      reason: reason.trim(),
+      before: snapshot(current),
+      after: snapshot(updateTruckData),
+      actionKey,
+      fingerprint,
+    },
+  });
   return NextResponse.json({
     message: "Shipment changes saved",
     updateTruckData,
@@ -250,7 +246,7 @@ async function PATCHHandler(req, { user }) {
 
 export const POST = withApiAuth(POSTHandler, { access: "shipping" });
 export const GET = withApiAuth(GETHandler);
-// Authorization for OUT/contained profiles is checked above, after replay lookup.
+// The role is checked above, after replay lookup.
 export const DELETE = withApiAuth(DELETEHandler, { access: "member", texts: reasonText });
 export const PUT = withApiAuth(PUTHandler, {
   access: "shipping",

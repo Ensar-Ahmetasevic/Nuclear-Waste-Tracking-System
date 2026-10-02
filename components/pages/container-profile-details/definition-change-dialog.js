@@ -6,8 +6,7 @@ import { DEFINITIONS, DEFINITION_TEXT_LIMIT } from "@/lib/definitions";
 import useContainerTypeQuery from "@/requests/request-container-profile/request-container-type/use-fetch-container-type-query";
 import { useDefinitionText } from "./definition-text";
 import { InlineLoader } from "../../loading/loaders";
-import { ButtonSpinner } from "../../loading/spinner";
-import { ProofreadPrompt, useProofread } from "../../ui/proofread";
+import { AiTextarea } from "../../ui/proofread";
 
 // Normalized field value as the server compares and records it.
 const fieldValue = (field, value) =>
@@ -38,7 +37,6 @@ export default function DefinitionChangeDialog({ kind, action, row, onClose }) {
   );
   const [errors, setErrors] = useState({});
   const [reason, setReason] = useState("");
-  const proofread = useProofread();
   const [phase, setPhase] = useState(editing ? "edit" : "review");
   const [message, setMessage] = useState("");
   const [result, setResult] = useState(null);
@@ -178,8 +176,6 @@ export default function DefinitionChangeDialog({ kind, action, row, onClose }) {
     // A retry resends the saved request unchanged; only the first send is checked.
     let written = reason.trim();
     if (!payload.current) {
-      if (proofread.waiting) return;
-      written = (await proofread.confirm(written)).trim();
       setReason(written);
     }
     busy.current = true;
@@ -385,7 +381,7 @@ export default function DefinitionChangeDialog({ kind, action, row, onClose }) {
                       ))}
                     </select>
                   ) : field.multiline ? (
-                    <textarea
+                    <AiTextarea
                       {...common}
                       required
                       maxLength={DEFINITION_TEXT_LIMIT}
@@ -511,7 +507,7 @@ export default function DefinitionChangeDialog({ kind, action, row, onClose }) {
             <form className="space-y-4" onSubmit={save}>
               <label className="block text-sm">
                 {reasonRequired ? t("def.reason") : t("def.noteOptional")}
-                <textarea
+                <AiTextarea
                   required={reasonRequired}
                   minLength={reasonRequired ? 3 : undefined}
                   maxLength={1000}
@@ -525,13 +521,11 @@ export default function DefinitionChangeDialog({ kind, action, row, onClose }) {
                   {t("def.reasonHint")}
                 </p>
               )}
-              <ProofreadPrompt proofread={proofread} />
               <button
                 type="submit"
                 className={`btn min-h-11 ${action === "DELETE" ? "btn-error" : "btn-primary"}`}
-                disabled={!reasonValid || proofread.waiting}
+                disabled={!reasonValid}
               >
-                {proofread.checking && <ButtonSpinner />}
                 {confirmLabel}
               </button>
             </form>

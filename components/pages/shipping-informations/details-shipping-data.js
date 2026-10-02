@@ -9,6 +9,7 @@ import { journeyView } from "./journey-view";
 import JourneySteps from "./journey-steps";
 import ReturnCases from "./return-cases";
 import Breadcrumb from "../../ui/breadcrumb";
+import ProfileDocuments from "../profiles/profile-documents";
 
 // Shipment detail: header with truck data and actions, the five-step journey,
 // the Container Profiles and, beside them, every recorded event in one list.
@@ -72,10 +73,18 @@ export default function DetailsShippingData({ data }) {
                   key={profile.id}
                   data={profile}
                   canEdit={data.permissions?.canEditContainers === true}
+                  canDelete={data.permissions?.canDeleteContainers === true}
                 />
               ))
           ) : (
             <EmptyState>{t("ship.profiles.empty")}</EmptyState>
+          )}
+          {profiles.length > 0 && (
+            <ProfileDocuments
+              profiles={profiles.map((row) => row.id)}
+              documents={data.documents || []}
+              canRemove={data.permissions?.canRemoveDocuments === true}
+            />
           )}
         </section>
 

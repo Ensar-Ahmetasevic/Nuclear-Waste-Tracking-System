@@ -16,17 +16,25 @@ const DETAIL = {
   upcoming: "text-base-content/60",
 };
 
-// The five journey steps of a shipment in one row (a column on phones).
+// The journey steps of a shipment in one row (a column on phones).
 export default function JourneySteps({ label, steps }) {
   const t = useT();
   return (
     <ol
       aria-label={label}
-      className="grid gap-4 rounded-box border border-base-content/10 bg-base-100 p-4 sm:p-5 md:grid-cols-5 md:gap-3"
+      style={{ "--cols": steps.length }}
+      className="grid gap-4 rounded-box border border-base-content/10 bg-base-100 p-4 sm:p-5 md:grid-cols-[repeat(var(--cols),minmax(0,1fr))] md:gap-3"
     >
       {steps.map((step, index) => (
-        <li key={step.key} className="flex gap-3 md:flex-col md:gap-2">
+        <li
+          key={step.key}
+          className="flex gap-3 md:flex-col md:gap-2 md:text-center"
+        >
           <span className="flex items-center md:w-full">
+            <span
+              aria-hidden="true"
+              className={`hidden h-0.5 flex-1 md:block ${index === 0 ? "bg-transparent" : steps[index - 1].state === "done" ? "bg-primary" : "bg-base-content/15"}`}
+            />
             <span
               aria-hidden="true"
               className={`inline-flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${NODE[step.state]}`}
@@ -39,12 +47,10 @@ export default function JourneySteps({ label, steps }) {
                 index + 1
               ) : null}
             </span>
-            {index < steps.length - 1 && (
-              <span
-                aria-hidden="true"
-                className={`ml-2 hidden h-0.5 flex-1 md:block ${step.state === "done" ? "bg-primary" : "bg-base-content/15"}`}
-              />
-            )}
+            <span
+              aria-hidden="true"
+              className={`hidden h-0.5 flex-1 md:block ${index === steps.length - 1 ? "bg-transparent" : step.state === "done" ? "bg-primary" : "bg-base-content/15"}`}
+            />
           </span>
           <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-sm">
             <span

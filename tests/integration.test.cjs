@@ -200,12 +200,19 @@ integration('three roles enforce account hierarchy, operational access and passw
   const shipping = { companyName:'Employee entry', driverName:'Driver', registrationPlates:'EMP-IN' };
   assert.equal((await call('/api/shipping-informations', 'POST', {...shipping,actionKey:require('node:crypto').randomUUID()}, employeeCookie)).status, 200);
   const shipment = await db.shippingInformation.findFirstOrThrow({ where:{ registrationPlates:'EMP-IN' } });
-  assert.equal((await call('/api/shipping-informations', 'PUT', { updatedTruckData:{ ...shipping, id:shipment.id, driverName:'Corrected' } }, employeeCookie)).status, 200);
+  // An employee corrects truck data while the truck is IN, but only with a reason.
+  assert.equal((await call('/api/shipping-informations', 'PUT', { updatedTruckData:{ ...shipping, id:shipment.id, driverName:'Corrected' } }, employeeCookie)).status, 400);
+  assert.equal((await call('/api/shipping-informations', 'PUT', { updatedTruckData:{ ...shipping, id:shipment.id, driverName:'Corrected', reason:'Driver name was misspelled', actionKey:require('node:crypto').randomUUID(), expected:{...shipping,truckStatus:'IN'} } }, employeeCookie)).status, 200);
+  assert.equal(await db.shippingCorrection.count({ where:{ shipmentId:shipment.id } }), 1);
   assert.equal((await call('/api/shipping-informations/departure', 'POST', {id:shipment.id,actionKey:require('node:crypto').randomUUID(),expected:{companyName:shipment.companyName,driverName:'Corrected',registrationPlates:shipment.registrationPlates,truckStatus:'IN'}}, employeeCookie)).status, 200);
-  for (const session of [employeeCookie, supervisorCookie]) {
-    assert.equal((await call('/api/shipping-informations', 'DELETE', await shipmentDeletionReview(shipment.id), session)).status, 403);
-    assert.equal((await (await call('/api/shipping-informations/' + shipment.id, 'GET', undefined, session)).json()).permissions.canEdit, false);
-  }
+  // After departure the employee only reads; Supervision corrects with a reason.
+  assert.equal((await call('/api/shipping-informations', 'DELETE', await shipmentDeletionReview(shipment.id), employeeCookie)).status, 403);
+  assert.equal((await (await call('/api/shipping-informations/' + shipment.id, 'GET', undefined, employeeCookie)).json()).permissions.canEdit, false);
+  assert.equal((await (await call('/api/shipping-informations/' + shipment.id, 'GET', undefined, supervisorCookie)).json()).permissions.canEdit, true);
+  const departedFix = { updatedTruckData:{ ...shipping, id:shipment.id, driverName:'Corrected', registrationPlates:'EMP-OUT', reason:'Plates were mistyped at the gate', actionKey:require('node:crypto').randomUUID(), expected:{...shipping,driverName:'Corrected',truckStatus:'OUT'} } };
+  assert.equal((await call('/api/shipping-informations', 'PUT', departedFix, employeeCookie)).status, 403);
+  assert.equal((await call('/api/shipping-informations', 'PUT', departedFix, supervisorCookie)).status, 200);
+  assert.equal(await db.shippingCorrection.count({ where:{ shipmentId:shipment.id } }), 2);
   assert.equal((await call('/api/account', 'PUT', { currentPassword:'wrong', newPassword:'New-test-password-123' }, employeeCookie)).status, 400);
   assert.equal((await call('/api/account', 'PUT', { currentPassword:profile.password, newPassword:'New-test-password-123' }, employeeCookie)).status, 200);
   const changed = await db.userProfile.findUniqueOrThrow({ where:{ id:employee.id } });
@@ -225,7 +232,7 @@ integration('three roles enforce account hierarchy, operational access and passw
   assert.equal((await call('/api/users', 'PUT', { ...employeeProfile, id:employee.id, enabled:false, expected:await db.userProfile.findUniqueOrThrow({where:{id:employee.id}}).then(row=>Object.fromEntries(['username','email','displayName','role','workArea','active'].map(key=>[key === 'active' ? 'enabled' : key,row[key]]))), reason:'Disable test account', actionKey:require('node:crypto').randomUUID() })).status, 200);
   assert.equal(await login('test.employee', 'New-test-password-123'), undefined);
 });
-integration('concept fixtures are reusable and container profile creation requires management', async () => {
+integration('concept fixtures are reusable and container profile creation requires a review', async () => {
   const { seedConcept } = require('../prisma/seed-concept.cjs');
   const first = await seedConcept(db, orgA.id);
   const second = await seedConcept(db, orgA.id);
@@ -237,7 +244,7 @@ integration('concept fixtures are reusable and container profile creation requir
   assert.match(profiles[0].locationOrigin.name, /Brokdorf/);
   assert.match(profiles[1].locationOrigin.name, /Ahaus/);
   const memberCookie = 'next-auth.session-token=' + await encode({secret:process.env.NEXTAUTH_SECRET, token:{id:String(member.id)}});
-  assert.equal((await call('/api/container-profile','POST',{ quantity:1, shippingInformationId:first.shipmentId, locationOriginId:first.locationOriginIds[0], wasteProfileId:first.wasteProfileIds[0] },memberCookie)).status,403);
+  assert.equal((await call('/api/container-profile','POST',{ quantity:1, shippingInformationId:first.shipmentId, locationOriginId:first.locationOriginIds[0], wasteProfileId:first.wasteProfileIds[0] },memberCookie)).status,400);
   const conceptShipment = await db.shippingInformation.findUniqueOrThrow({where:{id:first.shipmentId}});
   const conceptWaste = await db.wasteProfile.findUniqueOrThrow({where:{id:first.wasteProfileIds[0]}});
   assert.equal((await call('/api/container-profile','POST',{ quantity:1, shippingInformationId:first.shipmentId, locationOriginId:first.locationOriginIds[0], wasteProfileId:first.wasteProfileIds[0], actionKey:require('node:crypto').randomUUID(), expected:{truckStatus:conceptShipment.truckStatus,status:conceptShipment.status,containerTypeId:conceptWaste.containerTypeId} })).status,200);
@@ -305,7 +312,7 @@ integration('assigned employees see only their workspace and cannot cross API or
     for(const [area,path] of Object.entries({SHIPPING:'/api/shipping-informations',PRE_STORAGE:'/api/pre-storage-setup',FINAL_STORAGE:'/api/final-storage-setup'})) {
       assert.equal((await call(path,'GET',undefined,token)).status,area===workArea?200:403,path+' '+workArea);
     }
-    assert.equal((await call('/api/container-profile','POST',{},token)).status,403);
+    assert.equal((await call('/api/container-profile','POST',{},token)).status,workArea==='SHIPPING'?400:403);
     const page = await fetch(base + (workArea==='SHIPPING'?'/pre-storage':'/shipping-informations'),{headers:{cookie:token},redirect:'manual'});
     if (page.status === 307) assert.equal(page.headers.get('location'),'/');
     else {
@@ -793,13 +800,14 @@ integration('shipment timeline distinguishes actual events from legacy dates and
   await db.shippingCorrection.create({data:{organizationId:orgA.id,shipmentId:shipment.id,actorId:admin.id,actionKey:require('node:crypto').randomUUID(),fingerprint:'test',reason:'Timeline test correction',before:{},after:{},createdAt:new Date('2026-09-04')}});
   await db.shipmentDeparture.create({data:{organizationId:orgB.id,shipmentId:shipment.id,actorId:admin.id,actionKey:require('node:crypto').randomUUID(),fingerprint:'foreign',snapshot:{}}});
   const timeline=(await (await call(path)).json()).timeline;
-  assert.equal(timeline.events.length,2);assert.equal(timeline.events[0].title,'Administrative correction recorded');
+  assert.equal(timeline.events.length,2);assert.equal(timeline.events[0].title,'Truck data corrected');
   assert.equal(timeline.events[1].date,arrival.createdAt.toISOString());
   assert.ok(!timeline.events.some(row=>row.title==='Departure recorded'));
   const session='next-auth.session-token='+await encode({secret:process.env.NEXTAUTH_SECRET,token:{id:String(member.id)}});
   const employeeResponse=await call(path,'GET',undefined,session);assert.equal(employeeResponse.status,200);
   const employeeTimeline=(await employeeResponse.json()).timeline;
-  assert.equal(employeeTimeline.events.length,1);assert.ok(!JSON.stringify(employeeTimeline).includes('Timeline test correction'));
+  // Corrections and their reasons are history for everyone who can open the shipment.
+  assert.equal(employeeTimeline.events.length,2);assert.ok(JSON.stringify(employeeTimeline).includes('Timeline test correction'));
 });
 
 integration('linked transfer sources prevent over-allocation and preserve revision and receipt lineage', async () => {
@@ -999,7 +1007,6 @@ integration('profile corrections preserve reviewed state and never rewrite recei
   const supervisorSession='next-auth.session-token='+await encode({secret:process.env.NEXTAUTH_SECRET,token:{id:String(supervisor.id)}});
   const employeeSession='next-auth.session-token='+await encode({secret:process.env.NEXTAUTH_SECRET,token:{id:String(member.id)}});
   assert.equal((await send({...input,reason:undefined})).status,400);
-  assert.equal((await send(input,supervisorSession)).status,403);
   assert.equal((await send(input,employeeSession)).status,403);
   assert.equal((await send({...input,locationOrigin:recordB.id})).status,404);
   assert.equal(await db.containerCorrection.count({where:{containerProfileId:profile.id}}),0);
@@ -1023,7 +1030,7 @@ integration('profile corrections preserve reviewed state and never rewrite recei
   assert.ok(detail.timeline.events.some(row=>row.title==='Container Profile corrected'));
   const employeeDetail=await (await call(detailPath,'GET',undefined,employeeSession)).json();
   assert.deepEqual(employeeDetail.containerCorrections,[]);
-  assert.ok(!employeeDetail.timeline.events.some(row=>row.title==='Container Profile corrected'));
+  assert.ok(employeeDetail.timeline.events.some(row=>row.title==='Container Profile corrected'));
 
   // Supervision may correct an unreceived IN profile; a reviewed OUT snapshot cannot be reused after reopening.
   await db.shippingInformation.update({where:{id:shipment.id},data:{truckStatus:'IN'}});
@@ -1075,7 +1082,6 @@ integration('profile preparation is reviewed, replayable and records its creator
   assert.equal((await send({...input,expected:undefined})).status,400);
   assert.equal((await send({...input,quantity:1.5})).status,400);
   assert.equal((await send({...input,quantity:0})).status,400);
-  assert.equal((await send(input,employeeSession)).status,403);
   assert.equal((await send({...input,locationOriginId:recordB.id})).status,404);
   assert.equal((await send({...input,expected:{...input.expected,truckStatus:'OUT'},reason:'Reviewed an old shipment state'})).status,409);
   assert.equal((await send({...input,expected:{...input.expected,containerTypeId:2147483647}})).status,409);
@@ -1109,7 +1115,8 @@ integration('profile preparation is reviewed, replayable and records its creator
   assert.equal((await send(input,foreignSession)).status,404);
   await db.shippingInformation.update({where:{id:shipment.id},data:{truckStatus:'OUT'}});
   const departed={...input,actionKey:uuid(),expected:{...input.expected,truckStatus:'OUT',status:'pending'}};
-  assert.equal((await send(departed)).status,403);
+  assert.equal((await send(departed,employeeSession)).status,403);
+  assert.equal((await send(departed)).status,400);
   assert.equal((await send(departed,cookie)).status,400);
   const final=await send({...departed,reason:'Record omitted profile after departure'},cookie);
   assert.equal(final.status,200);
@@ -1127,7 +1134,6 @@ integration('profile deletion preserves its audit and cannot delete a changed or
   const send=(body,session=supervisorSession)=>call('/api/container-profile','DELETE',body,session);
   assert.equal((await send({id:profile.id})).status,400);
   assert.equal((await send({...input,reason:' '})).status,400);
-  assert.equal((await send(input,employeeSession)).status,403);
   assert.equal((await send({...input,expected:{...input.expected,quantity:8}})).status,409);
   assert.equal(await db.containerRemoval.count({where:{containerProfileId:profile.id}}),0);
   const foreignUser=await db.userProfile.findUniqueOrThrow({where:{email:'prep-other@test.example'}});
@@ -1151,20 +1157,20 @@ integration('profile deletion preserves its audit and cannot delete a changed or
   assert.equal((await send({...confirmedInput,reason:'Another reason'})).status,409);
   assert.equal((await send(confirmedInput,cookie)).status,409);
   assert.equal((await send(confirmedInput,foreignSession)).status,404);
-  assert.equal((await send(confirmedInput,employeeSession)).status,403);
+  assert.equal((await send(confirmedInput,employeeSession)).status,409);
   const detailPath='/api/shipping-informations/'+shipment.id;
   const managerDetail=await (await call(detailPath)).json();
   const removalEvent=managerDetail.timeline.events.find(row=>row.title==='Container Profile deleted');
   assert.equal(removalEvent.actorId,supervisor.id);assert.equal(removalEvent.note,'Remove a profile recorded in error');
   const employeeDetail=await (await call(detailPath,'GET',undefined,employeeSession)).json();
-  assert.equal(employeeDetail.timeline.events.find(row=>row.title==='Container Profile deleted').note,null);
+  assert.equal(employeeDetail.timeline.events.find(row=>row.title==='Container Profile deleted').note,'Remove a profile recorded in error');
   assert.equal((await db.shippingInformation.findUniqueOrThrow({where:{id:shipment.id}})).status,'pending');
   // A replay remains a read of the original event even after departure.
   await db.shippingInformation.update({where:{id:shipment.id},data:{truckStatus:'OUT'}});
   assert.equal((await send(confirmedInput)).status,200);
   const outProfile=await db.containerProfile.create({data:{organizationId:orgA.id,shippingInformationId:shipment.id,quantity:2,locationOriginId:recordA.id,wasteProfileId:waste.id}});
   const outInput=await deletionReview(outProfile.id);
-  assert.equal((await send(outInput)).status,403);
+  assert.equal((await send(outInput,employeeSession)).status,403);
   assert.equal((await send(outInput,cookie)).status,200);
   assert.equal((await send(outInput,cookie)).status,200);
   const received=await db.containerProfile.create({data:{organizationId:orgA.id,shippingInformationId:shipment.id,quantity:2,locationOriginId:recordA.id,wasteProfileId:waste.id,containerStatus:'accepted'}});
@@ -1188,8 +1194,12 @@ integration('shipment deletion reviews all profiles and retains accessible audit
   const initial=await shipmentDeletionReview(id);
   assert.equal((await send({id})).status,400);
   assert.equal((await send({...initial,reason:''})).status,400);
+  // Employees correct but never delete; Supervision and Administrators do.
+  const employeeView=(await (await call('/api/shipping-informations/'+id,'GET',undefined,employeeSession)).json()).permissions;
+  assert.equal(employeeView.canDelete,false);assert.equal(employeeView.canDeleteContainers,false);
+  assert.equal((await (await call('/api/shipping-informations/'+id,'GET',undefined,supervisorSession)).json()).permissions.canDelete,true);
   assert.equal((await send(initial,employeeSession)).status,403);
-  assert.equal((await (await call('/api/shipping-informations/'+id,'GET',undefined,employeeSession)).json()).permissions.canDelete,false);
+  assert.equal(await db.shippingInformation.count({where:{id}}),1);
   assert.equal((await send(initial,foreignSession)).status,404);
   const second=await db.containerProfile.create({data:{organizationId:orgA.id,shippingInformationId:id,quantity:2,locationOriginId:recordA.id,wasteProfileId:waste.id}});
   assert.equal((await send(initial)).status,409);
@@ -1223,11 +1233,12 @@ integration('shipment deletion reviews all profiles and retains accessible audit
   assert.ok(archive.timeline.events.some(row=>row.title==='Arrival recorded'));
   assert.ok(archive.timeline.events.some(row=>row.title==='Shipment deleted'));
   assert.equal(archive.timeline.events.filter(row=>row.title==='Container Profile deleted').length,2);
-  // Employee still may remove an empty IN entry; receipt/transfer safeguards remain.
+  // Even an empty IN entry is removed by management only; receipt/transfer safeguards remain.
   const empty=await db.shippingInformation.create({data:{organizationId:orgA.id,companyName:'Empty',driverName:'D',registrationPlates:'EMPTY',truckStatus:'IN'}});
   const emptyInput=await shipmentDeletionReview(empty.id);
-  assert.equal((await send(emptyInput,employeeSession)).status,200);
-  assert.equal((await send(emptyInput,employeeSession)).status,200);
+  assert.equal((await send(emptyInput,employeeSession)).status,403);
+  assert.equal((await send(emptyInput)).status,200);
+  assert.equal((await send(emptyInput)).status,200);
   const locked=await db.shippingInformation.create({data:{organizationId:orgA.id,companyName:'Locked',driverName:'D',registrationPlates:'LOCK',truckStatus:'IN'}});
   await db.containerProfile.create({data:{organizationId:orgA.id,shippingInformationId:locked.id,quantity:2,locationOriginId:recordA.id,wasteProfileId:waste.id,containerStatus:'accepted'}});
   assert.equal((await send(await shipmentDeletionReview(locked.id),cookie)).status,409);
@@ -1841,7 +1852,7 @@ integration('management overview is limited to management roles and matches the 
   assert.equal(workspace.workspaces.find(row=>row.key==='PRE_STORAGE').locations.find(row=>row.id===hall.id).percent,20);
 });
 
-integration('statistics are available to every role and count only recorded events of the organization', async () => {
+integration('statistics give totals to every role, trends to managers, and count only recorded events of the organization', async () => {
   const org = await db.organization.create({ data:{ name:'Statistics organization' } });
   const session=async user=>'next-auth.session-token='+await encode({secret:process.env.NEXTAUTH_SECRET,token:{id:String(user.id)}});
   const base={password:'not-a-login-hash',companyId:1,companyName:'A',address:'A',administrator:false,organizationId:org.id};
@@ -1855,7 +1866,14 @@ integration('statistics are available to every role and count only recorded even
   const profile=await db.containerProfile.findFirstOrThrow({where:{shippingInformationId:fixture.shipmentId}});
   await db.containerProfile.update({where:{id:profile.id},data:{shippingInformationId:shipment.id}});
   await db.receiptAllocation.create({data:{organizationId:org.id,receiptId:receipt.id,shipmentId:shipment.id,containerProfileId:profile.id,locationId:hall.id,quantity:6,actorId:worker.id}});
-  const response=await call('/api/statistics','GET',undefined,await session(worker));
+  // Employees see the totals only; trends are for Supervision and Administrators.
+  const brief=await call('/api/statistics','GET',undefined,await session(worker));
+  assert.equal(brief.status,200);
+  const totalsOnly=await brief.json();
+  assert.deepEqual(Object.keys(totalsOnly).sort(),['days','generatedAt','totals']);
+  assert.equal(totalsOnly.totals.received,6);
+  const supervisor=await db.userProfile.create({data:{...base,email:'statistics-supervision@test.example',role:'SUPERVISION'}});
+  const response=await call('/api/statistics','GET',undefined,await session(supervisor));
   assert.equal(response.status,200);
   const stats=await response.json();
   assert.equal(stats.days,30);
@@ -1868,7 +1886,7 @@ integration('statistics are available to every role and count only recorded even
   assert.ok(stats.waiting.medianHours>4.9&&stats.waiting.medianHours<5.5,String(stats.waiting.medianHours));
   assert.equal(stats.waiting.buckets.find(row=>row.key==='2to8h').count,1);
   assert.deepEqual(stats.capacity.find(row=>row.id===hall.id),{area:'PRE_STORAGE',id:hall.id,name:'Statistics hall',used:6,slots:20,percent:30});
-  assert.equal((await (await call('/api/statistics?days=90','GET',undefined,await session(worker))).json()).daily.length,90);
+  assert.equal((await (await call('/api/statistics?days=90','GET',undefined,await session(supervisor))).json()).daily.length,90);
 });
 
 integration('transfer detail and profile custody show only recorded steps and respect work areas', async () => {
@@ -1919,7 +1937,7 @@ integration('transfer detail and profile custody show only recorded steps and re
   const profilePath=`/api/profiles/${profile.id}`;
   assert.equal((await call(profilePath,'GET',undefined,await session(foreign))).status,404);
   const early=await (await call(profilePath,'GET',undefined,await session(shipping))).json();
-  assert.deepEqual(early.permissions,{canOpenShipment:true,canOpenTransfers:false});
+  assert.deepEqual(early.permissions,{canRemoveDocuments:false,canOpenShipment:true,canOpenTransfers:false});
   assert.deepEqual(early.location,{notReceived:0,halls:profile.quantity>moved?[{id:hall.id,name:'Custody hall',quantity:profile.quantity-moved}]:[],reserved:[{id:transfer.id,name:`#${transfer.id}`,quantity:moved}],final:[]});
   assert.deepEqual(early.rows.map(row=>row.kind),['receipt','transferRequested','transferApproved']);
   assert.equal(early.rows[0].responsible,'Mara Keller');
@@ -1937,7 +1955,34 @@ integration('transfer detail and profile custody show only recorded steps and re
   const late=await (await call(profilePath,'GET',undefined,await session(pre))).json();
   assert.deepEqual(late.location.final,[{id:room.id,name:'Custody room',quantity:moved}]);
   assert.equal(late.rows.at(-1).kind,'finalReceipt');
-  assert.deepEqual(late.permissions,{canOpenShipment:false,canOpenTransfers:true});
+  assert.deepEqual(late.permissions,{canRemoveDocuments:false,canOpenShipment:false,canOpenTransfers:true});
+
+  // Documents: every area adds and reads them; only management removes one, with a reason, and the record stays.
+  const documentsPath=profilePath+'/documents';
+  const pdf=Buffer.from('%PDF-1.4 test document').toString('base64');
+  const upload={actionKey:require('node:crypto').randomUUID(),kind:'MEASUREMENT',fileName:'C:\\scans\\report.pdf',data:pdf};
+  assert.equal((await call(documentsPath,'POST',upload,await session(foreign))).status,404);
+  assert.equal((await call(documentsPath,'POST',{...upload,data:Buffer.from('<html>').toString('base64')},await session(pre))).status,415);
+  assert.equal((await call(documentsPath,'POST',{...upload,kind:'UNKNOWN'},await session(pre))).status,400);
+  const added=await call(documentsPath,'POST',upload,await session(pre));
+  assert.equal(added.status,201);
+  const { document }=await added.json();
+  assert.deepEqual([document.kind,document.fileName,document.mimeType,document.actorId,'data' in document],['MEASUREMENT','report.pdf','application/pdf',pre.id,false]);
+  assert.equal((await (await call(documentsPath,'POST',upload,await session(pre))).json()).replayed,true);
+  assert.equal((await call(documentsPath,'POST',{...upload,kind:'OTHER'},await session(pre))).status,409);
+  const file=await call(`${documentsPath}/${document.id}`,'GET',undefined,await session(shipping));
+  assert.deepEqual([file.status,file.headers.get('content-type'),file.headers.get('content-disposition'),await file.text()],[200,'application/pdf',"attachment; filename*=UTF-8''report.pdf",'%PDF-1.4 test document']);
+  assert.equal((await call(`${documentsPath}/${document.id}`,'GET',undefined,await session(foreign))).status,404);
+  const onShipment=await (await call('/api/shipping-informations/'+profile.shippingInformationId,'GET',undefined,await session(shipping))).json();
+  assert.deepEqual([onShipment.documents.map(row=>[row.id,row.containerProfileId]),onShipment.permissions.canRemoveDocuments],[[[document.id,profile.id]],false]);
+  assert.equal((await call(`${documentsPath}/${document.id}`,'DELETE',{reason:'Wrong file'},await session(pre))).status,403);
+  assert.equal((await call(`${documentsPath}/${document.id}`,'DELETE',{reason:''},await session(supervisor))).status,400);
+  assert.equal((await call(`${documentsPath}/${document.id}`,'DELETE',{reason:'Wrong file'},await session(supervisor))).status,200);
+  const listed=await (await call(profilePath,'GET',undefined,await session(supervisor))).json();
+  assert.equal(listed.permissions.canRemoveDocuments,true);
+  assert.deepEqual(listed.documents.map(row=>[row.id,row.removedById,row.removeReason]),[[document.id,supervisor.id,'Wrong file']]);
+  assert.equal((await call(`${documentsPath}/${document.id}`,'GET',undefined,await session(shipping))).status,404,'a removed file is kept for management only');
+  assert.equal((await call(`${documentsPath}/${document.id}`,'GET',undefined,await session(supervisor))).status,200);
 
   // Pages follow the same areas.
   const { pageAllowed } = require('../lib/workspaces.cjs');

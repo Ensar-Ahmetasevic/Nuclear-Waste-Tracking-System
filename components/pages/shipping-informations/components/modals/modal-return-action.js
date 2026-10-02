@@ -7,7 +7,7 @@ import { useT } from "../../../../shell/preferences";
 import { useFormat } from "../../../../ui/format";
 import { InlineLoader } from "../../../../loading/loaders";
 import { ButtonSpinner } from "../../../../loading/spinner";
-import { ProofreadPrompt, useProofread } from "../../../../ui/proofread";
+import { AiTextarea } from "../../../../ui/proofread";
 import ReturnReport from "../../container-data/return-report";
 
 // Step 1 handles a Pre-storage return: RESEND corrects quantity, location origin
@@ -50,7 +50,6 @@ function ReturnAction({ mode, report, profiles, closeModal, origins, wastes }) {
     query?.data?.filter((row) => !row.archivedAt || row.id === profile[key]) || [];
   const nameOf = (query, id) => query?.data?.find((row) => row.id === Number(id))?.name ?? `#${id}`;
   const [note, setNote] = useState("");
-  const proofread = useProofread();
   const [phase, setPhase] = useState("edit");
   const [message, setMessage] = useState("");
   const [result, setResult] = useState(null);
@@ -155,11 +154,9 @@ function ReturnAction({ mode, report, profiles, closeModal, origins, wastes }) {
               className="space-y-5"
               onSubmit={async (event) => {
                 event.preventDefault();
-                if (proofread.waiting) return;
                 const problem = invalid();
                 setMessage(problem || "");
                 if (problem) return;
-                setNote(await proofread.confirm(note));
                 setPhase("review");
               }}
             >
@@ -223,7 +220,7 @@ function ReturnAction({ mode, report, profiles, closeModal, origins, wastes }) {
               )}
               <div>
                 <label className="block text-sm font-medium" htmlFor="return-action-note">{t(`retAct.note.${mode}`)}</label>
-                <textarea
+                <AiTextarea
                   id="return-action-note"
                   rows={3}
                   maxLength={1000}
@@ -234,9 +231,7 @@ function ReturnAction({ mode, report, profiles, closeModal, origins, wastes }) {
                 />
                 <p className="mt-1 text-sm text-base-content/65">{t(`retAct.noteHint.${mode}`)}</p>
               </div>
-              <ProofreadPrompt proofread={proofread} />
-              <button className="operational-control btn min-h-11 btn-primary" type="submit" disabled={proofread.waiting}>
-                {proofread.checking && <ButtonSpinner />}
+              <button className="operational-control btn min-h-11 btn-primary" type="submit">
                 {t("retAct.review")}
               </button>
             </form>

@@ -10,8 +10,7 @@ import { useFormat } from "../../ui/format";
 import MessageText from "../../ui/message-text";
 import CorrectionReport, { reportSections } from "./correction-report";
 import { InlineLoader } from "../../loading/loaders";
-import { ButtonSpinner } from "../../loading/spinner";
-import { ProofreadPrompt, useProofread } from "../../ui/proofread";
+import { AiTextarea } from "../../ui/proofread";
 
 const LIMIT = 4000;
 const required = new Set(["incident", "cause"]);
@@ -29,7 +28,6 @@ export default function CorrectionDialog({ hall, onClose }) {
     references: "",
   });
   const [errors, setErrors] = useState({});
-  const proofread = useProofread();
   const [phase, setPhase] = useState("edit");
   const [message, setMessage] = useState("");
   const [result, setResult] = useState(null);
@@ -47,7 +45,6 @@ export default function CorrectionDialog({ hall, onClose }) {
 
   async function review(event) {
     event.preventDefault();
-    if (proofread.waiting) return;
     const found = {};
     for (const key of reportSections) {
       const label = t(`recon.report.${key}`);
@@ -62,7 +59,7 @@ export default function CorrectionDialog({ hall, onClose }) {
       fields.current[firstInvalid]?.focus();
       return;
     }
-    setReport(await proofread.confirm(trimmed));
+    setReport(trimmed);
     payload.current = null;
     setMessage("");
     setPhase("review");
@@ -172,7 +169,7 @@ export default function CorrectionDialog({ hall, onClose }) {
                 <label className="block text-sm">
                   {t(`recon.report.${key}`)}
                   {required.has(key) ? "" : ` (${t("recon.optional")})`}
-                  <textarea
+                  <AiTextarea
                     ref={(node) => {
                       fields.current[key] = node;
                       if (index === 0) first.current = node;
@@ -201,12 +198,7 @@ export default function CorrectionDialog({ hall, onClose }) {
               </div>
             );
           })}
-          <ProofreadPrompt
-            proofread={proofread}
-            labels={Object.fromEntries(reportSections.map((key) => [key, t(`recon.report.${key}`)]))}
-          />
-          <button type="submit" className="btn min-h-11 btn-primary" disabled={proofread.waiting}>
-            {proofread.checking && <ButtonSpinner />}
+          <button type="submit" className="btn min-h-11 btn-primary">
             {t("recon.correct.reviewButton")}
           </button>
         </form>

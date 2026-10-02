@@ -29,7 +29,7 @@ export default function BottomNav({
   return (
     <nav
       aria-label={t("nav.mobile")}
-      className="fixed inset-x-0 bottom-0 z-30 flex border-t border-base-content/10 bg-base-200/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+      className="fixed inset-x-0 bottom-0 nwts-grid z-30 flex border-t border-base-content/10 bg-base-200/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
     >
       {tabs.map((entry) => {
         const Icon = ICONS[entry.icon];

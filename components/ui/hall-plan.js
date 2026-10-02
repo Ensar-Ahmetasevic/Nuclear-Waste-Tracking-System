@@ -5,17 +5,10 @@ import { useT } from "../shell/preferences";
 import { useFormat } from "./format";
 import Segmented from "./segmented";
 
-// Colours of occupied slots (top face, side) per area; fixed values so the
-// extruded sides can be drawn with box-shadow in both themes.
-const FILL = {
-  "step-2": ["#2ed3a0", "#1a7d61"],
-  "step-3": ["#9d84ff", "#5b47b8"],
-  "step-1": ["#2bb8f2", "#0a78b5"],
-  "tone-blue": ["#5b8cff", "#2f55d4"],
-  "tone-magenta": ["#e26bff", "#9a30d6"],
-  "tone-teal": ["#46c8d8", "#127a8a"],
-  "tone-orange": ["#ff9f43", "#c25a0a"],
-};
+// Occupied slots are red and free ones green, as on the capacity card: top
+// face and the darker side of the extruded boxes.
+const TOP = "var(--color-error)";
+const SIDE = "color-mix(in oklab, var(--color-error) 60%, black)";
 const FRAME = {
   critical: "border-error bg-error/10",
   warning: "border-warning bg-warning/10",
@@ -41,7 +34,6 @@ export default function HallPlan({
   name,
   used,
   slots,
-  tone = "step-2",
   condition,
 }) {
   const t = useT();
@@ -55,7 +47,8 @@ export default function HallPlan({
   const partial = Math.min(used, slots) % per ? 1 : 0;
   const state = (index) =>
     index < full ? "full" : index < full + partial ? "partial" : "free";
-  const [top, side] = FILL[tone] || FILL["step-2"];
+  const top = TOP,
+    side = SIDE;
   const frame = FRAME[condition] || FRAME.default;
   const summary = t("plan.summary", {
     name,
@@ -134,7 +127,7 @@ export default function HallPlan({
               return (
                 <span
                   key={index}
-                  className={`aspect-[1.4] rounded-[4px] ${cell === "free" ? "border-2 border-dashed border-base-content/20" : ""}`}
+                  className={`aspect-[1.4] rounded-[4px] ${cell === "free" ? "border-2 border-dashed border-success/60" : ""}`}
                   style={
                     cell === "full"
                       ? { background: top }
@@ -164,7 +157,7 @@ export default function HallPlan({
               return cell === "free" ? (
                 <span
                   key={index}
-                  className="rounded-[3px] border-2 border-dashed border-base-content/25"
+                  className="rounded-[3px] border-2 border-dashed border-success/60"
                   style={{ width: size, height: size }}
                 />
               ) : (
@@ -198,7 +191,7 @@ export default function HallPlan({
         <li className="flex items-center gap-2">
           <span
             aria-hidden="true"
-            className="size-3.5 rounded-[3px] border-2 border-dashed border-base-content/30"
+            className="size-3.5 rounded-[3px] border-2 border-dashed border-success/70"
           />
           {t("plan.legend.free", {
             count: format.number(Math.max(0, slots - used)),

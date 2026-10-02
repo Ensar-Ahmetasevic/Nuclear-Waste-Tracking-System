@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { withApiAuth } from "@/lib/server/api-route";
 import { profileCustody } from "@/lib/server/profile-custody";
+import { profileDocuments } from "@/lib/server/profile-documents";
 import { canAccess, manages } from "@/lib/workspaces.cjs";
 
 // Chain of custody of one Container Profile across all three steps. Container
@@ -12,7 +13,9 @@ async function GETHandler(req, { params, user }) {
   });
   return NextResponse.json({
     ...custody,
+    documents: await profileDocuments(custody.profile.id),
     permissions: {
+      canRemoveDocuments: manages(user),
       canOpenShipment: canAccess(user, "SHIPPING"),
       canOpenTransfers:
         canAccess(user, "PRE_STORAGE") || canAccess(user, "FINAL_STORAGE"),

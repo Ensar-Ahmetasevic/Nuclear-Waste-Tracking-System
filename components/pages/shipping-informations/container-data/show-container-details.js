@@ -19,7 +19,11 @@ const STATUS = {
 const withoutType = ({ containerType: _type, ...rest }) => rest;
 
 // One Container Profile: its values, receipt progress and the allowed actions.
-export default function ShowContainerDetails({ data, canEdit = false }) {
+export default function ShowContainerDetails({
+  data,
+  canEdit = false,
+  canDelete = false,
+}) {
   const t = useT();
   const format = useFormat();
   const [modalContenData, setModalContentData] = useState(null);
@@ -83,7 +87,9 @@ export default function ShowContainerDetails({ data, canEdit = false }) {
           )}
         </div>
         <StatusChip tone={status.chip}>
-          {t(`profile.${shownStatus}`)}
+          {shownStatus === "accepted" && data.receiptHalls?.length
+            ? t("profile.acceptedIn", { hall: data.receiptHalls.join(", ") })
+            : t(`profile.${shownStatus}`)}
         </StatusChip>
       </div>
 
@@ -191,37 +197,39 @@ export default function ShowContainerDetails({ data, canEdit = false }) {
               type="button"
               aria-label={t("ship.profile.edit", { id })}
               title={t("ship.profile.edit", { id })}
-              className="btn btn-square min-h-11 btn-soft btn-warning"
+              className="btn btn-square min-h-11 border-base-content/20 btn-ghost"
               disabled={unconfirmedDeletion}
               onClick={() => setOpenModalUpdate(true)}
             >
               <LuPencil className="size-4" aria-hidden="true" />
             </button>
-            <button
-              type="button"
-              aria-label={
-                unconfirmedDeletion
-                  ? t("ship.profile.checkDeletion", { id })
-                  : t("ship.profile.delete", { id })
-              }
-              title={t("ship.profile.delete", { id })}
-              className={`btn min-h-11 btn-soft btn-error ${unconfirmedDeletion ? "" : "btn-square"}`}
-              onClick={() => {
-                setDeletionStarted(true);
-                setShowDeleteConfirm(true);
-              }}
-            >
-              {unconfirmedDeletion ? (
-                t("ship.checkDeletion")
-              ) : (
-                <LuTrash2 className="size-4" aria-hidden="true" />
-              )}
-            </button>
+            {canDelete && (
+              <button
+                type="button"
+                aria-label={
+                  unconfirmedDeletion
+                    ? t("ship.profile.checkDeletion", { id })
+                    : t("ship.profile.delete", { id })
+                }
+                title={t("ship.profile.delete", { id })}
+                className={`btn min-h-11 btn-soft btn-error ${unconfirmedDeletion ? "" : "btn-square"}`}
+                onClick={() => {
+                  setDeletionStarted(true);
+                  setShowDeleteConfirm(true);
+                }}
+              >
+                {unconfirmedDeletion ? (
+                  t("ship.checkDeletion")
+                ) : (
+                  <LuTrash2 className="size-4" aria-hidden="true" />
+                )}
+              </button>
+            )}
           </>
         )}
       </div>
 
-      {canEdit && deletionStarted && (
+      {canDelete && deletionStarted && (
         <ContainerProfileDelete
           profile={data}
           open={showDeleteConfirm}

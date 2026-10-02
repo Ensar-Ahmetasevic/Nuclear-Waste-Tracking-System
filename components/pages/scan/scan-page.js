@@ -3,7 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LuCamera, LuCameraOff, LuScanLine } from "react-icons/lu";
 import { parseScan, recordCode } from "../../../lib/record-codes.cjs";
+import { canAccess, pageAllowed } from "../../../lib/workspaces.cjs";
 import { useT } from "../../shell/preferences";
+import { useWorkspace } from "../../shared/use-workspace";
 import { Card, CardHeader } from "../../ui/card";
 import PageHeader from "../../ui/page-header";
 
@@ -11,6 +13,8 @@ import PageHeader from "../../ui/page-header";
 // into the field and presses Enter; on tablets the camera reads the QR code
 // where the browser offers BarcodeDetector. Scanning only opens the record:
 // the record page applies the usual access rules and nothing is changed here.
+// A delivery that waits for receipt is offered with its hall, where the usual
+// receipt form opens.
 export default function ScanPage() {
   const t = useT();
   const router = useRouter();
@@ -23,6 +27,9 @@ export default function ScanPage() {
   const [support, setSupport] = useState("checking");
   const [camera, setCamera] = useState(false);
   const [cameraError, setCameraError] = useState("");
+  const [waiting, setWaiting] = useState(null);
+  const latestOpen = useRef(null);
+  const { user, query: workspace } = useWorkspace();
 
   useEffect(() => {
     let active = true;
@@ -44,6 +51,7 @@ export default function ScanPage() {
   function open(text) {
     const target = parseScan(text, window.location.origin);
     setForeign(null);
+    setWaiting(null);
     if (!target) {
       setMessage(t("scan.unknown"));
       return false;
@@ -53,10 +61,60 @@ export default function ScanPage() {
       setForeign(target);
       return true;
     }
-    setOpening(target);
-    router.push(target.path);
+    go(target);
     return true;
   }
+
+  // Halls where the scanned shipment or profile still waits for receipt, matched
+  // by Waste Profile as on the hall page. Null opens the record as usual.
+  async function awaitingReceipt(target) {
+    if (!canAccess(user, "PRE_STORAGE")) return null;
+    const halls =
+      workspace.data?.workspaces?.find((row) => row.key === "PRE_STORAGE")
+        ?.locations || [];
+    try {
+      const response = await fetch("/api/shipping-informations/pending", {
+        signal: AbortSignal.timeout(20000),
+      });
+      if (!response.ok) return null;
+      const { pendingShippingInformations } = await response.json();
+      const shipment = pendingShippingInformations.find((row) =>
+        target.kind === "shipment"
+          ? row.id === target.id
+          : row.containerProfiles.some((profile) => profile.id === target.id),
+      );
+      if (!shipment) return null;
+      const scanned = shipment.containerProfiles.filter(
+        (profile) => target.kind === "shipment" || profile.id === target.id,
+      );
+      // A receipt takes every profile of the shipment that belongs to the hall.
+      const offers = halls
+        .filter((hall) =>
+          scanned.some((profile) => profile.wasteProfile.name === hall.detail),
+        )
+        .map((hall) => ({
+          hall,
+          quantity: shipment.containerProfiles
+            .filter((profile) => profile.wasteProfile.name === hall.detail)
+            .reduce((sum, profile) => sum + profile.quantity, 0),
+        }));
+      return offers.length ? { target, shipment, offers } : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function go(target) {
+    setOpening(target);
+    const receipt = await awaitingReceipt(target);
+    if (!receipt) return router.push(target.path);
+    setOpening(null);
+    setWaiting(receipt);
+  }
+  // The camera effect keeps its first closure; it opens through the latest one.
+  useEffect(() => {
+    latestOpen.current = open;
+  });
 
   // The camera runs only after the user starts it and stops as soon as a label
   // is read, the user stops it or the page is left.
@@ -84,7 +142,7 @@ export default function ScanPage() {
             for (const code of codes) {
               if (parseScan(code.rawValue, window.location.origin)) {
                 setCamera(false);
-                open(code.rawValue);
+                latestOpen.current(code.rawValue);
                 return;
               }
               if (code.rawValue !== lastMiss) {
@@ -183,6 +241,51 @@ export default function ScanPage() {
                 })}
               </p>
             )}
+            {waiting && (
+              <div className="space-y-3 rounded-box border border-success/50 bg-success/10 p-4 text-sm">
+                <p className="font-semibold">
+                  {t("scan.receive.title", {
+                    code: recordCode(waiting.target.kind, waiting.target.id),
+                  })}
+                </p>
+                <p>
+                  {waiting.shipment.companyName} ·{" "}
+                  <span className="font-mono">
+                    {waiting.shipment.registrationPlates}
+                  </span>
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {waiting.offers.map(({ hall, quantity }) => (
+                    <button
+                      key={hall.id}
+                      type="button"
+                      className="btn min-h-11 btn-success"
+                      onClick={() =>
+                        router.push(
+                          `/pre-storage/${hall.id}?receive=${waiting.shipment.id}`,
+                        )
+                      }
+                    >
+                      {t("scan.receive.go", { hall: hall.name })} ·{" "}
+                      {t("ship.containers", { count: quantity })}
+                    </button>
+                  ))}
+                  {pageAllowed(user, waiting.target.path) && (
+                    <button
+                      type="button"
+                      className="btn min-h-11 border-base-content/20 btn-ghost"
+                      onClick={() => {
+                        setOpening(waiting.target);
+                        router.push(waiting.target.path);
+                        setWaiting(null);
+                      }}
+                    >
+                      {t("scan.open")}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
             {foreign && (
               <div className="space-y-3 rounded-box border border-warning/50 bg-warning/10 p-4 text-sm">
                 <p className="font-semibold">
@@ -198,9 +301,8 @@ export default function ScanPage() {
                     type="button"
                     className="btn min-h-11 btn-warning"
                     onClick={() => {
-                      setOpening(foreign);
                       setForeign(null);
-                      router.push(foreign.path);
+                      go(foreign);
                     }}
                   >
                     {t("scan.foreign.open", {

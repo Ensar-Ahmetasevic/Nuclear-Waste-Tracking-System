@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useT } from "../../../../shell/preferences";
 import IconTile from "../../../../ui/icon-tile";
 import ModalPreStorageCapacityForm from "./modal/modal-pre-storage-capacity-form";
@@ -10,7 +11,13 @@ import { earlierReturns } from "./earlier-returns";
 // sends its profiles back to Step 1 with an inspection report.
 export default function RequestFromEntry({ entryData, hallData }) {
   const t = useT();
-  const [isModalCapacityOpen, setIsModalCapacityOpen] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+  // A scanned label arrives with ?receive=<shipment>: its receipt form is open.
+  const [isModalCapacityOpen, setIsModalCapacityOpen] = useState(
+    () => params.get("receive") === String(entryData.id),
+  );
   const [isModalReturnOpen, setIsModalReturnOpen] = useState(false);
   const earlier = earlierReturns(entryData.profiles);
   return (
@@ -48,7 +55,12 @@ export default function RequestFromEntry({ entryData, hallData }) {
       </div>
       <ModalPreStorageCapacityForm
         isOpen={isModalCapacityOpen}
-        closeModal={() => setIsModalCapacityOpen(false)}
+        closeModal={() => {
+          setIsModalCapacityOpen(false);
+          // Reloading the hall must not open the form again.
+          if (params.has("receive"))
+            router.replace(pathname, { scroll: false });
+        }}
         hallData={hallData}
         entryData={entryData}
       />

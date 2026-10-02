@@ -16,6 +16,7 @@ import Skeleton from "../../ui/skeleton";
 import StatusChip from "../../ui/status-chip";
 import { LoadingWatch } from "../../loading/loaders";
 import Breadcrumb from "../../ui/breadcrumb";
+import ProfileDocuments from "./profile-documents";
 
 const STAGE_SCENES = {
   arrival: "gate",
@@ -25,7 +26,6 @@ const STAGE_SCENES = {
   final: "finalStorage",
 };
 const STATUS_TONE = {
-  arrived: "info",
   prepared: "info",
   received: "success",
   requested: "neutral",
@@ -112,7 +112,16 @@ export default function ProfileCustody({ profileId }) {
       </main>
     );
 
-  const { profile, shipment, stages, rows, open, notes, permissions } = data;
+  const {
+    profile,
+    shipment,
+    stages,
+    rows,
+    open,
+    notes,
+    permissions,
+    documents,
+  } = data;
   const openRows = [open.receipt && "receipt", open.final && "final"].filter(
     Boolean,
   );
@@ -268,7 +277,7 @@ export default function ProfileCustody({ profileId }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-base-content/10 align-top">
-                {rows.map((row) => (
+                {[...rows].reverse().map((row) => (
                   <tr key={row.key}>
                     <td className="py-3 pr-3 pl-5 font-mono text-xs whitespace-nowrap sm:pl-6">
                       {format.dateTime(row.at)}
@@ -325,10 +334,14 @@ export default function ProfileCustody({ profileId }) {
           </div>
         </Card>
 
+        <ProfileDocuments
+          profiles={[profile.id]}
+          documents={documents}
+          canRemove={permissions.canRemoveDocuments}
+        />
+
         <div className="order-first grid items-start gap-6 lg:grid-cols-2">
-          {(notes.arrivalMissing ||
-            notes.preparationMissing ||
-            notes.legacyReceipts > 0) && (
+          {(notes.preparationMissing || notes.legacyReceipts > 0) && (
             <Card
               as="section"
               aria-labelledby="custody-notes-title"
@@ -336,15 +349,6 @@ export default function ProfileCustody({ profileId }) {
             >
               <CardHeader id="custody-notes-title" title={t("custody.notes")} />
               <ul className="space-y-2.5 text-sm text-base-content/80">
-                {notes.arrivalMissing && (
-                  <li className="flex gap-2">
-                    <LuInfo
-                      className="mt-0.5 size-4 shrink-0"
-                      aria-hidden="true"
-                    />
-                    {t("custody.note.arrival")}
-                  </li>
-                )}
                 {notes.preparationMissing && (
                   <li className="flex gap-2">
                     <LuInfo

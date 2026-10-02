@@ -76,7 +76,7 @@ export default function AlertBell({ alerts: counts }) {
         <div
           role="dialog"
           aria-label={t("halert.title")}
-          className="absolute top-full right-0 z-40 mt-2 w-96 overflow-hidden rounded-box border border-base-content/15 bg-base-100 shadow-2xl max-sm:fixed max-sm:inset-x-4 max-sm:top-18 max-sm:w-auto"
+          className="nwts-grid absolute top-full right-0 z-40 mt-2 w-96 overflow-hidden rounded-box border border-base-content/15 bg-base-100 shadow-2xl max-sm:fixed max-sm:inset-x-4 max-sm:top-18 max-sm:w-auto"
         >
           <div className="flex items-center justify-between gap-3 border-b border-base-content/10 px-4 py-3">
             <p className="font-semibold">{t("halert.title")}</p>

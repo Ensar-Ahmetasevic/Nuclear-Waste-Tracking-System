@@ -147,7 +147,7 @@ function ShippingList() {
         <input
           id="searchShippings"
           type="search"
-          className="input w-full"
+          className="input w-full border-primary/50 bg-base-200 focus:border-primary"
           placeholder={t("ship.search.placeholder")}
           value={searchQuery}
           onChange={(event) => {

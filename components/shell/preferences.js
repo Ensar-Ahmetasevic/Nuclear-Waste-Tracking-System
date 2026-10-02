@@ -57,6 +57,55 @@ export function PreferencesProvider({ initialLocale, initialMessages, initialThe
     remember(THEME_COOKIE, next);
   }, []);
   const { locale, messages } = language;
+  // The browser's own "fill in this field" bubble speaks the browser's language
+  // and never names the field. Give it this app's language and the field's name.
+  const current = useRef(language);
+  useEffect(() => {
+    current.current = language;
+  }, [language]);
+  useEffect(() => {
+    const say = (key, values) =>
+      formatMessage(current.current.messages, current.current.locale, key, values);
+    const onInvalid = (event) => {
+      const field = event.target;
+      if (!field.validity) return;
+      // Drop an earlier message first, so only the field's real state counts.
+      field.setCustomValidity("");
+      const validity = field.validity;
+      if (validity.valid) return;
+      const label = (
+        field.labels?.[0]?.textContent ||
+        field.getAttribute("aria-label") ||
+        field.placeholder ||
+        ""
+      )
+        .trim()
+        .replace(/[:*]+$/, "");
+      // A select's empty first option already says what to pick ("Select an employee").
+      const prompt = field.tagName === "SELECT" && field.options[0]?.value === "" && field.options[0].text.trim();
+      let message;
+      if (validity.valueMissing)
+        message =
+          prompt ||
+          (!label
+            ? say("validation.plain")
+            : say(field.tagName === "SELECT" || ["checkbox", "radio"].includes(field.type) ? "validation.select" : "validation.required", { label }));
+      else if (validity.rangeUnderflow) message = say("validation.min", { label, min: field.min });
+      else if (validity.rangeOverflow) message = say("validation.max", { label, max: field.max });
+      else message = say("validation.invalid", { label });
+      field.setCustomValidity(message.replace(/^: |: $/, ""));
+    };
+    // The custom message must go as soon as the value changes, or the field stays invalid.
+    const onEdit = (event) => event.target.setCustomValidity?.("");
+    document.addEventListener("invalid", onInvalid, true);
+    document.addEventListener("input", onEdit, true);
+    document.addEventListener("change", onEdit, true);
+    return () => {
+      document.removeEventListener("invalid", onInvalid, true);
+      document.removeEventListener("input", onEdit, true);
+      document.removeEventListener("change", onEdit, true);
+    };
+  }, []);
   const value = useMemo(
     () => ({
       locale,

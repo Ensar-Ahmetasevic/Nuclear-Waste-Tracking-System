@@ -4,8 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useT } from "../../../../shell/preferences";
 import { useFormat } from "../../../../ui/format";
 import { SavingButton } from "../../../../loading/loaders";
-import { ButtonSpinner } from "../../../../loading/spinner";
-import { ProofreadPrompt, useProofread } from "../../../../ui/proofread";
+import { AiTextarea } from "../../../../ui/proofread";
 // Field → label key.
 const detailFields = {
   companyName: "field.companyName",
@@ -38,7 +37,6 @@ export default function ModalTruckUpdate({
     ),
   );
   const [reason, setReason] = useState("");
-  const proofread = useProofread();
   const [phase, setPhase] = useState("edit");
   const [message, setMessage] = useState("");
   const [result, setResult] = useState(null);
@@ -73,7 +71,6 @@ export default function ModalTruckUpdate({
   }
   async function review(event) {
     event.preventDefault();
-    if (proofread.waiting) return;
     if (
       Object.keys(fields).every(
         (key) => values[key].trim() === (original[key] || ""),
@@ -82,7 +79,7 @@ export default function ModalTruckUpdate({
       setMessage(t("def.error.unchanged"));
       return;
     }
-    if (correction) setReason(await proofread.confirm(reason.trim()));
+    setReason(reason.trim());
     payload.current = null;
     setMessage("");
     setPhase("review");
@@ -108,9 +105,8 @@ export default function ModalTruckUpdate({
           ),
           truckStatus: original.truckStatus,
         },
-        ...(correction
-          ? { reason: reason.trim(), actionKey: crypto.randomUUID() }
-          : {}),
+        reason: reason.trim(),
+        actionKey: crypto.randomUUID(),
       },
     };
     try {
@@ -232,22 +228,23 @@ export default function ModalTruckUpdate({
               )}
             </label>
           ))}
-          {correction && (
-            <label className="block text-sm">
-              {t("corr.reason")}
-              <textarea
-                required
-                minLength={3}
-                maxLength={1000}
-                className="textarea mt-1 w-full"
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-              />
-            </label>
-          )}
-          <ProofreadPrompt proofread={proofread} />
-          <button className="btn min-h-11 btn-primary" type="submit" disabled={proofread.waiting}>
-            {proofread.checking && <ButtonSpinner />}
+          <label className="block text-sm">
+            {t("corr.reason")}
+            <AiTextarea
+              required
+              minLength={3}
+              maxLength={1000}
+              className="textarea mt-1 w-full"
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+            />
+            {correction && (
+              <span className="text-xs text-base-content/70">
+                {t("truck.reasonHint")}
+              </span>
+            )}
+          </label>
+          <button className="btn min-h-11 btn-primary" type="submit">
             {t("users.reviewChanges")}
           </button>
         </form>
@@ -265,9 +262,7 @@ export default function ModalTruckUpdate({
                 <p>{t("ship.after", { value: display(values[key].trim()) })}</p>
               </div>
             ))}
-          {correction && (
-            <p className="break-words">{t("ship.reason", { reason })}</p>
-          )}
+          <p className="break-words">{t("ship.reason", { reason })}</p>
           {lifecycle &&
             values.truckStatus === "IN" &&
             original.truckStatus === "OUT" && (

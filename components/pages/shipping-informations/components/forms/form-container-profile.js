@@ -7,8 +7,7 @@ import useWasteProfileQuery from "@/requests/request-container-profile/request-w
 import { useT } from "../../../../shell/preferences";
 import { useFormat } from "../../../../ui/format";
 import { InlineLoader } from "../../../../loading/loaders";
-import { ButtonSpinner } from "../../../../loading/spinner";
-import { ProofreadPrompt, useProofread } from "../../../../ui/proofread";
+import { AiTextarea } from "../../../../ui/proofread";
 
 export default function FormContainerProfile({
   shipment,
@@ -30,7 +29,6 @@ export default function FormContainerProfile({
     [message, setMessage] = useState(""),
     [result, setResult] = useState(null),
     [review, setReview] = useState(null);
-  const proofread = useProofread();
   const dialog = useRef(null),
     heading = useRef(null),
     first = useRef(null),
@@ -84,9 +82,9 @@ export default function FormContainerProfile({
   }
   async function prepare(event) {
     event.preventDefault();
-    if (!ready || !origin || !waste?.containerType || proofread.waiting) return;
+    if (!ready || !origin || !waste?.containerType) return;
     if (original.truckStatus === "OUT" && form.reason.trim().length < 3) return;
-    const reason = (await proofread.confirm(form.reason.trim())).trim();
+    const reason = form.reason.trim();
     setForm((current) => ({ ...current, reason }));
     payload.current = {
       quantity: Number(form.quantity),
@@ -255,7 +253,7 @@ export default function FormContainerProfile({
           {original.truckStatus === "OUT" && (
             <label className="block text-sm">
               {t("prep.reason")}
-              <textarea
+              <AiTextarea
                 required
                 minLength={3}
                 maxLength={1000}
@@ -265,19 +263,16 @@ export default function FormContainerProfile({
               />
             </label>
           )}
-          <ProofreadPrompt proofread={proofread} />
           <p className="text-sm text-base-content/70">{t("prep.note")}</p>
           <button
             className="btn min-h-11 btn-primary"
             disabled={
-              proofread.waiting ||
               !ready ||
               !origin ||
               !waste?.containerType ||
               (original.truckStatus === "OUT" && form.reason.trim().length < 3)
             }
           >
-            {proofread.checking && <ButtonSpinner />}
             {t("prep.reviewButton")}
           </button>
         </form>

@@ -122,7 +122,6 @@ export default function Sidebar({ user, sections, active, workspaces }) {
                     <span
                       className={wide("sr-only", "lg:not-sr-only lg:flex-1")}
                     >
-                      {entry.step ? `${entry.step} · ` : ""}
                       {t(`nav.${entry.key}`)}
                     </span>
                     <span

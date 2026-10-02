@@ -16,4 +16,6 @@ Every UI/UX decision follows an Apple-like principle: the simpler the app is to 
   - red `btn-error` / `btn-soft btn-error`: reject, return, delete;
   - neutral ghost: opening and navigating (Open, History, Edit).
   One coloured button per context; everything else stays neutral.
+- A truck has three colours wherever it is listed (stripe, chip, Open): blue = IN, content not entered yet; green = IN, content entered; red = OUT. Free space is green and used space red in a hall.
+- Every correction (edit, delete, or adding to a departed shipment) asks for a written reason and is kept in the history. Employees correct while the truck is IN; after OUT only Supervision and Administrators. Deleting a shipment or a Container Profile is always for Supervision and Administrators only.
 - Every page below a hub page gets `components/ui/breadcrumb.js` showing where it belongs (area › hall › alert), so each level above is one click away.

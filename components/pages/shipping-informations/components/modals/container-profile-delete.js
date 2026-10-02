@@ -5,8 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useT } from "../../../../shell/preferences";
 import { useFormat } from "../../../../ui/format";
 import { InlineLoader } from "../../../../loading/loaders";
-import { ButtonSpinner } from "../../../../loading/spinner";
-import { ProofreadPrompt, useProofread } from "../../../../ui/proofread";
+import { AiTextarea } from "../../../../ui/proofread";
 
 export default function ContainerProfileDelete({
   profile,
@@ -19,7 +18,6 @@ export default function ContainerProfileDelete({
   const format = useFormat();
   const [original] = useState(profile);
   const [reason, setReason] = useState("");
-  const proofread = useProofread();
   const [phase, setPhase] = useState("review");
   const [message, setMessage] = useState("");
   const [result, setResult] = useState(null);
@@ -67,8 +65,6 @@ export default function ContainerProfileDelete({
     // A retry resends the saved request unchanged; only the first send is checked.
     let written = reason.trim();
     if (!payload.current) {
-      if (proofread.waiting) return;
-      written = (await proofread.confirm(written)).trim();
       setReason(written);
     }
     busy.current = true;
@@ -203,7 +199,7 @@ export default function ContainerProfileDelete({
         <form className="space-y-4" onSubmit={save}>
           <label className="block text-sm">
             {t("del.reason")}
-            <textarea
+            <AiTextarea
               required
               minLength={3}
               maxLength={1000}
@@ -212,13 +208,11 @@ export default function ContainerProfileDelete({
               onChange={(event) => setReason(event.target.value)}
             />
           </label>
-          <ProofreadPrompt proofread={proofread} />
           <button
             type="submit"
             className="btn min-h-11 btn-error"
-            disabled={reason.trim().length < 3 || proofread.waiting}
+            disabled={reason.trim().length < 3}
           >
-            {proofread.checking && <ButtonSpinner />}
             {t("ship.profile.delete", { id: original.id })}
           </button>
         </form>

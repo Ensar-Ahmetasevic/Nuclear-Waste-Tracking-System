@@ -5,7 +5,7 @@ import { useT } from "../../../../../../shell/preferences";
 import { useFormat } from "../../../../../../ui/format";
 import { InlineLoader } from "../../../../../../loading/loaders";
 import { ButtonSpinner } from "../../../../../../loading/spinner";
-import { ProofreadPrompt, useProofread } from "../../../../../../ui/proofread";
+import { AiTextarea } from "../../../../../../ui/proofread";
 export default function TransferConfirmation({
   request,
   accept,
@@ -30,7 +30,6 @@ export default function TransferConfirmation({
     payload = useRef(null),
     inFlight = useRef(false);
   const [reason, setReason] = useState("");
-  const proofread = useProofread();
   const [phase, setPhase] = useState("review");
   const [message, setMessage] = useState("");
   const [result, setResult] = useState(null);
@@ -70,8 +69,6 @@ export default function TransferConfirmation({
     // A retry resends the saved request unchanged; only the first send is checked.
     let written = reason.trim();
     if (!accept && !payload.current) {
-      if (proofread.waiting) return;
-      written = (await proofread.confirm(written)).trim();
       setReason(written);
     }
     inFlight.current = true;
@@ -254,7 +251,7 @@ export default function TransferConfirmation({
           {!accept && (
             <label className="block text-sm font-medium">
               {t(preStorage ? "conf.reasonReject" : "conf.reasonReturn")}
-              <textarea
+              <AiTextarea
                 required
                 minLength={3}
                 maxLength={1000}
@@ -265,7 +262,6 @@ export default function TransferConfirmation({
               />
             </label>
           )}
-          <ProofreadPrompt proofread={proofread} />
           <div className="my-4 text-sm" aria-live="polite" aria-atomic="true">
             {phase === "saving" && <InlineLoader save />}
             {message && (
@@ -280,9 +276,8 @@ export default function TransferConfirmation({
             <button
               className={`operational-control btn min-h-11 w-full ${accept ? "btn-success" : "btn-error"}`}
               type="submit"
-              disabled={proofread.waiting}
+             
             >
-              {proofread.checking && <ButtonSpinner />}
               {t(`conf.${mode}.confirm`, {
                 count: accept
                   ? preStorage
